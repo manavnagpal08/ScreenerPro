@@ -1,8 +1,6 @@
 streamlit
 pdfplumber
 pandas
-json
 matplotlib
-os
 wordcloud
 seaborn
