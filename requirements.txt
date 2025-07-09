@@ -1,0 +1,8 @@
+streamlit
+pdfplumber
+pandas
+json
+matplotlib.pyplot
+os
+wordcloud
+seaborn
