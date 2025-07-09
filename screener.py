@@ -60,19 +60,21 @@ def extract_email(text):
     return match.group(0) if match else "Not Found"
 
 def extract_profile_links(text):
-    # Accepts varied formats
-    linkedin = re.search(r'(https?://)?(www\.)?linkedin\.com/in/[^\s)>,\]]+', text, re.IGNORECASE)
-    github = re.search(r'(https?://)?(www\.)?github\.com/[^\s)>,\]]+', text, re.IGNORECASE)
-    return (linkedin.group(0) if linkedin else None), (github.group(0) if github else None)
+    # Basic and hyperlink pattern support
+    text = re.sub(r'\n', ' ', text)
+    linkedin = re.search(r'(https?://)?(www\.)?linkedin\.com/in/[^"]+', text, re.IGNORECASE)
+    github = re.search(r'(https?://)?(www\.)?github\.com/[^"]+', text, re.IGNORECASE)
+    return (linkedin.group(0).strip() if linkedin else "❌"), (github.group(0).strip() if github else "❌")
 
 def extract_scores(text):
-    cgpa = re.search(r'([\d.]+)\s*/\s*10\s*(CGPA|C.G.P.A)?', text, re.IGNORECASE)
+    cgpa = re.search(r'([\d.]+)\s*/\s*10\s*(CGPA|C\.G\.P\.A)?', text, re.IGNORECASE)
     try:
         return float(cgpa.group(1)) if cgpa else 0.0
     except:
         return 0.0
 
 def extract_experience(text):
+    # From date ranges
     pattern = r'([A-Za-z]{3,9}\s\d{4})\s*[-–—]\s*([A-Za-z]{3,9}\s\d{4}|present)'
     ranges = re.findall(pattern, text, re.IGNORECASE)
     total_months = 0
@@ -83,7 +85,12 @@ def extract_experience(text):
             total_months += (e.year - s.year) * 12 + (e.month - s.month)
         except:
             continue
-    return round(total_months / 12, 1)
+
+    # From phrases like "5+ years", "3 years"
+    matches = re.findall(r'(\d{1,2})(\+)?\s*(years?|yrs?)', text.lower())
+    numeric_years = max([int(m[0]) for m in matches], default=0)
+
+    return round(max(numeric_years, total_months / 12), 1)
 
 def tfidf_score(jd, resume):
     vectorizer = TfidfVectorizer(stop_words='english')
@@ -107,13 +114,11 @@ def skill_match_score(jd, resume, years):
 def final_score(tfidf, spacy, skill):
     return round(tfidf * 0.3 + spacy * 0.3 + skill * 0.4, 2)
 
-def is_shortlisted(score, exp, cgpa, linkedin, github):
-    return score >= cutoff and exp >= min_exp and cgpa >= min_cgpa and linkedin and github
-
-# --- Main Screening ---
+# --- Screening Logic ---
 if jd_text and resume_files:
     st.info("🔍 Screening resumes...")
     results = []
+    all_keywords = []
     for file in resume_files:
         text = extract_text_from_pdf(file)
         email = extract_email(text)
@@ -128,10 +133,10 @@ if jd_text and resume_files:
         tag = "✅ Good Fit"
         if score > 90 and exp >= 3:
             tag = "🔥 Top Talent"
-        if not linkedin or not github:
+        if not linkedin or not github or linkedin == "❌" or github == "❌":
             tag = "⚠️ Missing Profile"
-        if not is_shortlisted(score, exp, cgpa, linkedin, github):
-            tag = "❌ Not Shortlisted"
+
+        all_keywords.extend(matched)
 
         results.append({
             "Name": file.name,
@@ -139,8 +144,8 @@ if jd_text and resume_files:
             "Experience": exp,
             "CGPA": cgpa,
             "Email": email,
-            "LinkedIn": linkedin or "❌",
-            "GitHub": github or "❌",
+            "LinkedIn": linkedin,
+            "GitHub": github,
             "Tag": tag,
             "Missing Skills": ", ".join(missing)
         })
@@ -149,10 +154,51 @@ if jd_text and resume_files:
     st.success("✅ Screening complete.")
     st.dataframe(df, use_container_width=True)
 
+    # Download CSV
     st.download_button("📥 Download Results", data=df.to_csv(index=False), file_name="screening_results.csv")
 
-    if any(df["LinkedIn"] == "❌") or any(df["GitHub"] == "❌"):
-        st.warning("⚠️ Some candidates are missing LinkedIn or GitHub links.")
+    # Wordcloud
+    st.markdown("### ☁️ Word Cloud of Matched Skills")
+    wordcloud = WordCloud(width=800, height=400, background_color='white').generate(' '.join(all_keywords))
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.imshow(wordcloud, interpolation='bilinear')
+    ax.axis('off')
+    st.pyplot(fig)
 
-    if any(df["Tag"] == "❌ Not Shortlisted"):
-        st.error("🚫 Some resumes failed the minimum criteria and were not shortlisted.")
+    # Manual Email Send
+    shortlisted = df[df["Tag"].isin(["🔥 Top Talent", "✅ Good Fit"])]
+    email_ready = shortlisted[shortlisted["Email"].str.contains("@", na=False)]
+    if not email_ready.empty:
+        st.markdown("### ✉️ Send Emails to Candidates")
+        subject = st.text_input("Email Subject", "🎉 You've been shortlisted!")
+        body_template = st.text_area("Email Body Template", value="""
+Dear {{name}},
+
+Congratulations! You have been shortlisted based on our resume screening.
+
+Score: {{score}}%
+Experience: {{experience}} years
+
+We will be in touch for the next steps.
+
+Regards,
+HR Team
+""")
+
+        for _, row in email_ready.iterrows():
+            preview = body_template.replace("{{name}}", row["Name"].replace(".pdf", "")).replace("{{score}}", str(row["Score"])).replace("{{experience}}", str(row["Experience"]))
+            with st.expander(f"📧 Preview Email to {row['Name']} ({row['Email']})"):
+                st.markdown(preview.replace("\n", "  \n"))
+
+        if st.button("📤 Send Emails"):
+            for _, row in email_ready.iterrows():
+                msg = body_template.replace("{{name}}", row["Name"].replace(".pdf", "")).replace("{{score}}", str(row["Score"])).replace("{{experience}}", str(row["Experience"]))
+                send_email_to_candidate(
+                    name=row["Name"],
+                    score=row["Score"],
+                    feedback=row["Tag"],
+                    recipient=row["Email"],
+                    subject=subject,
+                    message=msg
+                )
+            st.success("✅ Emails sent!")
