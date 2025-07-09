@@ -1,18 +1,17 @@
-# screener.py
-
 import streamlit as st
-from email_sender import send_email_to_candidate
-import pdfplumber
 import pandas as pd
-import re
 import os
-import matplotlib.pyplot as plt
-from wordcloud import WordCloud
-from dateutil import parser
+import re
+import pdfplumber
 from datetime import datetime
+from dateutil import parser
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+import seaborn as sns
 import spacy
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from email_sender import send_email_to_candidate
 
 # Load NLP model
 try:
@@ -22,186 +21,266 @@ except:
 
 st.set_page_config(page_title="Resume Screener Pro", layout="wide")
 
+# --- Global CSS ---
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
 html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
 }
+.metric-box {
+    background: #f9f9f9;
+    padding: 16px;
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    margin-bottom: 1rem;
+}
 </style>
 """, unsafe_allow_html=True)
 
 st.title("📂 Resume Screener Pro")
 
-# Load job descriptions
+# --- Load Job Descriptions ---
 job_roles = {"Upload my own": None}
 if os.path.exists("data"):
     for file in os.listdir("data"):
         if file.endswith(".txt"):
-            job_roles[file.replace(".txt", "").replace("_", " ").title()] = os.path.join("data", file)
+            job_roles[file.replace(".txt", "").title()] = os.path.join("data", file)
 
-jd_option = st.selectbox("📌 Select Job Role or Upload JD", list(job_roles.keys()))
+jd_option = st.selectbox("📌 Select Job Role or Upload Your Own JD", list(job_roles.keys()))
 jd_text = ""
 if jd_option == "Upload my own":
-    jd_file = st.file_uploader("Upload Job Description", type="txt")
+    jd_file = st.file_uploader("Upload JD (.txt)", type="txt")
     if jd_file:
         jd_text = jd_file.read().decode("utf-8")
 else:
     with open(job_roles[jd_option], "r", encoding="utf-8") as f:
         jd_text = f.read()
 
-resume_files = st.file_uploader("📄 Upload Resumes", type="pdf", accept_multiple_files=True)
-cutoff = st.slider("Minimum Match Score (%)", 0, 100, 80)
-min_exp = st.slider("Minimum Experience (Years)", 0, 15, 2)
-min_cgpa = st.slider("Minimum CGPA", 0.0, 10.0, 7.5)
+# Upload Resumes
+resume_files = st.file_uploader("📄 Upload Resumes (PDF)", type="pdf", accept_multiple_files=True)
+cutoff = st.slider("📈 Score Cutoff (%)", 0, 100, 75)
+min_exp = st.slider("💼 Min Experience (Years)", 0, 15, 2)
+min_cgpa = st.slider("🎓 Min CGPA (out of 10)", 0.0, 10.0, 7.5)
 
-# ----------------------- Extraction Functions -----------------------
-def extract_text(file):
+# === Utility Functions ===
+def extract_text_from_pdf(file):
     try:
         with pdfplumber.open(file) as pdf:
-            return "".join(page.extract_text() or "" for page in pdf.pages)
-    except:
+            return ''.join(page.extract_text() or '' for page in pdf.pages)
+    except Exception as e:
         return ""
 
 def extract_email(text):
     match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
-    return match.group(0) if match else "Not found"
+    return match.group(0) if match else "❌"
 
 def extract_links(text):
-    linkedin = re.search(r'https?://(www\.)?linkedin\.com/in/[^\s,)\]]+', text, re.IGNORECASE)
-    github = re.search(r'https?://(www\.)?github\.com/[^\s,)\]]+', text, re.IGNORECASE)
-    return linkedin.group(0) if linkedin else "❌", github.group(0) if github else "❌"
+    linkedin_match = re.search(r'(https?:\/\/)?(www\.)?linkedin\.com\/in\/[^\s\)\]]+', text, re.IGNORECASE)
+    github_match = re.search(r'(https?:\/\/)?(www\.)?github\.com\/[^\s\)\]]+', text, re.IGNORECASE)
+    return linkedin_match.group(0) if linkedin_match else "❌", github_match.group(0) if github_match else "❌"
+
+def extract_scores(text):
+    cgpa = re.search(r'(\d{1,2}\.\d{1,2})\s*\/\s*10\s*', text)
+    try:
+        cgpa_val = float(cgpa.group(1)) if cgpa else 0
+    except:
+        cgpa_val = 0
+    return cgpa_val
 
 def extract_experience(text):
-    ranges = re.findall(r'([A-Za-z]{3,9}\s\d{4})\s*[-–—]\s*([A-Za-z]{3,9}\s\d{4}|present)', text, re.IGNORECASE)
-    total_months = 0
-    for start, end in ranges:
+    text = text.lower()
+    years = []
+    for match in re.findall(r'(\d{1,2})\+?\s*(years?|yrs?|year)', text):
         try:
-            s = parser.parse(start)
-            e = datetime.today() if "present" in end.lower() else parser.parse(end)
-            total_months += (e.year - s.year) * 12 + (e.month - s.month)
+            years.append(int(match[0]))
         except:
             continue
-    return round(total_months / 12, 1)
 
-def extract_cgpa(text):
-    cgpa_match = re.search(r'(\d\.\d{1,2})\s*/\s*10', text)
-    try:
-        return float(cgpa_match.group(1)) if cgpa_match else 0.0
-    except:
-        return 0.0
+    total_months = 0
+    date_ranges = re.findall(r'([A-Za-z]{3,9}\s\d{4})\s*[-–—]\s*([A-Za-z]{3,9}\s\d{4}|present)', text)
+    for start, end in date_ranges:
+        try:
+            s = parser.parse(start)
+            e = parser.parse(end) if 'present' not in end.lower() else datetime.today()
+            months = (e.year - s.year) * 12 + (e.month - s.month)
+            total_months += months
+        except:
+            continue
 
-# ---------------------- Scoring Functions ---------------------------
+    date_based = round(total_months / 12, 1)
+    return max(date_based, max(years) if years else 0)
+
 def tfidf_score(jd, resume):
-    vect = TfidfVectorizer(stop_words="english")
+    vect = TfidfVectorizer(stop_words='english')
     tfidf = vect.fit_transform([jd, resume])
     return round(cosine_similarity(tfidf[0:1], tfidf[1:2])[0][0] * 100, 2)
 
 def spacy_score(jd, resume):
     return round(nlp(jd).similarity(nlp(resume)) * 100, 2)
 
-def skill_score(jd, resume, exp):
+def skill_score(jd, resume, years):
     jd_words = set(re.findall(r'\b\w+\b', jd.lower()))
     resume_words = set(re.findall(r'\b\w+\b', resume.lower()))
-    core = ['python', 'java', 'sql', 'html', 'css', 'javascript', 'react', 'machine', 'learning']
+    core_skills = ['python', 'java', 'sql', 'html', 'css', 'javascript', 'react', 'machine', 'learning']
     matched = [word for word in jd_words if word in resume_words]
-    weight = sum(3 if w in core else 1 for w in matched)
-    total = sum(3 if w in core else 1 for w in jd_words)
+    weight = sum([3 if w in core_skills else 1 for w in matched])
+    total = sum([3 if w in core_skills else 1 for w in jd_words])
     score = (weight / total) * 100 if total else 0
-    score += min(exp, 10)
-    missing = [w for w in core if w in jd_words and w not in resume_words]
+    score += min(years, 10)
+    missing = [w for w in core_skills if w in jd_words and w not in resume_words]
     return round(score, 2), matched, missing
+def final_score(tfidf, spacy_sim, skill):
+    return round(tfidf * 0.3 + spacy_sim * 0.3 + skill * 0.4, 2)
 
-def final_score(tfidf, spacy, skill):
-    return round(tfidf * 0.3 + spacy * 0.3 + skill * 0.4, 2)
+def get_tag(score, exp, cgpa, linkedin, github):
+    if linkedin == "❌" or github == "❌":
+        return "⚠️ Missing Profile"
+    if score >= 90 and exp >= 3 and cgpa >= 8:
+        return "🔥 Top Talent"
+    elif score >= 75:
+        return "✅ Good Fit"
+    else:
+        return "❌ Needs Review"
 
-# ----------------------- Processing Logic ---------------------------
+# =========================
+# 🔍 Resume Screening Logic
+# =========================
 if jd_text and resume_files:
-    results = []
-    for file in resume_files:
-        text = extract_text(file)
-        exp = extract_experience(text)
-        email = extract_email(text)
-        cgpa = extract_cgpa(text)
-        linkedin, github = extract_links(text)
-        tfidf = tfidf_score(jd_text, text)
-        spacy_sim = spacy_score(jd_text, text)
-        skill, matched, missing = skill_score(jd_text, text, exp)
-        score = final_score(tfidf, spacy_sim, skill)
+    st.subheader("🔎 Screening Resumes...")
 
-        tag = "✅ Good Fit"
-        if score > 90 and exp >= 3:
-            tag = "🔥 Top Talent"
-        if not linkedin or not github:
-            tag = "⚠️ Missing Profile"
-        if score < cutoff or exp < min_exp or cgpa < min_cgpa:
-            tag = "❌ Not Shortlisted"
+    results = []
+    all_keywords = []
+
+    for file in resume_files:
+        raw_text = extract_text_from_pdf(file)
+        if not raw_text.strip():
+            st.error(f"❌ Could not read {file.name}. Skipping.")
+            continue
+
+        experience = extract_experience(raw_text)
+        email = extract_email(raw_text)
+        linkedin, github = extract_links(raw_text)
+        cgpa = extract_scores(raw_text)
+        tfidf = tfidf_score(jd_text, raw_text)
+        spacy_sim = spacy_score(jd_text, raw_text)
+        skill, matched, missing = skill_score(jd_text, raw_text, experience)
+        total_score = final_score(tfidf, spacy_sim, skill)
+        tag = get_tag(total_score, experience, cgpa, linkedin, github)
+
+        all_keywords.extend(matched)
 
         results.append({
-            "Name": file.name,
-            "Score": score,
-            "Exp": exp,
+            "File Name": file.name,
+            "Score (%)": total_score,
+            "TF-IDF": tfidf,
+            "SpaCy": spacy_sim,
+            "Skill Match": skill,
+            "Experience (yrs)": experience,
             "CGPA": cgpa,
             "Email": email,
             "LinkedIn": linkedin,
             "GitHub": github,
             "Tag": tag,
-            "Matched Skills": ", ".join(matched),
             "Missing Skills": ", ".join(missing)
         })
 
-    df = pd.DataFrame(results).sort_values(by="Score", ascending=False)
-    st.success("✅ Screening Complete")
+    # --- Display Table ---
+    df = pd.DataFrame(results).sort_values(by="Score (%)", ascending=False)
+    st.success(f"✅ Screening Complete! {len(df)} resumes processed.")
     st.dataframe(df, use_container_width=True)
 
-    # 📊 Metrics
-    st.markdown("### 📈 Metrics & Charts")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Average Score", f"{df['Score'].mean():.1f}%")
-    col2.metric("Avg Experience", f"{df['Exp'].mean():.1f} yrs")
-    col3.metric("Avg CGPA", f"{df['CGPA'].mean():.2f}")
+    # Download Option
+    st.download_button("📥 Download Results CSV", data=df.to_csv(index=False), file_name="screening_results.csv")
 
-    # Tag pie chart
-    tag_counts = df["Tag"].value_counts()
-    fig1, ax1 = plt.subplots()
-    ax1.pie(tag_counts, labels=tag_counts.index, autopct='%1.1f%%', startangle=140)
-    ax1.axis("equal")
+    # Warnings
+    if any(df["LinkedIn"] == "❌") or any(df["GitHub"] == "❌"):
+        st.warning("⚠️ Some profiles are missing LinkedIn or GitHub links.")
+    # ============================
+    # 📊 AI Insights & Analytics
+    # ============================
+    st.subheader("📊 Resume Insights & Visuals")
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("📈 Avg. Score", f"{df['Score (%)'].mean():.2f}%")
+    col2.metric("💼 Avg. Experience", f"{df['Experience (yrs)'].mean():.1f} yrs")
+    col3.metric("🎓 Avg. CGPA", f"{df['CGPA'].mean():.2f}")
+    col4.metric("✅ Good Fit Candidates", f"{(df['Tag'] == '✅ Good Fit').sum()}")
+
+    # ==========================
+    # 📌 Tag Distribution Chart
+    # ==========================
+    st.markdown("#### 🧮 Candidate Tag Distribution")
+    tag_counts = df['Tag'].value_counts()
+    fig1, ax1 = plt.subplots(figsize=(5, 5))
+    ax1.pie(tag_counts.values, labels=tag_counts.index, autopct='%1.1f%%', startangle=90)
+    ax1.axis('equal')
     st.pyplot(fig1)
 
-    # Wordcloud
-    st.markdown("### ☁️ Word Cloud of Missing Skills")
-    all_words = " ".join(df["Missing Skills"].dropna())
-    wc = WordCloud(width=1000, height=400, background_color="white").generate(all_words)
-    fig2, ax2 = plt.subplots(figsize=(10, 5))
-    ax2.imshow(wc, interpolation="bilinear")
-    ax2.axis("off")
+    # ==========================
+    # 📊 Experience Range Chart
+    # ==========================
+    st.markdown("#### 💼 Experience Groups")
+    bins = [0, 2, 5, 10, 30]
+    labels = ['0-2 yrs', '3-5 yrs', '6-10 yrs', '10+ yrs']
+    df['Exp Range'] = pd.cut(df['Experience (yrs)'], bins=bins, labels=labels)
+    exp_counts = df['Exp Range'].value_counts().sort_index()
+    fig2, ax2 = plt.subplots(figsize=(6, 4))
+    ax2.bar(exp_counts.index, exp_counts.values, color="#00cec9")
+    ax2.set_ylabel("Candidates")
+    ax2.set_title("Experience Distribution")
     st.pyplot(fig2)
 
-    # Email Sending
-    st.markdown("### ✉️ Manual Email Sender")
-    send_df = df[df["Email"].str.contains("@")]
-    selected = st.multiselect("Choose Emails to Send", options=send_df["Email"].tolist())
-    subj = st.text_input("Subject", value="🎉 You’ve been shortlisted!")
-    body = st.text_area("Email Template", value="""
-Dear {{name}},
+    # ==========================
+    # ☁️ Word Cloud of Skills
+    # ==========================
+    st.markdown("#### ☁️ Matched Skill Cloud")
+    text_blob = ' '.join(all_keywords)
+    wordcloud = WordCloud(width=800, height=400, background_color='white').generate(text_blob)
+    fig3, ax3 = plt.subplots(figsize=(10, 5))
+    ax3.imshow(wordcloud, interpolation='bilinear')
+    ax3.axis('off')
+    st.pyplot(fig3)
 
-You've been shortlisted for the position.  
-Your score: {{score}}%.  
+    # ==========================
+    # 🏅 Leaderboard
+    # ==========================
+    st.markdown("#### 🏅 Top 5 Candidates Leaderboard")
+    top5 = df.head(5)
+    for idx, row in top5.iterrows():
+        st.markdown(f"**{row['File Name']}** — 🎯 Score: {row['Score (%)']}% | 💼 Exp: {row['Experience (yrs)']} yrs | 🎓 CGPA: {row['CGPA']}")
+        st.caption(f"📧 {row['Email']} | 🔗 LinkedIn: {row['LinkedIn']} | 💻 GitHub: {row['GitHub']}")
+        st.progress(int(row["Score (%)"]))
+
+    # ==========================
+    # 📧 Email Manual Sender
+    # ==========================
+    st.markdown("### 📤 Send Email to Candidate")
+    selected = st.selectbox("Choose Candidate to Email", df["File Name"])
+    selected_row = df[df["File Name"] == selected].iloc[0]
+    subject = st.text_input("Subject", value="🎉 You have been shortlisted!")
+    body = st.text_area("Email Body", value=f"""
+Dear {selected.replace('.pdf','')},
+
+Congratulations! You have been shortlisted for the next round.
+
+🧠 Total Score: {selected_row['Score (%)']}%
+💼 Experience: {selected_row['Experience (yrs)']} years
+💬 Tag: {selected_row['Tag']}
+
+We'll contact you soon with more details.
 
 Regards,  
-HR Team
-""", height=160)
+HR Team — Shree Ram Recruitments
+""", height=180)
 
-    if st.button("📤 Send Emails"):
-        for email in selected:
-            row = send_df[send_df["Email"] == email].iloc[0]
-            msg = body.replace("{{name}}", row["Name"]).replace("{{score}}", str(row["Score"]))
-            send_email_to_candidate(
-                name=row["Name"], score=row["Score"], feedback=row["Tag"],
-                recipient=row["Email"], subject=subj, message=msg
-            )
-        st.success("📬 Emails sent successfully!")
-
-    # Download
-    csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button("📥 Download CSV", data=csv, file_name="screening_results.csv", mime="text/csv")
+    if st.button("📨 Send Email"):
+        send_email_to_candidate(
+            name=selected_row["File Name"],
+            score=selected_row["Score (%)"],
+            feedback=selected_row["Tag"],
+            recipient=selected_row["Email"],
+            subject=subject,
+            message=body
+        )
+        st.success("✅ Email Sent Successfully!")
