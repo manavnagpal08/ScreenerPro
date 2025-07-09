@@ -374,3 +374,188 @@ HR Team — Shree Ram Recruitments
     st.markdown("### 📄 Export All Results")
     full_csv = df.to_csv(index=False).encode("utf-8")
     st.download_button("📥 Download Full Report", full_csv, file_name="final_screening_results.csv", mime="text/csv")
+    # ==========================
+    # 📜 AI-Powered JD Summary
+    # ==========================
+    st.markdown("### 📘 Job Description Summary")
+    if jd_text:
+        sentences = jd_text.strip().split(".")
+        summary = ". ".join(sentences[:3]) + "..." if len(sentences) > 3 else jd_text
+        st.success(summary)
+
+    # ==========================
+    # 🧠 Auto Interview Questions Generator
+    # ==========================
+    st.markdown("### 💬 Pre-Interview Questions (Auto-generated)")
+
+    def generate_questions(text, count=5):
+        keywords = list(set(re.findall(r'\b[A-Za-z]{5,}\b', text.lower())))
+        common = ['experience', 'skills', 'development', 'python', 'project', 'management', 'data', 'team']
+        selected = [word.title() for word in keywords if word in common][:count]
+        return [f"Tell me about your experience with {word}." for word in selected]
+
+    if jd_text:
+        questions = generate_questions(jd_text)
+        for q in questions:
+            st.markdown(f"❓ {q}")
+
+    # ==========================
+    # 🔍 Search Resume Text
+    # ==========================
+    st.markdown("### 🔎 Resume Keyword Search")
+    search_term = st.text_input("Enter a keyword (e.g. SQL, React, NLP):")
+    if search_term:
+        st.write(f"Showing candidates mentioning **{search_term}** in their resume:")
+        found_rows = []
+        for file, text in resume_text_map.items():
+            if search_term.lower() in text.lower():
+                found_rows.append(file)
+        if found_rows:
+            for name in found_rows:
+                st.markdown(f"🔹 {name}")
+        else:
+            st.warning("No matches found.")
+
+    # ==========================
+    # 🛡️ Resume Authenticity Checker
+    # ==========================
+    st.markdown("### 🛡️ Resume Authenticity Score")
+    def estimate_authenticity(text):
+        fake_indicators = ["lorem ipsum", "dummy text", "fakeproject", "abc company", "xyz"]
+        score = 100
+        for phrase in fake_indicators:
+            if phrase in text.lower():
+                score -= 25
+        return max(score, 0)
+
+    df["Authenticity (%)"] = df["File Name"].apply(lambda x: estimate_authenticity(resume_text_map.get(x, "")))
+    if st.checkbox("🔬 Show Resume Authenticity Scores"):
+        st.dataframe(df[["File Name", "Authenticity (%)"]])
+
+    # ==========================
+    # 📝 Recruiter Notes & Tagging
+    # ==========================
+    st.markdown("### 📝 Manual Tagging & Notes")
+    notes_dict = {}
+    for _, row in df.iterrows():
+        with st.expander(f"✏️ Notes for {row['File Name']}"):
+            tag = st.selectbox("Assign Custom Tag", ["Select...", "Interview", "Hold", "Reject", "Backup"], key=row['File Name'])
+            comment = st.text_area("Write any notes or feedback:", key=row['File Name'] + "_notes")
+            notes_dict[row['File Name']] = {"Tag": tag, "Comment": comment}
+
+    # Merge notes into dataframe (optional display)
+    for name, entry in notes_dict.items():
+        df.loc[df["File Name"] == name, "Custom Tag"] = entry["Tag"]
+        df.loc[df["File Name"] == name, "Recruiter Notes"] = entry["Comment"]
+
+    # ==========================
+    # 📊 Enhanced Shortlist Overview
+    # ==========================
+    st.markdown("### ✅ Final Shortlisted Candidates")
+    shortlisted_df = df[df["Tag"] != "❌ Not Shortlisted"].copy()
+    st.dataframe(shortlisted_df[["File Name", "Score (%)", "Experience (yrs)", "Tag", "Custom Tag", "Recruiter Notes"]])
+
+    # ==========================
+    # ✉️ Manual Email Send Button
+    # ==========================
+    st.markdown("### ✉️ Send Email to Shortlisted (Manually Triggered)")
+    email_ready = shortlisted_df[shortlisted_df["Email"].str.contains("@", na=False)]
+    subject = st.text_input("Email Subject", value="🎉 You've been shortlisted!")
+    body_template = st.text_area("Email Body Template", height=200, value="""
+Dear {{name}},
+
+Congratulations! Based on our AI screening, you've been shortlisted.
+
+📈 Score: {{score}}%  
+💼 Experience: {{exp}} years  
+📢 Feedback: {{tag}}
+
+We'll reach out soon with next steps.
+
+Best regards,  
+HR Team
+""")
+
+    if st.button("📤 Send Emails Now"):
+        for _, row in email_ready.iterrows():
+            message = body_template.replace("{{name}}", row["File Name"].replace(".pdf", ""))\
+                                   .replace("{{score}}", str(row["Score (%)"]))\
+                                   .replace("{{exp}}", str(row["Experience (yrs)"]))\
+                                   .replace("{{tag}}", row["Tag"])
+            send_email_to_candidate(
+                name=row["File Name"],
+                score=row["Score (%)"],
+                feedback=row["Tag"],
+                recipient=row["Email"],
+                subject=subject,
+                message=message
+            )
+        st.success("📬 Emails sent to all eligible candidates!")
+    # ==========================
+    # 🔎 Filter by Custom Tags
+    # ==========================
+    st.markdown("### 🔍 Filter Candidates by Custom Tag")
+    unique_tags = df["Custom Tag"].dropna().unique().tolist()
+    selected_tag = st.selectbox("Filter by Tag", ["Show All"] + unique_tags)
+    if selected_tag != "Show All":
+        filtered_df = df[df["Custom Tag"] == selected_tag]
+        st.dataframe(filtered_df[["File Name", "Score (%)", "Experience (yrs)", "Tag", "Recruiter Notes"]])
+    else:
+        st.dataframe(df[["File Name", "Score (%)", "Experience (yrs)", "Tag", "Custom Tag", "Recruiter Notes"]])
+
+    # ==========================
+    # 🧾 Export Shortlist Only
+    # ==========================
+    shortlist_export = shortlisted_df[["File Name", "Score (%)", "Experience (yrs)", "Email", "Tag", "Custom Tag", "Recruiter Notes"]]
+    csv_data = shortlist_export.to_csv(index=False).encode("utf-8")
+    st.download_button("📥 Download Shortlisted CSV", data=csv_data, file_name="shortlisted_candidates.csv", mime="text/csv")
+
+    # ==========================
+    # 📊 Visual Insights
+    # ==========================
+    st.markdown("### 📊 Tag & Experience Insights")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("#### Tag Distribution")
+        tag_counts = df["Tag"].value_counts()
+        fig1, ax1 = plt.subplots()
+        ax1.pie(tag_counts.values, labels=tag_counts.index, autopct='%1.1f%%', startangle=140)
+        ax1.axis("equal")
+        st.pyplot(fig1)
+
+    with col2:
+        st.markdown("#### Experience Distribution")
+        bins = [0, 2, 5, 10, 20]
+        labels = ["<2 yrs", "2-5 yrs", "5-10 yrs", "10+ yrs"]
+        df["Exp Group"] = pd.cut(df["Experience (yrs)"], bins=bins, labels=labels, right=False)
+        exp_counts = df["Exp Group"].value_counts().sort_index()
+        fig2, ax2 = plt.subplots()
+        ax2.bar(exp_counts.index.astype(str), exp_counts.values, color="#00cec9")
+        ax2.set_ylabel("Candidates")
+        ax2.set_xlabel("Experience")
+        st.pyplot(fig2)
+
+    # ==========================
+    # 📄 Highlighted Resume Viewer
+    # ==========================
+    st.markdown("### 📄 Resume Viewer with Highlight")
+    selected_resume = st.selectbox("Select Resume to View", df["File Name"].tolist())
+    highlight_word = st.text_input("Highlight keyword (e.g. Python, ML):")
+    resume_raw = resume_text_map.get(selected_resume, "")
+    if resume_raw:
+        highlighted = resume_raw.replace(highlight_word, f"**:orange[{highlight_word}]**") if highlight_word else resume_raw
+        st.markdown(f"#### 🔍 {selected_resume}")
+        st.markdown(highlighted[:5000].replace("\n", "  \n"))  # Show first 5000 chars
+
+    # ==========================
+    # 💾 Save for Future Review
+    # ==========================
+    st.markdown("### 💾 Save Screening State")
+    save_df = df.copy()
+    save_df.to_csv("results.csv", index=False)
+    st.info("📁 Screening data saved to results.csv")
+
+    st.success("✅ All features processed. Resume Screener Pro is complete!")
+
+
