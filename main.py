@@ -10,7 +10,8 @@ import json
 import pdfplumber
 
 # --- Page Config ---
-st.set_page_config(page_title="HR Dashboard", layout="wide")
+st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide")
+
 
 # --- Dark Mode Toggle ---
 dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
@@ -74,8 +75,9 @@ html, body, [class*="css"] {
 """, unsafe_allow_html=True)
 
 # --- Branding ---
-st.image("logo.png", width=200)
-st.title("🧠 HR Admin Panel")
+st.image("logo.png", width=300)
+st.title("🧠 ScreenerPro – AI Hiring Assistant")
+
 
 # --- Auth ---
 if not login_section():
