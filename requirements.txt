@@ -5,4 +5,4 @@ matplotlib
 wordcloud
 seaborn
 spacy
-sckit-learn
+scikit-learn
