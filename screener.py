@@ -284,3 +284,93 @@ HR Team — Shree Ram Recruitments
             message=body
         )
         st.success("✅ Email Sent Successfully!")
+    # ==========================
+    # 📄 Resume Previews (Side-by-side)
+    # ==========================
+    st.markdown("### 🧾 Resume Text Viewer")
+    selected_resume = st.selectbox("🔍 Select Resume to Preview", df["File Name"])
+    raw_text = resume_text_map.get(selected_resume, "")
+    st.text_area("🔍 Resume Text", value=raw_text, height=300, key="resume_preview")
+
+    # ==========================
+    # 📋 JD Keyword Highlights
+    # ==========================
+    st.markdown("### 📌 Job Description Keywords Match")
+    top_keywords = list(set(jd_text.lower().split()))
+    matched_set = set(df[df["File Name"] == selected_resume]["Matched Keywords"].values[0].split(", "))
+    highlighted = [
+        f"✅ **{word}**" if word in matched_set else word
+        for word in top_keywords if len(word) > 3
+    ]
+    st.markdown(" ".join(highlighted[:100]))
+
+    # ==========================
+    # 💡 Smart Recommendation Panel
+    # ==========================
+    st.markdown("### 💡 Recommendation Engine")
+
+    def smart_recommendation(row):
+        suggestions = []
+        if row["Experience (yrs)"] < min_exp:
+            suggestions.append("📉 Gain more hands-on experience.")
+        if row["Score (%)"] < cutoff:
+            suggestions.append("🎯 Improve skill match with JD.")
+        if row["CGPA"] < 7.5:
+            suggestions.append("🎓 Improve academic profile.")
+        if row["LinkedIn"] == "❌":
+            suggestions.append("🔗 Add a LinkedIn profile.")
+        if row["GitHub"] == "❌":
+            suggestions.append("💻 Share your GitHub projects.")
+        if not suggestions:
+            suggestions.append("✅ Great profile! Consider for next round.")
+        return " | ".join(suggestions)
+
+    df["Recommendation"] = df.apply(smart_recommendation, axis=1)
+
+    # ==========================
+    # 🔎 Resume Scoring Breakdown
+    # ==========================
+    st.markdown("### 🔍 Score Explanation")
+
+    def show_breakdown(row):
+        st.write(f"📁 Resume: **{row['File Name']}**")
+        st.write(f"✅ TF-IDF Similarity: {row['TFIDF Score']}%")
+        st.write(f"🧠 SpaCy Semantic Match: {row['SpaCy Score']}%")
+        st.write(f"🎯 Skill Matching Score: {row['Skill Match Score']}%")
+        st.write(f"📈 Final Score: **{row['Score (%)']}%**")
+        st.write(f"❌ Missing Skills: {row['Missing Skills'] or 'None'}")
+        st.info(row["Recommendation"])
+
+    if st.checkbox("🧠 Show Full Score Breakdown for All Candidates"):
+        for _, row in df.iterrows():
+            with st.expander(f"📎 {row['File Name']} — {row['Tag']}"):
+                show_breakdown(row)
+    else:
+        with st.expander(f"📎 {selected_resume} — {df[df['File Name'] == selected_resume]['Tag'].values[0]}"):
+            show_breakdown(df[df['File Name'] == selected_resume].iloc[0])
+
+    # ==========================
+    # 🔍 Compare Two Candidates
+    # ==========================
+    st.markdown("### 🤼 Compare Two Candidates")
+    c1, c2 = st.columns(2)
+    name1 = c1.selectbox("Candidate A", df["File Name"], key="comp1")
+    name2 = c2.selectbox("Candidate B", df["File Name"], index=1 if len(df) > 1 else 0, key="comp2")
+
+    row1 = df[df["File Name"] == name1].iloc[0]
+    row2 = df[df["File Name"] == name2].iloc[0]
+
+    comp_df = pd.DataFrame({
+        "Metric": ["Score (%)", "Experience (yrs)", "CGPA", "12th Marks", "Missing Skills"],
+        name1: [row1["Score (%)"], row1["Experience (yrs)"], row1["CGPA"], row1["12th Marks"], row1["Missing Skills"]],
+        name2: [row2["Score (%)"], row2["Experience (yrs)"], row2["CGPA"], row2["12th Marks"], row2["Missing Skills"]],
+    })
+
+    st.table(comp_df)
+
+    # ==========================
+    # 📥 Final CSV Download
+    # ==========================
+    st.markdown("### 📄 Export All Results")
+    full_csv = df.to_csv(index=False).encode("utf-8")
+    st.download_button("📥 Download Full Report", full_csv, file_name="final_screening_results.csv", mime="text/csv")
