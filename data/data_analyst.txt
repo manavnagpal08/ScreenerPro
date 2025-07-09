@@ -1,0 +1,15 @@
+Job Title: Data Analyst
+
+We are seeking a Data Analyst to collect, process, and analyze data to help drive better business decisions.
+
+Responsibilities:
+- Interpret data and analyze results using statistical techniques
+- Develop and maintain dashboards and reports
+- Identify trends and patterns in complex data sets
+- Work with management to prioritize business needs
+
+Skills Required:
+- Proficient in SQL, Excel, and data visualization tools (Power BI, Tableau)
+- Experience in Python or R for data analysis
+- Strong analytical and critical thinking skills
+- Ability to present data insights clearly

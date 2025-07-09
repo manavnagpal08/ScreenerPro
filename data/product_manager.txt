@@ -1,0 +1,15 @@
+Product Manager
+
+We are seeking a highly motivated Product Manager to drive product vision and roadmap.
+
+Responsibilities:
+- Define product strategy and roadmap
+- Collaborate with engineering, marketing, and design teams
+- Translate market requirements into product features
+- Lead product launches and gather feedback
+
+Required Skills:
+- Experience in Agile methodologies
+- Strong communication and stakeholder management
+- Familiarity with product lifecycle and market analysis
+- Tools: JIRA, Confluence, Figma, Google Analytics
