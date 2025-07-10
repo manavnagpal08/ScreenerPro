@@ -81,39 +81,51 @@ def extract_text_from_pdf(uploaded_file):
             return ''.join(page.extract_text() or '' for page in pdf.pages)
     except Exception as e:
         return f"[ERROR] {str(e)}"
-
 def extract_years_of_experience(text):
+    import re
+    from datetime import datetime
+
     text = text.lower()
+    total_months = 0
+
+    # Match ranges like 'Jan 2020 - Jul 2023' or 'May 2022 to Present'
     job_date_ranges = re.findall(
-        r'(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})\s*(?:to|\-|–)\s*(present|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})',
+        r'(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})\s*(?:to|–|-)\s*(present|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})',
         text
     )
-    total_months = 0
+
     for start, end in job_date_ranges:
         try:
-            try:
-                start_date = datetime.strptime(start, '%b %Y')
-            except:
-                start_date = datetime.strptime(start, '%B %Y')
+            start_date = datetime.strptime(start.strip(), '%b %Y')
         except:
-            continue
-
-        if end.lower() == 'present':
-            end_date = datetime.now()
-        else:
             try:
-                try:
-                    end_date = datetime.strptime(end, '%b %Y')
-                except:
-                    end_date = datetime.strptime(end, '%B %Y')
+                start_date = datetime.strptime(start.strip(), '%B %Y')
             except:
                 continue
 
-        delta = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
-        if delta > 0:
-            total_months += delta
+        if end.strip() == 'present':
+            end_date = datetime.now()
+        else:
+            try:
+                end_date = datetime.strptime(end.strip(), '%b %Y')
+            except:
+                try:
+                    end_date = datetime.strptime(end.strip(), '%B %Y')
+                except:
+                    continue
+
+        delta_months = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
+        total_months += max(delta_months, 0)
+
+    # Fallback if 'X years experience' is written in plain text
+    if total_months == 0:
+        match = re.search(r'(\d+(?:\.\d+)?)\s*(\+)?\s*(year|yrs|years)\\b', text)
+        if match:
+            return float(match.group(1))
 
     return round(total_months / 12, 1)
+
+
 
 
 def extract_email(text):
