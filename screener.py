@@ -143,9 +143,9 @@ def semantic_score(resume_text, jd_text, years_exp):
         resume_embed = model.encode(resume_text)
         features = np.concatenate([jd_embed, resume_embed])
         predicted_score = ml_model.predict([features])[0]
-        return round(min(predicted_score, 100), 2)
+        return round(float(min(predicted_score, 100)), 2)
     except Exception as e:
-        print("Error in semantic_score:", e)
+        print("❌ Error in semantic_score:", e)
         return 0.0
 
 def generate_summary(text, experience):
