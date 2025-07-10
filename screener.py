@@ -252,9 +252,12 @@ def smart_score(resume_text, jd_text, years_exp):
     Also identifies matched and missing keywords, and provides simple feedback.
     Applies STOP_WORDS filtering for keyword analysis.
     """
+    resume_clean = clean_text(resume_text) # Clean text here for consistency
+    jd_clean = clean_text(jd_text) # Clean text here for consistency
+
     # Filter out stop words from resume and JD text before finding overlaps
-    resume_words = {word for word in re.findall(r'\b\w+\b', resume_text.lower()) if word not in STOP_WORDS}
-    jd_words = {word for word in re.findall(r'\b\w+\b', jd_text.lower()) if word not in STOP_WORDS}
+    resume_words = {word for word in re.findall(r'\b\w+\b', resume_clean) if word not in STOP_WORDS}
+    jd_words = {word for word in re.findall(r'\b\w+\b', jd_clean) if word not in STOP_WORDS}
 
     # Calculate overlap
     overlap = resume_words & jd_words
@@ -263,6 +266,13 @@ def smart_score(resume_text, jd_text, years_exp):
     # Identify missing skills from JD that are not in resume
     missing_skills_set = jd_words - resume_words
     missing_skills = ", ".join(sorted(list(missing_skills_set))) # Sort for consistency
+
+    # Calculate JD Keyword Coverage Percentage for smart_score as well
+    keyword_overlap_count = len(overlap) # Use the calculated overlap
+    if len(jd_words) > 0:
+        jd_coverage_percentage = (keyword_overlap_count / len(jd_words)) * 100
+    else:
+        jd_coverage_percentage = 0.0
 
     # Score calculation logic
     base_score = min(len(overlap), 25) * 3 # Max 75 points from keywords
@@ -279,8 +289,7 @@ def smart_score(resume_text, jd_text, years_exp):
     elif not matched_keywords:
         feedback = "Very few common keywords found. Significant mismatch."
 
-    # Note: smart_score doesn't calculate semantic_similarity or jd_coverage_percentage
-    return score, matched_keywords, missing_skills, feedback, 0.0, 0.0
+    return score, matched_keywords, missing_skills, feedback, 0.0, round(jd_coverage_percentage, 2) # Return 0.0 for semantic_similarity
 
 
 def semantic_score(resume_text, jd_text, years_exp):
@@ -335,7 +344,7 @@ def semantic_score(resume_text, jd_text, years_exp):
         jd_top_skills = get_top_keywords(jd_clean, num_keywords=20) # Get more keywords for better coverage
         matched_core_skills_count = sum(1 for skill in jd_top_skills if skill in resume_clean)
 
-        # Calculate JD Keyword Coverage Percentage (for display, not directly for ML model input in this fix)
+        # Calculate JD Keyword Coverage Percentage
         if len(jd_words_filtered) > 0:
             jd_coverage_percentage = (keyword_overlap_count / len(jd_words_filtered)) * 100
         else:
@@ -345,8 +354,8 @@ def semantic_score(resume_text, jd_text, years_exp):
         # Ensure years_exp is a float, default to 0.0 if None
         years_exp_for_model = float(years_exp) if years_exp is not None else 0.0
 
-        # *** FIX: Removed jd_coverage_percentage from extra_feats passed to ML model ***
-        # The ml_screening_model.pkl was likely trained with 4 extra features, not 5.
+        # The ml_screening_model.pkl was likely trained with 4 extra features (768 + 4 = 772 features).
+        # We will keep these 4 features for the ML model prediction.
         extra_feats = np.array([keyword_overlap_count, resume_len, matched_core_skills_count, years_exp_for_model])
 
         # Concatenate all features for the ML model
@@ -356,9 +365,14 @@ def semantic_score(resume_text, jd_text, years_exp):
 
         # Predict score using the loaded ML model
         predicted_score = ml_model.predict([features])[0]
-        st.success(f"🧠 Predicted score: {predicted_score:.2f}")
+        st.success(f"🧠 Predicted score (ML base): {predicted_score:.2f}")
 
-        score = float(np.clip(predicted_score, 0, 100)) # Ensure score is between 0 and 100
+        # Blend ML predicted score with JD keyword coverage for stronger JD influence
+        # This directly incorporates the JD's keyword relevance into the final score.
+        # Adjust weights (0.6 for ML, 0.4 for JD Coverage) as needed to emphasize JD coverage.
+        blended_score = (predicted_score * 0.6) + (jd_coverage_percentage * 0.4)
+        score = float(np.clip(blended_score, 0, 100)) # Ensure score is between 0 and 100
+
 
         # Calculate matched and missing keywords for display, applying STOP_WORDS filter
         overlap_words_set_display = resume_words_filtered & jd_words_filtered
@@ -368,18 +382,18 @@ def semantic_score(resume_text, jd_text, years_exp):
 
         # Generate feedback based on ML score
         if score > 90:
-            feedback = "Excellent fit based on semantic analysis and ML prediction."
+            feedback = "Excellent fit based on semantic analysis and strong JD keyword coverage."
         elif score >= 75:
-            feedback = "Good fit, strong semantic match and ML prediction."
+            feedback = "Good fit, strong semantic match and good JD keyword coverage."
         elif score >= 50:
-            feedback = "Moderate fit. Some areas for improvement based on ML prediction."
+            feedback = "Moderate fit. Some areas for improvement, consider reviewing JD alignment."
         else:
-            feedback = "Lower semantic match. Consider reviewing for relevance."
+            feedback = "Lower overall match. Significant mismatch with job description keywords."
 
         # Original fallback logic: if ML score is too low, use smart_score to be more robust
+        # Note: The fallback will now also return jd_coverage_percentage
         if score < 10:
-            st.warning("⚠️ ML score is very low. Using fallback smart_score for a more reliable assessment.")
-            # Re-run smart_score to ensure consistent logic for fallback, which also uses STOP_WORDS
+            st.warning("⚠️ Blended score is very low. Using fallback smart_score for a more reliable assessment.")
             score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage = smart_score(resume_text, jd_text, years_exp)
 
         return round(score, 2), matched_keywords, missing_skills, feedback, round(semantic_similarity, 2), round(jd_coverage_percentage, 2)
@@ -596,7 +610,7 @@ if jd_text and resume_files:
     )
 
     st.markdown("### ✉️ Send Emails to Shortlisted Candidates")
-    email_ready = shortlisted[shortlisted['Email'].str.contains("@", na=False)]
+    email_ready = shortlisted[email_ready['Email'].str.contains("@", na=False)]
 
     if email_ready.empty:
         st.info("No shortlisted candidates with valid emails to send emails to.")
