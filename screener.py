@@ -117,13 +117,14 @@ def extract_years_of_experience(text):
         delta_months = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
         total_months += max(delta_months, 0)
 
-    # Fallback if 'X years experience' is written in plain text
+    # Fallback: look for phrases like '4 years', '4+ years', 'Experience – 4 year'
     if total_months == 0:
-        match = re.search(r'(\d+(?:\.\d+)?)\s*(\+)?\s*(year|yrs|years)\\b', text)
+        match = re.search(r'(\d+(?:\.\d+)?)\s*(\+)?\s*(year|yrs|years)\b', text)
+        if not match:
+            match = re.search(r'experience[^\d]{0,10}(\d+(?:\.\d+)?)', text)
         if match:
             return float(match.group(1))
 
-    return round(total_months / 12, 1)
 
 
 
