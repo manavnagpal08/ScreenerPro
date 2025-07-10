@@ -344,6 +344,7 @@ def semantic_score(resume_text, jd_text, years_exp):
         years_exp_for_model = float(years_exp) if years_exp is not None else 0.0
 
         # Concatenate all features for the ML model (384 + 384 + 1 + 1 = 770 features)
+        # Removed resume_len and matched_core_skills_count to match 770 features
         features = np.concatenate([jd_embed, resume_embed, [years_exp_for_model], [keyword_overlap_count]])
 
         st.info(f"🔍 Feature shape: {features.shape}")
@@ -480,6 +481,9 @@ if jd_text and resume_files:
         resume_text_map[file.name] = text
 
     df = pd.DataFrame(results).sort_values(by="Score (%)", ascending=False)
+
+    # --- Save results to session state for main.py to access ---
+    st.session_state['screening_results'] = results
 
     # --- Overall Candidate Comparison Chart (Improved Matplotlib Bar Chart) ---
     st.markdown("## 📊 Candidate Score Comparison")
