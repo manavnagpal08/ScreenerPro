@@ -137,23 +137,24 @@ def extract_email(text):
     return match.group(0) if match else None
 
 
-def clean_text(text):
-    text = re.sub(r'\\n', ' ', text)         # remove newlines
-    text = re.sub(r'\\s+', ' ', text)        # collapse whitespace
-    text = re.sub(r'[^\x00-\x7F]+',' ', text)  # remove non-ASCII
-    return text.strip().lower()
-
 def semantic_score(resume_text, jd_text, years_exp):
     try:
-        jd_text_clean = clean_text(jd_text)
-        resume_text_clean = clean_text(resume_text)
+        jd_clean = clean_text(jd_text)
+        resume_clean = clean_text(resume_text)
 
-        jd_embed = model.encode(jd_text_clean)
-        resume_embed = model.encode(resume_text_clean)
+        jd_embed = model.encode(jd_clean)
+        resume_embed = model.encode(resume_clean)
         features = np.concatenate([jd_embed, resume_embed])
 
-        predicted_score = ml_model.predict([features])[0]
-        return round(float(min(predicted_score, 100)), 2)
+        score = ml_model.predict([features])[0]
+        score = float(np.clip(score, 0, 100))
+
+        # Fallback if score looks wrong
+        if score < 10:
+            print("⚠️ ML score too low. Using rule-based fallback.")
+            score, _, _, _ = smart_score(resume_text, jd_text, years_exp)
+
+        return round(score, 2)
     except Exception as e:
         print("❌ Error in semantic_score:", e)
         return 0.0
