@@ -144,16 +144,39 @@ def semantic_score(resume_text, jd_text, years_exp):
         resume_words = set(re.findall(r'\b\w+\b', resume_text.lower()))
         jd_words = set(re.findall(r'\b\w+\b', jd_text.lower()))
         matched_keywords = resume_words & jd_words
-        keyword_score = min(len(matched_keywords), 20)  # cap to avoid overweighting
+        keyword_score = min(len(matched_keywords), 20)
 
-        # Experience bonus (capped at 10)
+        # Role-based core skills
+        role_core_skills = {
+            'data_analyst': ['sql', 'excel', 'tableau', 'powerbi', 'python', 'r', 'statistics', 'dashboard', 'data'],
+            'data_scientist': ['python', 'r', 'machine learning', 'deep learning', 'pandas', 'numpy', 'tensorflow', 'scikit-learn', 'nlp'],
+            'machine_learning_engineer': ['python', 'pytorch', 'tensorflow', 'keras', 'ml', 'ai', 'model training', 'scikit-learn', 'deep learning'],
+            'software_engineer': ['java', 'python', 'c++', 'data structures', 'algorithms', 'git', 'oop', 'system design'],
+            'web_developer': ['html', 'css', 'javascript', 'react', 'node', 'frontend', 'api', 'bootstrap', 'web'],
+            'frontend_engineer': ['javascript', 'html', 'css', 'react', 'vue', 'angular', 'typescript', 'ui', 'frontend'],
+            'backend_developer': ['node', 'express', 'java', 'python', 'api', 'database', 'mongodb', 'postgresql', 'sql'],
+            'devops_engineer': ['docker', 'kubernetes', 'jenkins', 'aws', 'linux', 'ci/cd', 'terraform', 'ansible', 'cloud'],
+            'mobile_app_developer': ['flutter', 'react native', 'android', 'ios', 'kotlin', 'swift', 'mobile', 'ui'],
+            'product_manager': ['product', 'strategy', 'roadmap', 'stakeholders', 'agile', 'scrum', 'ux', 'kpi', 'market research'],
+            'qa_engineer': ['selenium', 'test cases', 'automation', 'bug tracking', 'jira', 'manual testing', 'qa'],
+            'ui_ux_designer': ['figma', 'adobe xd', 'ui', 'ux', 'prototyping', 'wireframe', 'design system', 'user research']
+        }
+
+        # Derive role key from selected JD name
+        role_key = jd_option.lower().replace(" ", "_")
+        core_skills = role_core_skills.get(role_key, [])
+        core_bonus = sum(1 for skill in core_skills if skill in resume_words)
+        core_bonus = min(core_bonus * 2, 10)
+
+        # Experience bonus
         experience_bonus = min(years_exp, 10)
 
-        # Weighted score formula
-        final_score = 0.6 * cosine_score + 0.3 * keyword_score + 0.1 * experience_bonus
+        # Final weighted score
+        final_score = 0.5 * cosine_score + 0.25 * keyword_score + 0.15 * experience_bonus + 0.1 * core_bonus
         return round(min(final_score, 100), 2)
     except:
         return 0.0
+
 
 
 def generate_summary(text, experience):
