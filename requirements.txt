@@ -6,3 +6,4 @@ wordcloud
 seaborn
 spacy
 scikit-learn
+sentence-transformers
