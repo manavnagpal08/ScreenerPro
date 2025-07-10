@@ -7,6 +7,8 @@ import re
 import os
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 # --- Enhanced UI Styling ---
 st.markdown("""
@@ -41,10 +43,9 @@ body {
 </style>
 """, unsafe_allow_html=True)
 
-st.header("📂 Resume Screening")
+st.header("\ud83d\udcc2 Resume Screening")
 
 # --- Job Role Selection ---
-# Dynamically load job descriptions from data/ folder
 job_roles = {"Upload my own": None}
 jd_dir = "data"
 if os.path.exists(jd_dir):
@@ -52,7 +53,7 @@ if os.path.exists(jd_dir):
         if fname.endswith(".txt"):
             job_roles[fname.replace(".txt", "").replace("_", " ").title()] = os.path.join(jd_dir, fname)
 
-jd_option = st.selectbox("📌 Select Job Role or Upload Your Own JD", list(job_roles.keys()))
+jd_option = st.selectbox("\ud83d\udccc Select Job Role or Upload Your Own JD", list(job_roles.keys()))
 jd_text = ""
 if jd_option == "Upload my own":
     jd_file = st.file_uploader("Upload Job Description (TXT)", type="txt")
@@ -64,9 +65,9 @@ else:
         with open(jd_path, "r", encoding="utf-8") as f:
             jd_text = f.read()
 
-resume_files = st.file_uploader("📅 Upload Resumes (PDFs)", type="pdf", accept_multiple_files=True)
-cutoff = st.slider("📈 Score Cutoff", 0, 100, 80)
-min_experience = st.slider("💼 Minimum Experience Required", 0, 15, 2)
+resume_files = st.file_uploader("\ud83d\uddd5\ufe0f Upload Resumes (PDFs)", type="pdf", accept_multiple_files=True)
+cutoff = st.slider("\ud83d\udcc8 Score Cutoff", 0, 100, 80)
+min_experience = st.slider("\ud83d\udcbc Minimum Experience Required", 0, 15, 2)
 
 # --- Utility Functions ---
 def extract_text_from_pdf(uploaded_file):
@@ -90,35 +91,18 @@ def extract_email(text):
     match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
     return match.group(0) if match else None
 
+def tfidf_score(resume_text, jd_text, years_exp):
+    docs = [jd_text.lower(), resume_text.lower()]
+    tfidf = TfidfVectorizer(stop_words='english')
+    tfidf_matrix = tfidf.fit_transform(docs)
+    score = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0] * 100
+    score += min(years_exp, 10)
+    return round(min(score, 100), 2)
+
 def smart_score(resume_text, jd_text, years_exp):
-    resume_text = resume_text.lower()
-    jd_text = jd_text.lower()
-
-    jd_keywords = set(re.findall(r'\b\w+\b', jd_text))
-    resume_words = set(re.findall(r'\b\w+\b', resume_text))
-
-    # Important skills matched
-    important_skills = [word for word in jd_keywords if word in resume_words]
-
-    # Weighted score for core vs generic skills
-    core_skills = ['python', 'tensorflow', 'nlp', 'sql', 'pytorch', 'aws', 'gcp', 'deployment', 'model', 'learning']
-    weight = sum([3 if word in core_skills else 1 for word in important_skills])
-    total_possible = sum([3 if word in core_skills else 1 for word in jd_keywords])
-
-    # Normalize score and add experience weight
-    score = (weight / total_possible) * 100 if total_possible else 0
-    score += min(years_exp, 10)  # Cap experience boost to 10 points
-    score = round(min(score, 100), 2)
-
-    # Determine missing critical skills
-    missing = [word for word in core_skills if word in jd_keywords and word not in resume_words]
-
-    # Feedback
-    feedback = "✅ Excellent match!" if score >= 80 else (
-        f"⚠️ Missing important skills: {', '.join(missing)}" if missing else "⚠️ Needs more relevant content."
-    )
-
-    return score, ", ".join(important_skills), feedback, missing
+    score = tfidf_score(resume_text, jd_text, years_exp)
+    feedback = "\u2705 Excellent match!" if score >= 80 else "\u26a0\ufe0f Resume may need more targeted phrasing for this role."
+    return score, "Semantic Score", feedback, []
 
 
 def generate_summary(text, experience, skills):
