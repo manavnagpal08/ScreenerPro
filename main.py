@@ -8,6 +8,8 @@ from email_sender import send_email_to_candidate
 import os
 import json
 import pdfplumber
+import runpy
+
 
 # --- Page Config ---
 st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide")
@@ -201,8 +203,7 @@ if tab == "🏠 Dashboard":
 # Page Routing via exec
 # ======================
 elif tab == "🧠 Resume Screener":
-    with open("screener.py", encoding="utf-8", errors="ignore") as f:
-        exec(f.read())
+    runpy.run_path("screener.py")
 
 elif tab == "📁 Manage JDs":
     with open("manage_jds.py", encoding="utf-8") as f:
