@@ -84,23 +84,37 @@ def extract_text_from_pdf(uploaded_file):
 
 def extract_years_of_experience(text):
     text = text.lower()
-    job_date_ranges = re.findall(r'(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})\s*(?:to|\-|–)\s*(present|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})', text)
+    job_date_ranges = re.findall(
+        r'(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})\s*(?:to|\-|–)\s*(present|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})',
+        text
+    )
     total_months = 0
     for start, end in job_date_ranges:
         try:
-            start_date = datetime.strptime(start, '%B %Y')
+            try:
+                start_date = datetime.strptime(start, '%b %Y')
+            except:
+                start_date = datetime.strptime(start, '%B %Y')
         except:
             continue
+
         if end.lower() == 'present':
             end_date = datetime.now()
         else:
             try:
-                end_date = datetime.strptime(end, '%B %Y')
+                try:
+                    end_date = datetime.strptime(end, '%b %Y')
+                except:
+                    end_date = datetime.strptime(end, '%B %Y')
             except:
                 continue
-        total_months += (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
+
+        delta = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
+        if delta > 0:
+            total_months += delta
 
     return round(total_months / 12, 1)
+
 
 def extract_email(text):
     match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
