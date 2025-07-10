@@ -109,11 +109,12 @@ if tab == "🏠 Dashboard":
     jd_count = len([f for f in os.listdir("data") if f.endswith(".txt")]) if os.path.exists("data") else 0
     shortlisted = 0
     avg_score = 0.0
+    df_results = pd.DataFrame() # Initialize empty DataFrame
 
-    # Load results.csv if it exists to get the latest screening data
-    if os.path.exists("results.csv"):
+    # Load results from session state instead of results.csv
+    if 'screening_results' in st.session_state and st.session_state['screening_results']:
         try:
-            df_results = pd.read_csv("results.csv")
+            df_results = pd.DataFrame(st.session_state['screening_results'])
             resume_count = df_results["File Name"].nunique() # Count unique resumes screened
             
             # Define cutoff for shortlisted candidates (consistent with streamlit_app.py)
@@ -124,13 +125,12 @@ if tab == "🏠 Dashboard":
             shortlisted = df_results[(df_results["Score (%)"] >= cutoff_score) & 
                                      (df_results["Years Experience"] >= min_exp_required)].shape[0]
             avg_score = df_results["Score (%)"].mean()
-        except pd.errors.EmptyDataError:
-            st.warning("`results.csv` is empty. No screening data to display yet.")
         except Exception as e:
-            st.error(f"Error reading `results.csv`: {e}")
-            df_results = pd.DataFrame() # Ensure df_results is defined as empty if error occurs
+            st.error(f"Error processing screening results from session state: {e}")
+            df_results = pd.DataFrame() # Reset df_results if error occurs
     else:
-        df_results = pd.DataFrame() # Initialize empty if file doesn't exist
+        st.info("No screening results available in this session yet. Please run the Resume Screener.")
+
 
     col1, col2, col3 = st.columns(3)
     col1.markdown(f"""<div class="dashboard-card">📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True)
@@ -149,7 +149,7 @@ if tab == "🏠 Dashboard":
             st.rerun()
 
     # Optional: Dashboard Insights
-    if not df_results.empty: # Use df_results loaded from CSV
+    if not df_results.empty: # Use df_results loaded from session state
         try:
             df_results['Tag'] = df_results.apply(lambda row:
                 "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3
