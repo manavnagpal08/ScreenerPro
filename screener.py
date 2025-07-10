@@ -43,7 +43,8 @@ def login_section():
 
 
 # --- Load Embedding + ML Model ---
-model = SentenceTransformer("all-MiniLM-L6-v2")
+# IMPORTANT: Ensure this SentenceTransformer model matches the one used in train_model.py
+model = SentenceTransformer("all-MiniLM-L6-v2") 
 try:
     ml_model = joblib.load("ml_screening_model.pkl")
     st.success("✅ ML model loaded successfully")
@@ -289,7 +290,8 @@ def smart_score(resume_text, jd_text, years_exp):
     elif not matched_keywords:
         feedback = "Very few common keywords found. Significant mismatch."
 
-    return score, matched_keywords, missing_skills, feedback, 0.0, round(jd_coverage_percentage, 2) # Return 0.0 for semantic_similarity
+    # semantic_similarity is not calculated in smart_score, so return 0.0
+    return score, matched_keywords, missing_skills, feedback, 0.0, round(jd_coverage_percentage, 2)
 
 
 def semantic_score(resume_text, jd_text, years_exp):
@@ -337,35 +339,24 @@ def semantic_score(resume_text, jd_text, years_exp):
         jd_words_filtered = {word for word in jd_words_all if word not in STOP_WORDS}
 
         keyword_overlap_count = len(resume_words_filtered & jd_words_filtered)
-        resume_len = len(resume_clean.split())
-
-        # Dynamically get top skills from JD for matched_core_skills_count
-        # This makes the "core skills" matching relevant to the specific JD
-        jd_top_skills = get_top_keywords(jd_clean, num_keywords=20) # Get more keywords for better coverage
-        matched_core_skills_count = sum(1 for skill in jd_top_skills if skill in resume_clean)
-
-        # Calculate JD Keyword Coverage Percentage
-        if len(jd_words_filtered) > 0:
-            jd_coverage_percentage = (keyword_overlap_count / len(jd_words_filtered)) * 100
-        else:
-            jd_coverage_percentage = 0.0
-
-
+        
         # Ensure years_exp is a float, default to 0.0 if None
         years_exp_for_model = float(years_exp) if years_exp is not None else 0.0
 
-        # The ml_screening_model.pkl was likely trained with 4 extra features (768 + 4 = 772 features).
-        # We will keep these 4 features for the ML model prediction.
-        extra_feats = np.array([keyword_overlap_count, resume_len, matched_core_skills_count, years_exp_for_model])
-
-        # Concatenate all features for the ML model
-        features = np.concatenate([jd_embed, resume_embed, extra_feats])
+        # Concatenate all features for the ML model (384 + 384 + 1 + 1 = 770 features)
+        features = np.concatenate([jd_embed, resume_embed, [years_exp_for_model], [keyword_overlap_count]])
 
         st.info(f"🔍 Feature shape: {features.shape}")
 
         # Predict score using the loaded ML model
         predicted_score = ml_model.predict([features])[0]
         st.success(f"🧠 Predicted score (ML base): {predicted_score:.2f}")
+
+        # Calculate JD Keyword Coverage Percentage for display purposes
+        if len(jd_words_filtered) > 0:
+            jd_coverage_percentage = (keyword_overlap_count / len(jd_words_filtered)) * 100
+        else:
+            jd_coverage_percentage = 0.0
 
         # Blend ML predicted score with JD keyword coverage and semantic similarity for stronger differentiation
         # Adjusted weights: More emphasis on ML predicted score and semantic similarity.
@@ -557,14 +548,6 @@ if jd_text and resume_files:
             else:
                 st.success("All top JD skills found in this resume!")
 
-            # Percentage of JD skills matched (already covered by JD Keyword Coverage now)
-            # if jd_top_skills_list:
-            #     match_percentage = (len(matched_jd_skills) / len(jd_top_skills_list)) * 100
-            #     st.markdown(f"**Overall JD Skill Match:** {match_percentage:.2f}% of top JD skills found.")
-            # else:
-            #     st.info("No top skills identified in the Job Description for matching percentage.")
-
-
             # --- New Feature: Experience Match Visual ---
             st.markdown("### ⏳ Experience Match")
             exp_ratio = min(row['Years Experience'] / min_experience, 1.0) if min_experience > 0 else 1.0
@@ -606,55 +589,25 @@ if jd_text and resume_files:
     st.metric("✅ Shortlisted Candidates", len(shortlisted))
 
     st.markdown("### 📋 All Candidate Results Table")
-    st.dataframe(df) # Display the full DataFrame
+    st.dataframe(df) # Display the DataFrame
 
+    # Add download button for results
+    csv_data = df.to_csv(index=False).encode('utf-8')
     st.download_button(
-        "📥 Download Results CSV",
-        df.to_csv(index=False).encode("utf-8"),
-        file_name="screener_results.csv",
-        mime="text/csv"
+        label="⬇️ Download Results CSV",
+        data=csv_data,
+        file_name="candidate_screening_results.csv",
+        mime="text/csv",
     )
 
-    st.markdown("### ✉️ Send Emails to Shortlisted Candidates")
-    # Corrected the variable name from email_ready to shortlisted for filtering
-    email_ready = shortlisted[shortlisted['Email'].str.contains("@", na=False)]
+    # Add download button for detailed report (PDF)
+    # This would require a library like FPDF or ReportLab, which is outside the scope of this interaction.
+    # st.download_button(
+    #     label="⬇️ Download Detailed PDF Report",
+    #     data=b'', # Placeholder
+    #     file_name="detailed_report.pdf",
+    #     mime="application/pdf",
+    #     disabled=True, # Disable for now as functionality is not implemented
+    #     help="Detailed PDF report generation is not yet implemented."
+    # )
 
-    if email_ready.empty:
-        st.info("No shortlisted candidates with valid emails to send emails to.")
-    else:
-        st.write(f"Found {len(email_ready)} shortlisted candidates with valid emails.")
-        subject = st.text_input("Email Subject", "You're Shortlisted - Next Steps for [Job Role]")
-        body = st.text_area("Email Body", """
-Dear {{name}},
-
-We are pleased to inform you that you've been shortlisted for the next round for the [Job Role] position.
-Your profile scored {{score}}% in our AI-powered screening system.
-
-We will be in touch shortly with the next steps.
-
-Regards,
-Recruitment Team
-""")
-
-        if st.button("📧 Send Emails"):
-            for _, row in email_ready.iterrows():
-                # Replace placeholders in the email body
-                msg = body.replace("{{name}}", row['Candidate Name'])\
-                            .replace("{{score}}", str(round(row['Score (%)'], 2)))
-                # Assuming `jd_option` holds the job role name
-                msg = msg.replace("[Job Role]", jd_option if jd_option != "Upload my own" else "the specified role")
-
-                send_email_to_candidate(
-                    name=row["Candidate Name"], # Use the extracted name for email
-                    score=row["Score (%)"],
-                    feedback=row["Tag"],
-                    recipient=row["Email"],
-                    subject=subject,
-                    message=msg
-                )
-            st.success("✅ Emails sent to shortlisted candidates!")
-else:
-    if not jd_text:
-        st.warning("Please upload a Job Description or select a predefined job role.")
-    if not resume_files:
-        st.warning("Please upload one or more resumes.")
