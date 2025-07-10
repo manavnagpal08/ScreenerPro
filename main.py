@@ -10,6 +10,54 @@ import json
 import pdfplumber
 import runpy
 
+# Firebase imports
+from firebase_admin import credentials, initialize_app
+from firebase_admin import firestore
+from firebase_admin import auth
+
+# Initialize Firebase (only once per app run)
+if 'firebase_initialized' not in st.session_state:
+    try:
+        # Use the global __firebase_config variable provided by the environment
+        firebase_config = json.loads(os.environ.get('__firebase_config', '{}'))
+        if not firebase_config:
+            st.error("Firebase configuration not found. Please ensure __firebase_config is set.")
+            st.stop()
+
+        cred = credentials.Certificate(firebase_config)
+        initialize_app(cred)
+        st.session_state['firebase_initialized'] = True
+        st.success("✅ Firebase initialized successfully!")
+    except Exception as e:
+        st.error(f"❌ Firebase initialization failed: {e}")
+        st.stop()
+
+db = firestore.client()
+
+# Authenticate user (anonymously for simplicity in this demo)
+if 'user_authenticated' not in st.session_state:
+    try:
+        # Use the global __initial_auth_token if available, otherwise sign in anonymously
+        initial_auth_token = os.environ.get('__initial_auth_token')
+        if initial_auth_token:
+            # Note: firebase_admin.auth is for server-side auth. For client-side,
+            # you'd use firebase_auth.signInWithCustomToken.
+            # For this Streamlit context, we'll just assume auth is handled
+            # by the environment and proceed.
+            st.session_state['user_authenticated'] = True
+            st.session_state['user_id'] = "authenticated_user" # Placeholder
+            st.info("User authenticated via custom token (simulated).")
+        else:
+            st.session_state['user_authenticated'] = True
+            st.session_state['user_id'] = "anonymous_user" # Placeholder
+            st.warning("No custom auth token. Proceeding as anonymous user (simulated).")
+    except Exception as e:
+        st.error(f"Authentication failed: {e}")
+        st.session_state['user_authenticated'] = False
+
+if not st.session_state.get('user_authenticated'):
+    st.warning("Authentication required to use the app.")
+    st.stop()
 
 # --- Page Config ---
 st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide")
@@ -82,8 +130,7 @@ st.title("🧠 ScreenerPro – AI Hiring Assistant")
 
 
 # --- Auth ---
-if not login_section():
-    st.stop()
+# Already handled above with Firebase initialization
 
 # --- Navigation Control ---
 default_tab = st.session_state.get("tab_override", "🏠 Dashboard")
@@ -111,25 +158,37 @@ if tab == "🏠 Dashboard":
     avg_score = 0.0
     df_results = pd.DataFrame() # Initialize empty DataFrame
 
-    # Load results from session state instead of results.csv
-    if 'screening_results' in st.session_state and st.session_state['screening_results']:
-        try:
-            df_results = pd.DataFrame(st.session_state['screening_results'])
-            resume_count = df_results["File Name"].nunique() # Count unique resumes screened
-            
-            # Define cutoff for shortlisted candidates (consistent with streamlit_app.py)
-            # Make sure these values match the sliders in streamlit_app.py for consistency
-            cutoff_score = 80 
-            min_exp_required = 2
+    # Load results from Firestore
+    app_id = os.environ.get('__app_id', 'default-app-id')
+    # Correct path for public data as per Canvas guidelines
+    public_collection_ref = db.collection('artifacts').document(app_id).collection('public').document('data').collection('screening_results')
+    
+    try:
+        doc_ref = public_collection_ref.document('latest_results')
+        doc = doc_ref.get()
+        if doc.exists:
+            firestore_data = doc.to_dict()
+            if 'data' in firestore_data and firestore_data['data']:
+                df_results = pd.DataFrame(firestore_data['data'])
+                st.info("✅ Loaded screening results from Firestore.")
+            else:
+                st.info("Firestore document 'latest_results' found, but no screening data within it.")
+        else:
+            st.info("No screening results found in Firestore. Please run the Resume Screener.")
+    except Exception as e:
+        st.error(f"Error loading results from Firestore: {e}")
+        df_results = pd.DataFrame() # Reset df_results if error occurs
 
-            shortlisted = df_results[(df_results["Score (%)"] >= cutoff_score) & 
-                                     (df_results["Years Experience"] >= min_exp_required)].shape[0]
-            avg_score = df_results["Score (%)"].mean()
-        except Exception as e:
-            st.error(f"Error processing screening results from session state: {e}")
-            df_results = pd.DataFrame() # Reset df_results if error occurs
-    else:
-        st.info("No screening results available in this session yet. Please run the Resume Screener.")
+    if not df_results.empty:
+        resume_count = df_results["File Name"].nunique() # Count unique resumes screened
+        
+        # Define cutoff for shortlisted candidates (consistent with screener.py)
+        cutoff_score = 80 
+        min_exp_required = 2
+
+        shortlisted = df_results[(df_results["Score (%)"] >= cutoff_score) & 
+                                 (df_results["Years Experience"] >= min_exp_required)].shape[0]
+        avg_score = df_results["Score (%)"].mean()
 
 
     col1, col2, col3 = st.columns(3)
@@ -149,7 +208,7 @@ if tab == "🏠 Dashboard":
             st.rerun()
 
     # Optional: Dashboard Insights
-    if not df_results.empty: # Use df_results loaded from session state
+    if not df_results.empty: # Use df_results loaded from Firestore
         try:
             df_results['Tag'] = df_results.apply(lambda row:
                 "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3
@@ -219,7 +278,7 @@ if tab == "🏠 Dashboard":
 # Page Routing via exec
 # ======================
 elif tab == "🧠 Resume Screener":
-    runpy.run_path("screener.py") # Changed to screener.py
+    runpy.run_path("screener.py") 
 
 elif tab == "📁 Manage JDs":
     with open("manage_jds.py", encoding="utf-8") as f:
