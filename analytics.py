@@ -4,6 +4,52 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from wordcloud import WordCloud
 import os
+import json # Import json for firebase config
+
+# Firebase imports (ensure these are available in your environment)
+from firebase_admin import credentials, initialize_app
+from firebase_admin import firestore
+from firebase_admin import auth
+
+# Initialize Firebase (only once per app run)
+# Ensure this block is consistent across all files that use Firebase
+if 'firebase_initialized' not in st.session_state:
+    try:
+        firebase_config = json.loads(os.environ.get('__firebase_config', '{}'))
+        if not firebase_config:
+            st.error("Firebase configuration not found. Please ensure __firebase_config is set.")
+            st.stop()
+
+        cred = credentials.Certificate(firebase_config)
+        initialize_app(cred)
+        st.session_state['firebase_initialized'] = True
+        st.success("✅ Firebase initialized successfully!")
+    except Exception as e:
+        st.error(f"❌ Firebase initialization failed: {e}")
+        st.stop()
+
+db = firestore.client()
+
+# Authenticate user (anonymously for simplicity in this demo)
+if 'user_authenticated' not in st.session_state:
+    try:
+        initial_auth_token = os.environ.get('__initial_auth_token')
+        if initial_auth_token:
+            st.session_state['user_authenticated'] = True
+            st.session_state['user_id'] = "authenticated_user" # Placeholder
+            st.info("User authenticated via custom token (simulated).")
+        else:
+            st.session_state['user_authenticated'] = True
+            st.session_state['user_id'] = "anonymous_user" # Placeholder
+            st.warning("No custom auth token. Proceeding as anonymous user (simulated).")
+    except Exception as e:
+        st.error(f"Authentication failed: {e}")
+        st.session_state['user_authenticated'] = False
+
+if not st.session_state.get('user_authenticated'):
+    st.warning("Authentication required to use the app.")
+    st.stop()
+
 
 # --- Page Styling ---
 st.markdown("""
@@ -30,31 +76,29 @@ h3 {
 st.markdown('<div class="analytics-box">', unsafe_allow_html=True)
 st.markdown("## 📊 Screening Analytics Dashboard")
 
-# --- Load Data ---
+# --- Load Data from Firestore ---
 df = pd.DataFrame() # Initialize an empty DataFrame
 
-# Prioritize loading from session state
-if 'screening_results' in st.session_state and st.session_state['screening_results']:
-    try:
-        df = pd.DataFrame(st.session_state['screening_results'])
-        st.info("✅ Loaded screening results from current session.")
-    except Exception as e:
-        st.error(f"Error loading results from session state: {e}")
-        df = pd.DataFrame() # Reset to empty if error
-else:
-    # Fallback to results.csv if session state is empty or not set
-    data_source = "results.csv"
-    if os.path.exists(data_source):
-        try:
-            df = pd.read_csv(data_source)
-            st.info("📁 Loaded existing results from `results.csv` (No session data found).")
-        except pd.errors.EmptyDataError:
-            st.warning("`results.csv` is empty. No screening data to display yet.")
-        except Exception as e:
-            st.error(f"Error reading `results.csv`: {e}")
+app_id = os.environ.get('__app_id', 'default-app-id')
+public_collection_ref = db.collection('artifacts').document(app_id).collection('public').document('data').collection('screening_results')
+
+try:
+    doc_ref = public_collection_ref.document('latest_results')
+    doc = doc_ref.get()
+    if doc.exists:
+        firestore_data = doc.to_dict()
+        if 'data' in firestore_data and firestore_data['data']:
+            df = pd.DataFrame(firestore_data['data'])
+            st.info("✅ Loaded screening results from Firestore.")
+        else:
+            st.info("Firestore document 'latest_results' found, but no screening data within it.")
     else:
-        st.warning("⚠️ No screening data found in current session or `results.csv`. Please run the screener first.")
+        st.warning("⚠️ No screening data found in Firestore. Please run the Resume Screener first.")
         st.stop() # Stop execution if no data is available
+except Exception as e:
+    st.error(f"Error loading results from Firestore: {e}")
+    st.warning("⚠️ No screening data could be loaded. Please run the Resume Screener first.")
+    st.stop() # Stop execution if data loading fails
 
 # Check if DataFrame is still empty after loading attempts
 if df.empty:
@@ -73,12 +117,16 @@ st.divider()
 
 # --- Top Candidates ---
 st.markdown("### 🥇 Top 5 Candidates by Score")
-st.dataframe(df.sort_values(by="Score (%)", ascending=False).head(5)[['File Name', 'Score (%)', 'Years Experience', 'Candidate Name']], use_container_width=True)
+# Dynamically select columns to avoid KeyError if 'Candidate Name' is somehow missing
+display_columns = ['File Name', 'Score (%)', 'Years Experience']
+if 'Candidate Name' in df.columns:
+    display_columns.append('Candidate Name')
+st.dataframe(df.sort_values(by="Score (%)", ascending=False).head(5)[display_columns], use_container_width=True)
 
 # --- WordCloud ---
 if 'Matched Keywords' in df.columns and not df['Matched Keywords'].empty:
     st.markdown("### ☁️ Common Skills WordCloud")
-    all_keywords = [kw.strip() for kws in df['Matched Keywords'].dropna() for kw in kws.split(',')]
+    all_keywords = [kw.strip() for kws in df['Matched Keywords'].dropna() for kw in kws.split(',') if kw.strip()]
     if all_keywords: # Ensure there are keywords before generating word cloud
         wc = WordCloud(width=800, height=400, background_color="white").generate(" ".join(all_keywords))
         fig_wc, ax_wc = plt.subplots(figsize=(10, 4))
