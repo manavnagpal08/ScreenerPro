@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-import json
+import json # Added: Import the json module
 import pandas as pd # Added for Dashboard section
 import matplotlib.pyplot as plt # Added for Dashboard section
 import seaborn as sns # Added for Dashboard section
@@ -159,6 +159,7 @@ else:
     # ======================
     if page == "🏠 Dashboard":
         # Access Firestore client here after initialization
+        from firebase_admin import firestore # Re-import firestore here if it's not globally available
         db = firestore.client()
         app_id = os.environ.get('__app_id', 'default-app-id')
         public_collection_ref = db.collection('artifacts').document(app_id).collection('public').document('data').collection('screening_results')
@@ -310,4 +311,3 @@ else:
         st.session_state.user_id = None
         st.success("✅ Logged out. Please refresh the page to log in again.")
         st.stop() # Stop the app after logout
-
