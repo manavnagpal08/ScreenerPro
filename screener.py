@@ -90,27 +90,45 @@ def semantic_score(resume_text, jd_text, years_exp):
     if ml_model is None:
         return 0.0
     try:
+        # --- Clean text ---
+        def clean_text(t):
+            t = re.sub(r'\n', ' ', t)
+            t = re.sub(r'\s+', ' ', t)
+            return t.strip().lower()
+
         jd_clean = clean_text(jd_text)
         resume_clean = clean_text(resume_text)
 
+        # --- Embeddings ---
         jd_embed = model.encode(jd_clean)
         resume_embed = model.encode(resume_clean)
-        features = np.concatenate([jd_embed, resume_embed])
 
-        print("📄 Resume len:", len(resume_clean), "| JD len:", len(jd_clean), "| Exp:", years_exp)
+        # --- Extra numerical features ---
+        resume_words = set(re.findall(r'\b\w+\b', resume_clean))
+        jd_words = set(re.findall(r'\b\w+\b', jd_clean))
+        keyword_overlap = len(resume_words & jd_words)
+        resume_len = len(resume_clean.split())
+
+        core_skills = ['sql', 'excel', 'python', 'tableau', 'powerbi', 'r', 'aws']
+        matched_skills = sum(1 for skill in core_skills if skill in resume_clean)
+
+        extra_feats = np.array([keyword_overlap, resume_len, matched_skills])
+        features = np.concatenate([jd_embed, resume_embed, extra_feats])
+
+        # --- Predict ---
         score = ml_model.predict([features])[0]
-        print("🧠 Raw predicted score:", score)
-
         score = float(np.clip(score, 0, 100))
 
+        # Fallback
         if score < 10:
-            print("⚠️ ML score too low. Using rule-based fallback.")
+            from screener import smart_score
             score, _, _, _ = smart_score(resume_text, jd_text, years_exp)
 
         return round(score, 2)
     except Exception as e:
-        print("❌ Error in semantic_score:", e)
+        print("❌ semantic_score error:", e)
         return 0.0
+
 
 # --- Streamlit UI ---
 st.title("🧠 ScreenerPro – AI Resume Screener")
