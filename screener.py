@@ -368,19 +368,14 @@ def semantic_score(resume_text, jd_text, years_exp):
         st.success(f"🧠 Predicted score (ML base): {predicted_score:.2f}")
 
         # Blend ML predicted score with JD keyword coverage and semantic similarity for stronger differentiation
-        # Dynamic weighting:
-        # If semantic similarity is high, give it more weight.
-        # If JD coverage is high, give it more weight.
-        # This aims to make the score more sensitive to both conceptual and keyword alignment.
-        # Weights are adjusted to ensure a sum of 1.0 for the blending components.
-        # Example: 0.4 for ML predicted, 0.3 for JD coverage, 0.3 for semantic similarity (scaled to 100)
-        blended_score = (predicted_score * 0.4) + \
-                        (jd_coverage_percentage * 0.3) + \
+        # Adjusted weights: More emphasis on ML predicted score and semantic similarity.
+        blended_score = (predicted_score * 0.5) + \
+                        (jd_coverage_percentage * 0.2) + \
                         (semantic_similarity * 100 * 0.3) # Scale semantic_similarity to 0-100 range
 
-        # Apply a penalty if JD keyword coverage is very low, to push down irrelevant resumes
-        if jd_coverage_percentage < 10: # Example threshold, can be adjusted
-            blended_score -= 10 # Deduct 10 points for very low coverage
+        # Removed the penalty for low JD keyword coverage to allow for higher scores.
+        # if jd_coverage_percentage < 10: # Example threshold, can be adjusted
+        #     blended_score -= 10 # Deduct 10 points for very low coverage
 
         score = float(np.clip(blended_score, 0, 100)) # Ensure score is between 0 and 100
 
