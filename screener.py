@@ -16,9 +16,11 @@ from login import login_section
 model = SentenceTransformer("all-MiniLM-L6-v2")
 try:
     ml_model = joblib.load("ml_screening_model.pkl")
+    st.success("✅ ML model loaded successfully")
 except Exception as e:
-    st.error(f"❌ Failed to load ML model: {e}")
+    st.error(f"❌ Could not load model: {e}")
     ml_model = None
+
 
 # --- Helpers ---
 def clean_text(text):
@@ -87,10 +89,14 @@ def smart_score(resume_text, jd_text, years_exp):
     return round(min(score, 100), 2), ", ".join(overlap), "", []
 
 def semantic_score(resume_text, jd_text, years_exp):
+    st.warning("⚙️ semantic_score() function triggered")  # Debug marker
+
     if ml_model is None:
+        st.error("❌ ML model not loaded")
         return 0.0
 
     try:
+        # Clean text
         def clean_text(text):
             text = re.sub(r'\s+', ' ', text)
             return text.strip().lower()
@@ -102,7 +108,7 @@ def semantic_score(resume_text, jd_text, years_exp):
         jd_embed = model.encode(jd_clean)
         resume_embed = model.encode(resume_clean)
 
-        # Features
+        # Extra numerical features
         resume_words = set(re.findall(r'\b\w+\b', resume_clean))
         jd_words = set(re.findall(r'\b\w+\b', jd_clean))
         keyword_overlap = len(resume_words & jd_words)
@@ -114,22 +120,22 @@ def semantic_score(resume_text, jd_text, years_exp):
         extra_feats = np.array([keyword_overlap, resume_len, matched_skills])
         features = np.concatenate([jd_embed, resume_embed, extra_feats])
 
-        # Check final shape
-        print("🔍 Feature vector shape:", features.shape)
-        print("🔍 Feature shape at runtime:", features.shape)
+        st.info(f"🔍 Feature shape: {features.shape}")  # Confirm it’s (771,)
 
         score = ml_model.predict([features])[0]
+        st.success(f"🧠 Predicted score: {score:.2f}")
+
         score = float(np.clip(score, 0, 100))
 
         if score < 10:
+            st.warning("⚠️ ML score too low. Using fallback scoring.")
             from screener import smart_score
-            print("⚠️ Fallback to rule-based score")
             score, _, _, _ = smart_score(resume_text, jd_text, years_exp)
 
         return round(score, 2)
 
     except Exception as e:
-        print("❌ Error in semantic_score:", e)
+        st.error(f"❌ semantic_score failed: {e}")
         return 0.0
 
 # --- Streamlit UI ---
