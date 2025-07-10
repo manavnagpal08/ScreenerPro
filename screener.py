@@ -138,11 +138,23 @@ def semantic_score(resume_text, jd_text, years_exp):
     try:
         jd_embed = model.encode([jd_text])[0]
         resume_embed = model.encode([resume_text])[0]
-        score = cosine_similarity([jd_embed], [resume_embed])[0][0] * 100
-        score += min(years_exp, 10)
-        return round(min(score, 100), 2)
+        cosine_score = cosine_similarity([jd_embed], [resume_embed])[0][0] * 100
+
+        # Keyword matching (JD vs resume word overlap)
+        resume_words = set(re.findall(r'\b\w+\b', resume_text.lower()))
+        jd_words = set(re.findall(r'\b\w+\b', jd_text.lower()))
+        matched_keywords = resume_words & jd_words
+        keyword_score = min(len(matched_keywords), 20)  # cap to avoid overweighting
+
+        # Experience bonus (capped at 10)
+        experience_bonus = min(years_exp, 10)
+
+        # Weighted score formula
+        final_score = 0.6 * cosine_score + 0.3 * keyword_score + 0.1 * experience_bonus
+        return round(min(final_score, 100), 2)
     except:
         return 0.0
+
 
 def generate_summary(text, experience):
     lines = text.strip().split("\n")[:5]
