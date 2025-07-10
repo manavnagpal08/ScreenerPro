@@ -201,7 +201,7 @@ if tab == "🏠 Dashboard":
 # Page Routing via exec
 # ======================
 elif tab == "🧠 Resume Screener":
-    with open("screener.py", encoding="utf-8") as f:
+    with open("screener.py", encoding="utf-8", errors="ignore") as f:
         exec(f.read())
 
 elif tab == "📁 Manage JDs":
