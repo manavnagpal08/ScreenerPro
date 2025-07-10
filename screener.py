@@ -3,6 +3,7 @@ import pdfplumber
 import pandas as pd
 import re
 import os
+import joblib
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 from sklearn.metrics.pairwise import cosine_similarity
@@ -13,7 +14,8 @@ import runpy
 from datetime import datetime
 
 # --- Initialize model ---
-model = SentenceTransformer('all-MiniLM-L6-v2')
+model = SentenceTransformer("all-MiniLM-L6-v2")
+ml_model = joblib.load("ml_screening_model.pkl")
 
 # --- UI Styling ---
 st.markdown("""
@@ -137,41 +139,11 @@ def extract_email(text):
 
 def semantic_score(resume_text, jd_text, years_exp):
     try:
-        jd_embed = model.encode([jd_text])[0]
-        resume_embed = model.encode([resume_text])[0]
-        cosine_score = cosine_similarity([jd_embed], [resume_embed])[0][0] * 100
-
-        resume_words = set(re.findall(r'\b\w+\b', resume_text.lower()))
-        jd_words = set(re.findall(r'\b\w+\b', jd_text.lower()))
-        matched_keywords = resume_words & jd_words
-        keyword_score = min(len(matched_keywords), 20)
-
-        # Detect job role
-        role_core_skills = {
-            'data_analyst': ['sql', 'excel', 'tableau', 'powerbi', 'python', 'r', 'statistics', 'dashboard', 'data'],
-            'data_scientist': ['python', 'r', 'machine learning', 'deep learning', 'pandas', 'numpy', 'tensorflow', 'scikit-learn', 'nlp'],
-            'machine_learning_engineer': ['python', 'pytorch', 'tensorflow', 'keras', 'ml', 'ai', 'model training', 'scikit-learn', 'deep learning'],
-            'software_engineer': ['java', 'python', 'c++', 'data structures', 'algorithms', 'git', 'oop', 'system design'],
-            'web_developer': ['html', 'css', 'javascript', 'react', 'node', 'frontend', 'api', 'bootstrap', 'web'],
-            'frontend_engineer': ['javascript', 'html', 'css', 'react', 'vue', 'angular', 'typescript', 'ui', 'frontend'],
-            'backend_developer': ['node', 'express', 'java', 'python', 'api', 'database', 'mongodb', 'postgresql', 'sql'],
-            'devops_engineer': ['docker', 'kubernetes', 'jenkins', 'aws', 'linux', 'ci/cd', 'terraform', 'ansible', 'cloud'],
-            'mobile_app_developer': ['flutter', 'react native', 'android', 'ios', 'kotlin', 'swift', 'mobile', 'ui'],
-            'product_manager': ['product', 'strategy', 'roadmap', 'stakeholders', 'agile', 'scrum', 'ux', 'kpi', 'market research'],
-            'qa_engineer': ['selenium', 'test cases', 'automation', 'bug tracking', 'jira', 'manual testing', 'qa'],
-            'ui_ux_designer': ['figma', 'adobe xd', 'ui', 'ux', 'prototyping', 'wireframe', 'design system', 'user research']
-        }
-
-        role_key = "data_analyst"  # TEMP hardcoded — later link to JD filename or dropdown
-        core_skills = role_core_skills.get(role_key, [])
-        core_bonus = sum(1 for skill in core_skills if skill in resume_words)
-        core_bonus = min(core_bonus * 2, 10)
-
-        experience_bonus = min(years_exp, 10)
-
-        final_score = 0.5 * cosine_score + 0.25 * keyword_score + 0.15 * experience_bonus + 0.1 * core_bonus
-        return round(min(final_score, 100), 2)
-
+        jd_embed = model.encode(jd_text)
+        resume_embed = model.encode(resume_text)
+        features = np.concatenate([jd_embed, resume_embed])
+        predicted_score = ml_model.predict([features])[0]
+        return round(min(predicted_score, 100), 2)
     except Exception as e:
         print("Error in semantic_score:", e)
         return 0.0
