@@ -84,7 +84,7 @@ def extract_text_from_pdf(uploaded_file):
 
 def extract_years_of_experience(text):
     text = text.lower()
-    job_date_ranges = re.findall(r'(\w+\s+\d{4})\s*(?:to|\-|–)\s*(present|\w+\s+\d{4})', text)
+    job_date_ranges = re.findall(r'(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})\s*(?:to|\-|–)\s*(present|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})', text)
     total_months = 0
     for start, end in job_date_ranges:
         try:
@@ -100,8 +100,7 @@ def extract_years_of_experience(text):
                 continue
         total_months += (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
 
-    years = total_months // 12
-    return int(years)
+    return round(total_months / 12, 1)
 
 def extract_email(text):
     match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
