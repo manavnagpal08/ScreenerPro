@@ -300,8 +300,11 @@ def semantic_score(resume_text, jd_text, years_exp):
         keyword_overlap_count = len(resume_words_filtered & jd_words_filtered)
         resume_len = len(resume_clean.split())
 
-        core_skills = ['sql', 'excel', 'python', 'tableau', 'powerbi', 'r', 'aws'] # These are specific, not general stop words
-        matched_core_skills_count = sum(1 for skill in core_skills if skill in resume_clean)
+        # Dynamically get top skills from JD for matched_core_skills_count
+        # This makes the "core skills" matching relevant to the specific JD
+        jd_top_skills = get_top_keywords(jd_clean, num_keywords=20) # Get more keywords for better coverage
+        matched_core_skills_count = sum(1 for skill in jd_top_skills if skill in resume_clean)
+
 
         # Ensure years_exp is a float, default to 0.0 if None
         years_exp_for_model = float(years_exp) if years_exp is not None else 0.0
