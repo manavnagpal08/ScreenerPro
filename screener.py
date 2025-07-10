@@ -4,13 +4,23 @@ import pandas as pd
 import re
 import os
 import sklearn
-
 import joblib
 import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 from sentence_transformers import SentenceTransformer
+import nltk # Import NLTK
+
+# Download NLTK stopwords data if not already downloaded
+# This line will only run once when the app starts or when this part of the code is executed.
+# It's good practice to put this outside functions if it's a one-time setup.
+try:
+    nltk.data.find('corpora/stopwords')
+except nltk.downloader.DownloadError:
+    nltk.download('stopwords')
+    st.success("✅ NLTK stopwords downloaded successfully!")
+
 
 # --- External Dependencies (Ensure these files exist in your environment) ---
 # from email_sender import send_email_to_candidate
@@ -40,6 +50,99 @@ except Exception as e:
     ml_model = None
 
 st.info(f"📦 Loaded model: {type(ml_model).__name__} | sklearn: {sklearn.__version__}")
+
+# --- Stop Words List (Using NLTK) ---
+# Get the English stop words from NLTK and convert to a set for efficient lookups
+NLTK_STOP_WORDS = set(nltk.corpus.stopwords.words('english'))
+
+# You can add custom words to this set if NLTK's list doesn't cover everything you consider a stop word
+# For example, common resume/JD specific words that are not skills:
+CUSTOM_STOP_WORDS = set([
+    "work", "experience", "years", "year", "months", "month", "day", "days", "project", "projects",
+    "team", "teams", "developed", "managed", "led", "created", "implemented", "designed",
+    "responsible", "proficient", "knowledge", "ability", "strong", "proven", "demonstrated",
+    "solution", "solutions", "system", "systems", "platform", "platforms", "framework", "frameworks",
+    "database", "databases", "server", "servers", "cloud", "computing", "machine", "learning",
+    "artificial", "intelligence", "api", "apis", "rest", "graphql", "agile", "scrum", "kanban",
+    "devops", "ci", "cd", "testing", "qa", "security", "network", "networking", "virtualization",
+    "containerization", "docker", "kubernetes", "git", "github", "gitlab", "bitbucket", "jira",
+    "confluence", "slack", "microsoft", "google", "amazon", "azure", "oracle", "sap", "crm", "erp",
+    "salesforce", "servicenow", "tableau", "powerbi", "qlikview", "excel", "word", "powerpoint",
+    "outlook", "visio", "html", "css", "js", "web", "data", "science", "analytics", "engineer",
+    "software", "developer", "analyst", "business", "management", "reporting", "analysis", "tools",
+    "python", "java", "javascript", "c++", "c#", "php", "ruby", "go", "swift", "kotlin", "r",
+    "sql", "nosql", "linux", "unix", "windows", "macos", "ios", "android", "mobile", "desktop",
+    "application", "applications", "frontend", "backend", "fullstack", "ui", "ux", "design",
+    "architecture", "architect", "engineering", "scientist", "specialist", "consultant",
+    "associate", "senior", "junior", "lead", "principal", "director", "manager", "head", "chief",
+    "officer", "president", "vice", "executive", "ceo", "cto", "cfo", "coo", "hr", "human",
+    "resources", "recruitment", "talent", "acquisition", "onboarding", "training", "development",
+    "performance", "compensation", "benefits", "payroll", "compliance", "legal", "finance",
+    "accounting", "auditing", "tax", "budgeting", "forecasting", "investments", "marketing",
+    "sales", "customer", "service", "support", "operations", "supply", "chain", "logistics",
+    "procurement", "manufacturing", "production", "quality", "assurance", "control", "research",
+    "innovation", "product", "program", "portfolio", "governance", "risk", "communication",
+    "presentation", "negotiation", "problem", "solving", "critical", "thinking", "analytical",
+    "creativity", "adaptability", "flexibility", "teamwork", "collaboration", "interpersonal",
+    "organizational", "time", "multitasking", "detail", "oriented", "independent", "proactive",
+    "self", "starter", "results", "driven", "client", "facing", "stakeholder", "engagement",
+    "vendor", "budget", "cost", "reduction", "process", "improvement", "standardization",
+    "optimization", "automation", "digital", "transformation", "change", "methodologies",
+    "industry", "regulations", "regulatory", "documentation", "technical", "writing",
+    "dashboards", "visualizations", "workshops", "feedback", "reviews", "appraisals",
+    "offboarding", "employee", "relations", "diversity", "inclusion", "equity", "belonging",
+    "corporate", "social", "responsibility", "csr", "sustainability", "environmental", "esg",
+    "ethics", "integrity", "professionalism", "confidentiality", "discretion", "accuracy",
+    "precision", "efficiency", "effectiveness", "scalability", "robustness", "reliability",
+    "vulnerability", "assessment", "penetration", "incident", "response", "disaster",
+    "recovery", "continuity", "bcp", "drp", "gdpr", "hipaa", "soc2", "iso", "nist", "pci",
+    "dss", "ccpa", "privacy", "protection", "grc", "cybersecurity", "information", "infosec",
+    "threat", "intelligence", "soc", "event", "siem", "identity", "access", "iam", "privileged",
+    "pam", "multi", "factor", "authentication", "mfa", "single", "sign", "on", "sso",
+    "encryption", "decryption", "firewall", "ids", "ips", "vpn", "endpoint", "antivirus",
+    "malware", "detection", "forensics", "handling", "assessments", "policies", "procedures",
+    "guidelines", "mitre", "att&ck", "modeling", "secure", "lifecycle", "sdlc", "awareness",
+    "phishing", "vishing", "smishing", "ransomware", "spyware", "adware", "rootkits",
+    "botnets", "trojans", "viruses", "worms", "zero", "day", "exploits", "patches", "patching",
+    "updates", "upgrades", "configuration", "ticketing", "crm", "erp", "scm", "hcm", "financial",
+    "accounting", "bi", "warehousing", "etl", "extract", "transform", "load", "lineage",
+    "master", "mdm", "lakes", "marts", "big", "hadoop", "spark", "kafka", "flink", "mongodb",
+    "cassandra", "redis", "elasticsearch", "relational", "mysql", "postgresql", "db2",
+    "teradata", "snowflake", "redshift", "synapse", "bigquery", "aurora", "dynamodb",
+    "documentdb", "cosmosdb", "graph", "neo4j", "graphdb", "timeseries", "influxdb",
+    "timescaledb", "columnar", "vertica", "clickhouse", "vector", "pinecone", "weaviate",
+    "milvus", "qdrant", "chroma", "faiss", "annoy", "hnswlib", "scikit", "learn", "tensorflow",
+    "pytorch", "keras", "xgboost", "lightgbm", "catboost", "statsmodels", "numpy", "pandas",
+    "matplotlib", "seaborn", "plotly", "bokeh", "dash", "flask", "django", "fastapi", "spring",
+    "boot", ".net", "core", "node.js", "express.js", "react", "angular", "vue.js", "svelte",
+    "jquery", "bootstrap", "tailwind", "sass", "less", "webpack", "babel", "npm", "yarn",
+    "ansible", "terraform", "jenkins", "gitlab", "github", "actions", "codebuild", "codepipeline",
+    "codedeploy", "build", "deploy", "run", "lambda", "functions", "serverless", "microservices",
+    "gateway", "mesh", "istio", "linkerd", "grpc", "restful", "soap", "message", "queues",
+    "rabbitmq", "activemq", "bus", "sqs", "sns", "pubsub", "version", "control", "svn",
+    "mercurial", "trello", "asana", "monday.com", "smartsheet", "project", "primavera",
+    "zendesk", "freshdesk", "itil", "cobit", "prince2", "pmp", "master", "owner", "lean",
+    "six", "sigma", "black", "belt", "green", "yellow", "qms", "9001", "27001", "14001",
+    "ohsas", "18001", "sa", "8000", "cmii", "cmi", "cism", "cissp", "ceh", "comptia",
+    "security+", "network+", "a+", "linux+", "ccna", "ccnp", "ccie", "certified", "solutions",
+    "architect", "developer", "sysops", "administrator", "specialty", "professional", "azure",
+    "az-900", "az-104", "az-204", "az-303", "az-304", "az-400", "az-500", "az-700", "az-800",
+    "az-801", "dp-900", "dp-100", "dp-203", "ai-900", "ai-102", "da-100", "pl-900", "pl-100",
+    "pl-200", "pl-300", "pl-400", "pl-500", "ms-900", "ms-100", "ms-101", "ms-203", "ms-500",
+    "ms-700", "ms-720", "ms-740", "ms-600", "sc-900", "sc-200", "sc-300", "sc-400", "md-100",
+    "md-101", "mb-200", "mb-210", "mb-220", "mb-230", "mb-240", "mb-260", "mb-300", "mb-310",
+    "mb-320", "mb-330", "mb-340", "mb-400", "mb-500", "mb-600", "mb-700", "mb-800", "mb-910",
+    "mb-920", "gcp-ace", "gcp-pca", "gcp-pde", "gcp-pse", "gcp-pml", "gcp-psa", "gcp-pcd",
+    "gcp-pcn", "gcp-psd", "gcp-pda", "gcp-pci", "gcp-pws", "gcp-pwa", "gcp-pme", "gcp-pms",
+    "gcp-pmd", "gcp-pma", "gcp-pmc", "gcp-pmg", "cisco", "juniper", "red", "hat", "rhcsa",
+    "rhce", "vmware", "vcpa", "vcpd", "vcpi", "vcpe", "vcpx", "citrix", "cc-v", "cc-p",
+    "cc-e", "cc-m", "cc-s", "cc-x", "palo", "alto", "pcnsa", "pcnse", "fortinet", "fcsa",
+    "fcsp", "fcc", "fcnsp", "fct", "fcp", "fcs", "fce", "fcn", "fcnp", "fcnse"
+])
+
+# Combine NLTK stopwords with your custom stopwords
+STOP_WORDS = NLTK_STOP_WORDS.union(CUSTOM_STOP_WORDS)
+
 
 # --- Helpers ---
 def clean_text(text):
@@ -109,9 +212,11 @@ def smart_score(resume_text, jd_text, years_exp):
     """
     Calculates a 'smart score' based on keyword overlap and experience.
     Also identifies matched and missing keywords, and provides simple feedback.
+    Applies STOP_WORDS filtering for keyword analysis.
     """
-    resume_words = set(re.findall(r'\b\w+\b', resume_text.lower()))
-    jd_words = set(re.findall(r'\b\w+\b', jd_text.lower()))
+    # Filter out stop words from resume and JD text before finding overlaps
+    resume_words = {word for word in re.findall(r'\b\w+\b', resume_text.lower()) if word not in STOP_WORDS}
+    jd_words = {word for word in re.findall(r'\b\w+\b', jd_text.lower()) if word not in STOP_WORDS}
 
     # Calculate overlap
     overlap = resume_words & jd_words
@@ -142,6 +247,7 @@ def semantic_score(resume_text, jd_text, years_exp):
     """
     Calculates a semantic score using an ML model and provides additional details.
     Falls back to smart_score if the ML model is not loaded or prediction fails.
+    Applies STOP_WORDS filtering for keyword analysis before display.
     """
     st.warning("⚙️ semantic_score() function triggered")
 
@@ -166,13 +272,19 @@ def semantic_score(resume_text, jd_text, years_exp):
         jd_embed = model.encode(jd_clean)
         resume_embed = model.encode(resume_clean)
 
-        # Extract numerical features for the ML model
-        resume_words = set(re.findall(r'\b\w+\b', resume_clean))
-        jd_words = set(re.findall(r'\b\w+\b', jd_clean))
-        keyword_overlap_count = len(resume_words & jd_words)
+        # Extract numerical features for the ML model - these are NOT filtered by STOP_WORDS for embedding input
+        # but keyword_overlap_count is filtered to be consistent with training.
+        resume_words_all = set(re.findall(r'\b\w+\b', resume_clean))
+        jd_words_all = set(re.findall(r'\b\w+\b', jd_clean))
+
+        # Filter words for keyword overlap count using STOP_WORDS
+        resume_words_filtered = {word for word in resume_words_all if word not in STOP_WORDS}
+        jd_words_filtered = {word for word in jd_words_all if word not in STOP_WORDS}
+
+        keyword_overlap_count = len(resume_words_filtered & jd_words_filtered)
         resume_len = len(resume_clean.split())
 
-        core_skills = ['sql', 'excel', 'python', 'tableau', 'powerbi', 'r', 'aws']
+        core_skills = ['sql', 'excel', 'python', 'tableau', 'powerbi', 'r', 'aws'] # These are specific, not general stop words
         matched_core_skills_count = sum(1 for skill in core_skills if skill in resume_clean)
 
         extra_feats = np.array([keyword_overlap_count, resume_len, matched_core_skills_count])
@@ -188,11 +300,11 @@ def semantic_score(resume_text, jd_text, years_exp):
 
         score = float(np.clip(predicted_score, 0, 100)) # Ensure score is between 0 and 100
 
-        # Calculate matched and missing keywords for display, even if ML model is used
-        overlap_words_set = resume_words & jd_words
-        matched_keywords = ", ".join(sorted(list(overlap_words_set)))
-        missing_skills_set = jd_words - resume_words
-        missing_skills = ", ".join(sorted(list(missing_skills_set)))
+        # Calculate matched and missing keywords for display, applying STOP_WORDS filter
+        overlap_words_set_display = resume_words_filtered & jd_words_filtered
+        matched_keywords = ", ".join(sorted(list(overlap_words_set_display)))
+        missing_skills_set_display = jd_words_filtered - resume_words_filtered
+        missing_skills = ", ".join(sorted(list(missing_skills_set_display)))
 
         # Generate feedback based on ML score
         if score > 90:
@@ -207,6 +319,7 @@ def semantic_score(resume_text, jd_text, years_exp):
         # Original fallback logic: if ML score is too low, use smart_score to be more robust
         if score < 10:
             st.warning("⚠️ ML score is very low. Using fallback smart_score for a more reliable assessment.")
+            # Re-run smart_score to ensure consistent logic for fallback, which also uses STOP_WORDS
             score, matched_keywords, missing_skills, feedback = smart_score(resume_text, jd_text, years_exp)
 
         return round(score, 2), matched_keywords, missing_skills, feedback
@@ -285,14 +398,16 @@ if jd_text and resume_files:
 
     # Aggregate top matched skills across all resumes
     all_matched_skills = []
-    for keywords in df['Matched Keywords'].dropna():
-        all_matched_skills.extend([skill.strip().lower() for skill in keywords.split(',') if skill.strip()])
+    for keywords_str in df['Matched Keywords'].dropna():
+        # Split by comma and strip whitespace, then add to list
+        all_matched_skills.extend([skill.strip() for skill in keywords_str.split(',') if skill.strip()])
     top_matched_skills = pd.Series(all_matched_skills).value_counts().head(5)
 
     # Aggregate top missing skills across all resumes
     all_missing_skills = []
-    for skills in df['Missing Skills'].dropna():
-        all_missing_skills.extend([skill.strip().lower() for skill in skills.split(',') if skill.strip()])
+    for skills_str in df['Missing Skills'].dropna():
+        # Split by comma and strip whitespace, then add to list
+        all_missing_skills.extend([skill.strip() for skill in skills_str.split(',') if skill.strip()])
     top_missing_skills = pd.Series(all_missing_skills).value_counts().head(5)
 
 
@@ -307,14 +422,14 @@ if jd_text and resume_files:
             for skill, count in top_matched_skills.items():
                 st.markdown(f"- ✅ {skill} ({count})")
         else:
-            st.info("No common matched skills found.")
+            st.info("No common matched skills found after filtering.")
 
         st.markdown("### ❌ Top 5 Missing Skills")
         if not top_missing_skills.empty:
             for skill, count in top_missing_skills.items():
                 st.markdown(f"- ⚠️ {skill} ({count})")
         else:
-            st.info("No common missing skills found.")
+            st.info("No common missing skills found after filtering.")
 
     st.divider()
 
