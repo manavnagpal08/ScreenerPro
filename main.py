@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-import json # Added: Import the json module
+import json # Corrected: Added import for the json module
 import pandas as pd # Added for Dashboard section
 import matplotlib.pyplot as plt # Added for Dashboard section
 import seaborn as sns # Added for Dashboard section
@@ -79,7 +79,7 @@ html, body, [class*="css"] {
 }
 @keyframes fadeIn {
     0% { opacity: 0; transform: translateY(20px); }
-    100% { opacity: 1; transform: translateY(0); }
+    100% { transform: translateY(0); }
 }
 .dashboard-card {
     padding: 2rem;
