@@ -14,15 +14,21 @@ import nltk # Import NLTK
 import collections # For counting word frequencies
 from sklearn.metrics.pairwise import cosine_similarity # For semantic similarity
 
+# Set page configuration at the very beginning
+st.set_page_config(
+    page_title="ScreenerPro - AI Resume Screener",
+    page_icon="🧠",
+    layout="wide", # Use wide layout for better use of space
+    initial_sidebar_state="expanded" # Keep sidebar expanded by default
+)
+
+
 # Download NLTK stopwords data if not already downloaded
-# This line will only run once when the app starts or when this part of the code is executed.
-# It's good practice to put this outside functions if it's a one-time setup.
 try:
     nltk.data.find('corpora/stopwords')
 except LookupError:
     nltk.download('stopwords')
     st.success("✅ NLTK stopwords downloaded successfully!")
-
 
 # --- External Dependencies (Ensure these files exist in your environment) ---
 # from email_sender import send_email_to_candidate
@@ -44,7 +50,7 @@ def login_section():
 
 # --- Load Embedding + ML Model ---
 # IMPORTANT: Ensure this SentenceTransformer model matches the one used in train_model.py
-model = SentenceTransformer("all-MiniLM-L6-v2") 
+model = SentenceTransformer("all-MiniLM-L6-v2")
 try:
     ml_model = joblib.load("ml_screening_model.pkl")
     st.success("✅ ML model loaded successfully")
@@ -52,14 +58,11 @@ except Exception as e:
     st.error(f"❌ Could not load model: {e}. Please ensure 'ml_screening_model.pkl' is in the same directory.")
     ml_model = None
 
-st.info(f"📦 Loaded model: {type(ml_model).__name__} | sklearn: {sklearn.__version__}")
+st.sidebar.info(f"📦 Loaded model: {type(ml_model).__name__} | sklearn: {sklearn.__version__}")
 
 # --- Stop Words List (Using NLTK) ---
-# Get the English stop words from NLTK and convert to a set for efficient lookups
 NLTK_STOP_WORDS = set(nltk.corpus.stopwords.words('english'))
 
-# You can add custom words to this set if NLTK's list doesn't cover everything you consider a stop word
-# For example, common resume/JD specific words that are not skills:
 CUSTOM_STOP_WORDS = set([
     "work", "experience", "years", "year", "months", "month", "day", "days", "project", "projects",
     "team", "teams", "developed", "managed", "led", "created", "implemented", "designed",
@@ -406,9 +409,13 @@ def semantic_score(resume_text, jd_text, years_exp):
 # --- Streamlit UI ---
 st.title("🧠 ScreenerPro – AI Resume Screener")
 
-# Login section (if enabled)
-# if not login_section():
-#     st.stop() # Stop execution if not logged in
+st.markdown("""
+    Welcome to ScreenerPro! This AI-powered tool helps you efficiently screen resumes against your job descriptions.
+    Upload your JD and candidate resumes, and get instant insights into their fit, skill alignment, and more.
+""")
+
+# --- Sidebar for Inputs ---
+st.sidebar.header("⚙️ Configuration")
 
 jd_text = ""
 job_roles = {"Upload my own": None}
@@ -417,9 +424,9 @@ if os.path.exists("data"):
         if fname.endswith(".txt"):
             job_roles[fname.replace(".txt", "").replace("_", " ").title()] = os.path.join("data", fname)
 
-jd_option = st.selectbox("📌 Select Job Role or Upload Your Own JD", list(job_roles.keys()))
+jd_option = st.sidebar.selectbox("📌 Select Job Role or Upload Your Own JD", list(job_roles.keys()))
 if jd_option == "Upload my own":
-    jd_file = st.file_uploader("Upload Job Description (TXT)", type="txt")
+    jd_file = st.sidebar.file_uploader("Upload Job Description (TXT)", type="txt")
     if jd_file:
         jd_text = jd_file.read().decode("utf-8")
 else:
@@ -428,30 +435,62 @@ else:
         with open(jd_path, "r", encoding="utf-8") as f:
             jd_text = f.read()
 
-resume_files = st.file_uploader("📄 Upload Resumes (PDF)", type="pdf", accept_multiple_files=True)
-cutoff = st.slider("📈 Score Cutoff", 0, 100, 80)
-min_experience = st.slider("💼 Minimum Experience Required", 0, 15, 2)
+resume_files = st.sidebar.file_uploader("📄 Upload Resumes (PDF)", type="pdf", accept_multiple_files=True)
+cutoff = st.sidebar.slider("📈 Score Cutoff", 0, 100, 80, help="Candidates scoring below this will be flagged for review.")
+min_experience = st.sidebar.slider("💼 Minimum Experience Required (Years)", 0, 15, 2, help="Minimum years of experience for a candidate to be considered a 'Good Fit'.")
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("About ScreenerPro")
+st.sidebar.info("ScreenerPro leverages advanced NLP (Sentence Transformers) and Machine Learning to provide intelligent resume matching. It goes beyond simple keyword matching to understand the semantic meaning of skills and experiences.")
+
 
 df = pd.DataFrame() # Initialize DataFrame outside the if block
 
 if jd_text and resume_files:
-    # --- Job Description Keyword Cloud ---
-    st.markdown("## ☁️ Job Description Keyword Cloud")
-    jd_words_for_cloud = " ".join([word for word in re.findall(r'\b\w+\b', clean_text(jd_text)) if word not in STOP_WORDS])
-    if jd_words_for_cloud:
-        wordcloud = WordCloud(width=800, height=400, background_color='white').generate(jd_words_for_cloud)
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.imshow(wordcloud, interpolation='bilinear')
-        ax.axis('off')
-        st.pyplot(fig)
-    else:
-        st.info("No significant keywords to display for the Job Description after filtering common words.")
+    # --- Job Description Analysis Section ---
+    st.header("Job Description Analysis")
+    st.markdown("Here's a breakdown of the key skills and themes extracted from your provided Job Description.")
+
+    col_jd_summary, col_jd_wordcloud = st.columns(2)
+
+    with col_jd_summary:
+        st.subheader("JD Summary")
+        st.write("The Job Description has been loaded successfully. Analyzing its content for key requirements.")
+        
+        # Display extracted top keywords from JD
+        jd_top_keywords = get_top_keywords(jd_text, num_keywords=15)
+        if jd_top_keywords:
+            st.markdown(f"**Top JD Keywords:** {', '.join(jd_top_keywords)}")
+        else:
+            st.info("No significant keywords extracted from JD after filtering common words.")
+        
+        # Optional: Display raw JD text in an expander
+        with st.expander("View Raw Job Description"):
+            st.code(jd_text)
+
+    with col_jd_wordcloud:
+        st.subheader("JD Keyword Cloud")
+        jd_words_for_cloud = " ".join([word for word in re.findall(r'\b\w+\b', clean_text(jd_text)) if word not in STOP_WORDS])
+        if jd_words_for_cloud:
+            wordcloud = WordCloud(width=800, height=400, background_color='white', colormap='viridis').generate(jd_words_for_cloud)
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.imshow(wordcloud, interpolation='bilinear')
+            ax.axis('off')
+            st.pyplot(fig)
+        else:
+            st.info("No significant keywords to display for the Job Description after filtering common words.")
     st.divider()
 
-
+    # --- Resume Processing and Results ---
+    st.header("Resume Screening Results")
+    st.info("Processing resumes... This may take a moment depending on the number and size of PDFs.")
+    
+    progress_bar = st.progress(0)
     results = []
     resume_text_map = {}
-    for file in resume_files:
+    
+    for i, file in enumerate(resume_files):
+        progress_bar.progress((i + 1) / len(resume_files))
         text = extract_text_from_pdf(file)
         if text.startswith("[ERROR]"):
             st.error(f"Could not process {file.name}: {text}")
@@ -459,46 +498,47 @@ if jd_text and resume_files:
 
         exp = extract_years_of_experience(text)
         email = extract_email(text)
-        candidate_name = extract_name(text) or file.name.replace('.pdf', '').replace('_', ' ').title() # Use extracted name or cleaned file name
-        # Call semantic_score and unpack all returned values, including semantic_similarity and jd_coverage_percentage
+        candidate_name = extract_name(text) or file.name.replace('.pdf', '').replace('_', ' ').title()
+        
         score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage = semantic_score(text, jd_text, exp)
         summary = f"{exp}+ years exp. | {text.strip().splitlines()[0]}" if text else f"{exp}+ years exp."
 
         results.append({
             "File Name": file.name,
-            "Candidate Name": candidate_name, # Store extracted name
+            "Candidate Name": candidate_name,
             "Score (%)": score,
             "Years Experience": exp,
-            "Summary": summary,
             "Email": email or "Not found",
             "Matched Keywords": matched_keywords,
             "Missing Skills": missing_skills,
             "Feedback": feedback,
-            "Semantic Similarity": semantic_similarity, # Add semantic similarity to results
-            "JD Keyword Coverage (%)": jd_coverage_percentage, # Add JD keyword coverage
+            "Semantic Similarity": semantic_similarity,
+            "JD Keyword Coverage (%)": jd_coverage_percentage,
             "Resume Raw Text": text # Store raw text for individual word cloud
         })
         resume_text_map[file.name] = text
 
     df = pd.DataFrame(results).sort_values(by="Score (%)", ascending=False)
+    progress_bar.empty() # Clear the progress bar
 
     # --- Save results to session state for main.py to access ---
     st.session_state['screening_results'] = results
 
     # --- Overall Candidate Comparison Chart (Improved Matplotlib Bar Chart) ---
-    st.markdown("## 📊 Candidate Score Comparison")
+    st.subheader("📊 Candidate Score Comparison")
     if not df.empty:
-        fig, ax = plt.subplots(figsize=(10, 6))
-        # Use the extracted candidate name for the x-axis labels
-        bars = ax.bar(df['Candidate Name'], df['Score (%)'], color='skyblue')
+        fig, ax = plt.subplots(figsize=(12, 7)) # Larger figure size
+        bars = ax.bar(df['Candidate Name'], df['Score (%)'], color='teal') # Changed color
         ax.set_xlabel("Candidate", fontsize=12)
         ax.set_ylabel("Score (%)", fontsize=12)
-        ax.set_title("Resume Screening Scores", fontsize=14, fontweight='bold')
-        ax.set_ylim(0, 100) # Ensure y-axis goes from 0 to 100
-        plt.xticks(rotation=45, ha='right') # Rotate labels for readability
+        ax.set_title("Resume Screening Scores", fontsize=16, fontweight='bold')
+        ax.set_ylim(0, 100)
+        plt.xticks(rotation=45, ha='right', fontsize=10) # Rotate and adjust font size
+        plt.yticks(fontsize=10)
+        plt.grid(axis='y', linestyle='--', alpha=0.7) # Add grid
         for bar in bars:
             yval = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2, yval + 1, round(yval, 2), ha='center', va='bottom') # Add score labels
+            ax.text(bar.get_x() + bar.get_width()/2, yval + 1, round(yval, 2), ha='center', va='bottom', fontsize=9)
         st.pyplot(fig)
     else:
         st.info("Upload resumes to see a comparison chart.")
@@ -506,7 +546,8 @@ if jd_text and resume_files:
     st.divider()
 
     # === Detailed Individual Candidate Analysis ===
-    st.markdown("## 📝 Detailed Candidate Analysis")
+    st.header("Detailed Candidate Analysis")
+    st.markdown("Explore individual resume insights, skill alignment, and experience match.")
 
     if not df.empty:
         # Get top JD skills once for all candidates
@@ -514,71 +555,113 @@ if jd_text and resume_files:
         jd_top_skills_set = set(jd_top_skills_list)
 
         for _, row in df.iterrows():
-            candidate_display_name = row['Candidate Name'] # Use the extracted name
-            st.subheader(f"Analysis for {candidate_display_name}")
-            individual_analysis_paragraph = (
-                f"**{candidate_display_name}** scored **{row['Score (%)']:.2f}%** "
-                f"with **{row['Years Experience']:.1f} years of experience**. "
-                f"This candidate's profile is assessed as: **{row['Feedback']}**. "
-            )
+            candidate_display_name = row['Candidate Name']
+            
+            with st.expander(f"Click to view: **{candidate_display_name}** (Score: {row['Score (%)']:.2f}%)"):
+                st.markdown(f"### Candidate: {candidate_display_name}")
 
-            st.markdown(individual_analysis_paragraph)
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Overall Score", f"{row['Score (%)']:.2f}%", help="Blended score based on ML model, keyword coverage, and semantic similarity.")
+                with col2:
+                    st.metric("Years Experience", f"{row['Years Experience']:.1f}", help="Extracted years of experience from the resume.")
+                with col3:
+                    st.metric("Semantic Similarity", f"{row['Semantic Similarity']:.2f}", help="Cosine similarity between resume and JD embeddings (0-1, higher is better).")
 
-            # --- New Feature: Semantic Similarity Score ---
-            st.markdown(f"**Semantic Similarity (JD vs. Resume):** {row['Semantic Similarity']:.2f} (Higher is better)")
+                st.info(f"**Feedback:** {row['Feedback']}")
 
-            # --- New Feature: JD Keyword Coverage Percentage ---
-            st.markdown(f"**JD Keyword Coverage:** {row['JD Keyword Coverage (%)']:.2f}% of job description keywords found in resume.")
+                st.markdown(f"**JD Keyword Coverage:** {row['JD Keyword Coverage (%)']:.2f}% of job description keywords found in resume.")
+                st.markdown(f"**Email:** {row['Email']}")
 
-            # --- Enhanced Skill Matching Breakdown ---
-            st.markdown("### 📊 Skill Alignment with Job Description")
-            resume_words_for_matching = {word for word in re.findall(r'\b\w+\b', clean_text(row['Resume Raw Text'])) if word not in STOP_WORDS}
+                # --- Enhanced Skill Matching Breakdown ---
+                st.subheader("Skill Alignment with Job Description")
+                resume_words_for_matching = {word for word in re.findall(r'\b\w+\b', clean_text(row['Resume Raw Text'])) if word not in STOP_WORDS}
 
-            matched_jd_skills = []
-            missing_jd_skills = []
-            for skill in jd_top_skills_list:
-                if skill in resume_words_for_matching:
-                    matched_jd_skills.append(skill)
+                matched_jd_skills = []
+                missing_jd_skills = []
+                for skill in jd_top_skills_list:
+                    if skill in resume_words_for_matching:
+                        matched_jd_skills.append(skill)
+                    else:
+                        missing_jd_skills.append(skill)
+                
+                # Use columns for matched/missing skills for better layout
+                col_matched_skills, col_missing_skills = st.columns(2)
+
+                with col_matched_skills:
+                    if matched_jd_skills:
+                        st.markdown(f"**✅ Matched JD Skills:**")
+                        for skill in sorted(matched_jd_skills):
+                            st.markdown(f"- {skill.title()}") # Capitalize skills for readability
+                    else:
+                        st.info("No significant top JD skills matched in this resume.")
+
+                with col_missing_skills:
+                    if missing_jd_skills:
+                        st.markdown(f"**❌ Missing JD Skills:**")
+                        for skill in sorted(missing_jd_skills):
+                            st.markdown(f"- {skill.title()}")
+                    else:
+                        st.success("All top JD skills found in this resume!")
+
+                # --- Resume Keyword Cloud ---
+                st.subheader("Candidate Resume Keyword Cloud")
+                resume_words_for_cloud = " ".join([word for word in re.findall(r'\b\w+\b', clean_text(row['Resume Raw Text'])) if word not in STOP_WORDS])
+                if resume_words_for_cloud:
+                    wordcloud = WordCloud(width=800, height=400, background_color='white', colormap='plasma').generate(resume_words_for_cloud)
+                    fig, ax = plt.subplots(figsize=(10, 5))
+                    ax.imshow(wordcloud, interpolation='bilinear')
+                    ax.axis('off')
+                    st.pyplot(fig)
                 else:
-                    missing_jd_skills.append(skill)
+                    st.info("No significant keywords to display for this resume.")
 
-            if matched_jd_skills:
-                st.markdown(f"**✅ Matched Job Description Skills:** {', '.join(sorted(matched_jd_skills))}")
-            else:
-                st.info("No significant top JD skills matched in this resume.")
+                # --- Experience Match Visual ---
+                st.subheader("Experience Match")
+                exp_ratio = min(row['Years Experience'] / min_experience, 1.0) if min_experience > 0 else 1.0
+                st.progress(exp_ratio)
+                if row['Years Experience'] >= min_experience:
+                    st.success(f"Candidate has **{row['Years Experience']:.1f} years** of experience, meeting or exceeding the required **{min_experience} years**.")
+                else:
+                    st.warning(f"Candidate has **{row['Years Experience']:.1f} years** of experience, less than the required **{min_experience} years**.")
 
-            if missing_jd_skills:
-                st.markdown(f"**❌ Missing Job Description Skills:** {', '.join(sorted(missing_jd_skills))}")
-            else:
-                st.success("All top JD skills found in this resume!")
+                with st.expander("📄 View Raw Resume Text"):
+                    st.code(resume_text_map.get(row['File Name'], ''))
+                
+                # --- Email Candidate Action ---
+                if row['Email'] != "Not found":
+                    st.subheader("Candidate Communication")
+                    st.markdown("Would you like to send an email to this candidate?")
+                    subject_default = f"Application Update for {jd_option} - {candidate_display_name}"
+                    message_default = f"Dear {candidate_display_name},\n\nThank you for your interest in the {jd_option} position. After reviewing your resume, your score was {row['Score (%)']:.2f}%. Your profile is assessed as: {row['Feedback']}.\n\nBest regards,\n[Your Company]"
+                    
+                    with st.form(key=f'email_form_{row["File Name"]}'):
+                        email_subject = st.text_input("Email Subject", value=subject_default)
+                        email_message = st.text_area("Email Message", value=message_default, height=200)
+                        send_button = st.form_submit_button("Send Email")
+                        if send_button:
+                            send_email_to_candidate(candidate_display_name, row['Score (%)'], row['Feedback'], row['Email'], email_subject, email_message)
+                            st.success(f"Email simulation sent to {row['Email']}!")
+                else:
+                    st.warning("Email address not found in resume for direct communication.")
 
-            # --- New Feature: Experience Match Visual ---
-            st.markdown("### ⏳ Experience Match")
-            exp_ratio = min(row['Years Experience'] / min_experience, 1.0) if min_experience > 0 else 1.0
-            st.progress(exp_ratio)
-            if row['Years Experience'] >= min_experience:
-                st.success(f"Candidate has {row['Years Experience']:.1f} years of experience, meeting or exceeding the required {min_experience} years.")
-            else:
-                st.warning(f"Candidate has {row['Years Experience']:.1f} years of experience, less than the required {min_experience} years.")
-
-            with st.expander("📄 Resume Preview"):
-                st.code(resume_text_map.get(row['File Name'], ''))
-            st.markdown("---") # Separator for individual analyses
+                st.markdown("---") # Separator for individual analyses
     else:
         st.info("No candidates to display yet for detailed analysis.")
 
     st.divider()
 
     # === "Who is Better" Statement ===
+    st.header("Top Candidate Recommendation")
     if not df.empty:
         top_candidate = df.iloc[0]
-        st.markdown("## 🏆 Top Candidate Recommendation")
         st.success(
-            f"Based on the screening, **{top_candidate['Candidate Name']}** "
-            f"is the top-ranked candidate with a score of **{top_candidate['Score (%)']:.2f}%** and "
+            f"Based on the comprehensive screening, **{top_candidate['Candidate Name']}** "
+            f"is the top-ranked candidate with an impressive score of **{top_candidate['Score (%)']:.2f}%** and "
             f"**{top_candidate['Years Experience']:.1f} years of experience**. "
             f"Their profile shows a **{top_candidate['Feedback'].lower()}**."
         )
+        st.info("Consider reaching out to this candidate first for further assessment.")
     else:
         st.info("Upload resumes to get a top candidate recommendation.")
 
@@ -586,14 +669,26 @@ if jd_text and resume_files:
 
     # Add a 'Tag' column for quick categorization
     df['Tag'] = df.apply(lambda row: "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3 else (
-        "✅ Good Fit" if row['Score (%)'] >= 75 else "⚠️ Needs Review"), axis=1)
+        "✅ Good Fit" if row['Score (%)'] >= cutoff else "⚠️ Needs Review"), axis=1) # Use cutoff for "Good Fit"
 
     shortlisted = df[(df['Score (%)'] >= cutoff) & (df['Years Experience'] >= min_experience)]
 
-    st.metric("✅ Shortlisted Candidates", len(shortlisted))
+    st.subheader("Summary Statistics")
+    col_metrics1, col_metrics2, col_metrics3 = st.columns(3)
+    with col_metrics1:
+        st.metric("Total Resumes Processed", len(df))
+    with col_metrics2:
+        st.metric("Shortlisted Candidates", len(shortlisted))
+    with col_metrics3:
+        if not df.empty:
+            avg_score = df['Score (%)'].mean()
+            st.metric("Average Score", f"{avg_score:.2f}%")
+        else:
+            st.metric("Average Score", "N/A")
 
     st.markdown("### 📋 All Candidate Results Table")
-    st.dataframe(df) # Display the DataFrame
+    # Make the dataframe interactive and searchable
+    st.dataframe(df.style.highlight_max(axis=0, subset=['Score (%)', 'Years Experience', 'Semantic Similarity', 'JD Keyword Coverage (%)']), use_container_width=True) # Highlight max values
 
     # Add download button for results
     csv_data = df.to_csv(index=False).encode('utf-8')
@@ -604,13 +699,20 @@ if jd_text and resume_files:
         mime="text/csv",
     )
 
-    # Add download button for detailed report (PDF)
-    # This would require a library like FPDF or ReportLab, which is outside the scope of this interaction.
+    # Optional: Add download button for detailed report (e.g., PDF) - Requires external libraries
     # st.download_button(
     #     label="⬇️ Download Detailed PDF Report",
-    #     data=b'', # Placeholder
+    #     data=b'', # Placeholder for PDF bytes
     #     file_name="detailed_report.pdf",
     #     mime="application/pdf",
-    #     disabled=True, # Disable for now as functionality is not implemented
-    #     help="Detailed PDF report generation is not yet implemented."
     # )
+
+    st.markdown("---")
+    st.markdown("Thank you for using ScreenerPro! We hope this tool helps streamline your recruitment process.")
+
+elif not jd_text and resume_files:
+    st.warning("Please select or upload a **Job Description (JD)** to start the screening process.")
+elif jd_text and not resume_files:
+    st.warning("Please upload one or more **Resumes** to proceed with the screening.")
+else:
+    st.info("Upload a Job Description and Resumes from the sidebar to begin candidate screening.")
