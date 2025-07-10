@@ -17,7 +17,7 @@ import nltk # Import NLTK
 # It's good practice to put this outside functions if it's a one-time setup.
 try:
     nltk.data.find('corpora/stopwords')
-except LookupError: # Changed from nltk.downloader.DownloadError to LookupError
+except LookupError:
     nltk.download('stopwords')
     st.success("✅ NLTK stopwords downloaded successfully!")
 
@@ -382,60 +382,58 @@ if jd_text and resume_files:
             "Years Experience": exp,
             "Summary": summary,
             "Email": email or "Not found",
-            "Matched Keywords": matched_keywords, # Correct
-            "Missing Skills": missing_skills,     # Corrected: was matched_keywords
-            "Feedback": feedback                 # Correct
+            "Matched Keywords": matched_keywords,
+            "Missing Skills": missing_skills,
+            "Feedback": feedback
         })
         resume_text_map[file.name] = text
 
     df = pd.DataFrame(results).sort_values(by="Score (%)", ascending=False)
 
-    # === 📊 Global Resume Screening Insights ===
-    st.markdown("## 📊 Screening Insights & Summary")
+    # === 📊 Global Resume Screening Insights (Now as a paragraph) ===
+    st.markdown("## 📊 Screening Analysis")
 
-    avg_score = df['Score (%)'].mean()
-    avg_exp = df['Years Experience'].mean()
+    # Generate a comprehensive analysis paragraph
+    analysis_paragraph = ""
+    if not df.empty:
+        analysis_paragraph += "Here's an analysis of the uploaded resumes against the job description:\n\n"
 
-    # Aggregate top matched skills across all resumes
-    all_matched_skills = []
-    for keywords_str in df['Matched Keywords'].dropna():
-        # Split by comma and strip whitespace, then add to list
-        all_matched_skills.extend([skill.strip() for skill in keywords_str.split(',') if skill.strip()])
-    top_matched_skills = pd.Series(all_matched_skills).value_counts().head(5)
+        # Calculate overall insights for the paragraph
+        avg_score = df['Score (%)'].mean()
+        avg_exp = df['Years Experience'].mean()
 
-    # Aggregate top missing skills across all resumes
-    all_missing_skills = []
-    for skills_str in df['Missing Skills'].dropna():
-        # Split by comma and strip whitespace, then add to list
-        all_missing_skills.extend([skill.strip() for skill in skills_str.split(',') if skill.strip()])
-    top_missing_skills = pd.Series(all_missing_skills).value_counts().head(5)
+        all_matched_skills_list = []
+        for keywords_str in df['Matched Keywords'].dropna():
+            all_matched_skills_list.extend([skill.strip() for skill in keywords_str.split(',') if skill.strip()])
+        top_matched_skills_series = pd.Series(all_matched_skills_list).value_counts().head(5)
 
+        all_missing_skills_list = []
+        for skills_str in df['Missing Skills'].dropna():
+            all_missing_skills_list.extend([skill.strip() for skill in skills_str.split(',') if skill.strip()])
+        top_missing_skills_series = pd.Series(all_missing_skills_list).value_counts().head(5)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("📈 Average Score", f"{avg_score:.2f}%")
-        st.metric("🧠 Avg. Experience", f"{avg_exp:.1f} yrs")
+        analysis_paragraph += f"Across all submitted resumes, the average compatibility score is **{avg_score:.2f}%** with an average of **{avg_exp:.1f} years of experience**.\n\n"
 
-    with col2:
-        st.markdown("### 🔝 Top 5 Matched Skills")
-        if not top_matched_skills.empty:
-            for skill, count in top_matched_skills.items():
-                st.markdown(f"- ✅ {skill} ({count})")
+        if not top_matched_skills_series.empty:
+            analysis_paragraph += "The most frequently matched skills across candidates include: **"
+            analysis_paragraph += ", ".join([f"{skill}" for skill in top_matched_skills_series.index]) + "**.\n\n"
         else:
-            st.info("No common matched skills found after filtering.")
+            analysis_paragraph += "No significant common matched skills were found across candidates after filtering.\n\n"
 
-        st.markdown("### ❌ Top 5 Missing Skills")
-        if not top_missing_skills.empty:
-            for skill, count in top_missing_skills.items():
-                st.markdown(f"- ⚠️ {skill} ({count})")
+        if not top_missing_skills_series.empty:
+            analysis_paragraph += "Conversely, common skills often missing from candidates' resumes, relative to the job description, are: **"
+            analysis_paragraph += ", ".join([f"{skill}" for skill in top_missing_skills_series.index]) + "**.\n\n"
         else:
-            st.info("No common missing skills found after filtering.")
+            analysis_paragraph += "No significant common missing skills were identified across candidates after filtering.\n\n"
+
+        analysis_paragraph += "This overview provides a quick understanding of the overall candidate pool's alignment with the job requirements, highlighting key strengths and common gaps."
+
+    st.markdown(analysis_paragraph)
 
     st.divider()
 
     # === 🏆 Show Top 3 Candidates ===
     st.markdown("## 🏆 Top Candidates")
-    # Ensure this uses the full sorted DataFrame for top candidates
     top_candidates_display = df.head(3)
 
     if not top_candidates_display.empty:
