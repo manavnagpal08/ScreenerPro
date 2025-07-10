@@ -14,9 +14,63 @@ import nltk # Import NLTK
 import collections # For counting word frequencies
 from sklearn.metrics.pairwise import cosine_similarity # For semantic similarity
 
-# Download NLTK stopwords data if not already downloaded
-# This line will only run once when the app starts or when this part of the code is executed.
-# It's good practice to put this outside functions if it's a one-time setup.
+# Firebase imports
+from firebase_admin import credentials, initialize_app
+from firebase_admin import firestore
+from firebase_admin import auth
+
+# Initialize Firebase (only once per app run)
+# Check if firebase_admin is already initialized to prevent multiple initializations
+if not st.session_state.get('firebase_initialized'):
+    try:
+        # Use the global __firebase_config variable provided by the environment
+        firebase_config = json.loads(os.environ.get('__firebase_config', '{}'))
+        if not firebase_config:
+            st.error("Firebase configuration not found. Please ensure __firebase_config is set.")
+            st.stop()
+
+        cred = credentials.Certificate(firebase_config)
+        initialize_app(cred)
+        st.session_state['firebase_initialized'] = True
+        st.success("✅ Firebase initialized successfully!")
+    except Exception as e:
+        st.error(f"❌ Firebase initialization failed: {e}")
+        st.stop()
+
+db = firestore.client()
+
+# Authenticate user (anonymously for simplicity in this demo)
+if 'user_authenticated' not in st.session_state:
+    try:
+        # Use the global __initial_auth_token if available, otherwise sign in anonymously
+        initial_auth_token = os.environ.get('__initial_auth_token')
+        if initial_auth_token:
+            # Sign in with custom token
+            # Note: firebase_admin.auth is for server-side auth. For client-side,
+            # you'd use firebase_auth.signInWithCustomToken.
+            # For this Streamlit context, we'll just assume auth is handled
+            # by the environment and proceed.
+            st.session_state['user_authenticated'] = True
+            st.session_state['user_id'] = "authenticated_user" # Placeholder
+            st.info("User authenticated via custom token (simulated).")
+        else:
+            # Anonymous sign-in (simulated for firebase_admin)
+            st.session_state['user_authenticated'] = True
+            st.session_state['user_id'] = "anonymous_user" # Placeholder
+            st.warning("No custom auth token. Proceeding as anonymous user (simulated).")
+    except Exception as e:
+        st.error(f"Authentication failed: {e}")
+        st.session_state['user_authenticated'] = False
+
+if not st.session_state.get('user_authenticated'):
+    st.warning("Authentication required to use the app.")
+    st.stop()
+
+
+# --- Configuration ---
+MODEL_SAVE_PATH = "ml_screening_model.pkl" # Path to your trained ML model
+
+# Ensure NLTK stopwords are downloaded
 try:
     nltk.data.find('corpora/stopwords')
 except LookupError:
@@ -24,38 +78,7 @@ except LookupError:
     st.success("✅ NLTK stopwords downloaded successfully!")
 
 
-# --- External Dependencies (Ensure these files exist in your environment) ---
-# from email_sender import send_email_to_candidate
-# from login import login_section
-
-# Placeholder for send_email_to_candidate if the file is not available
-def send_email_to_candidate(name, score, feedback, recipient, subject, message):
-    st.info(f"Simulating email send to {recipient} (Name: {name}, Score: {score}%, Feedback: {feedback})")
-    st.info(f"Subject: {subject}\nMessage: {message}")
-    # In a real application, you would integrate your email sending logic here
-    pass
-
-# Placeholder for login_section if the file is not available
-def login_section():
-    # In a real application, you would have your login logic here
-    st.sidebar.success("Login section placeholder.")
-    return True # Assume logged in for demonstration
-
-
-# --- Load Embedding + ML Model ---
-# IMPORTANT: Ensure this SentenceTransformer model matches the one used in train_model.py
-model = SentenceTransformer("all-MiniLM-L6-v2") 
-try:
-    ml_model = joblib.load("ml_screening_model.pkl")
-    st.success("✅ ML model loaded successfully")
-except Exception as e:
-    st.error(f"❌ Could not load model: {e}. Please ensure 'ml_screening_model.pkl' is in the same directory.")
-    ml_model = None
-
-st.info(f"📦 Loaded model: {type(ml_model).__name__} | sklearn: {sklearn.__version__}")
-
-# --- Stop Words List (Using NLTK) ---
-# Get the English stop words from NLTK and convert to a set for efficient lookups
+# --- Stop Words List (Must be consistent with train_model.py) ---
 NLTK_STOP_WORDS = set(nltk.corpus.stopwords.words('english'))
 
 # You can add custom words to this set if NLTK's list doesn't cover everything you consider a stop word
@@ -407,8 +430,9 @@ def semantic_score(resume_text, jd_text, years_exp):
 st.title("🧠 ScreenerPro – AI Resume Screener")
 
 # Login section (if enabled)
+# from login import login_section # Assuming login_section is in login.py
 # if not login_section():
-#     st.stop() # Stop execution if not logged in
+#     st.stop()
 
 jd_text = ""
 job_roles = {"Upload my own": None}
@@ -482,8 +506,20 @@ if jd_text and resume_files:
 
     df = pd.DataFrame(results).sort_values(by="Score (%)", ascending=False)
 
-    # --- Save results to session state for main.py to access ---
-    st.session_state['screening_results'] = results
+    # --- Save results to Firestore ---
+    app_id = os.environ.get('__app_id', 'default-app-id')
+    public_collection_ref = db.collection('artifacts').document(app_id).collection('public').document('data').collection('screening_results')
+    
+    # Store the entire list of results in a single document
+    try:
+        with st.spinner("Saving screening results to database..."):
+            public_collection_ref.document('latest_results').set({
+                'timestamp': firestore.SERVER_TIMESTAMP,
+                'data': results # Save the list of dictionaries
+            })
+        st.success("✅ Screening results saved to database!")
+    except Exception as e:
+        st.error(f"❌ Failed to save results to database: {e}")
 
     # --- Overall Candidate Comparison Chart (Improved Matplotlib Bar Chart) ---
     st.markdown("## 📊 Candidate Score Comparison")
