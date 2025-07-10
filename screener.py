@@ -210,6 +210,33 @@ def extract_email(text):
     match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
     return match.group(0) if match else None
 
+def extract_name(text):
+    """
+    Attempts to extract a name from the first few lines of the resume text.
+    This is a heuristic and might not be perfect for all resume formats.
+    """
+    lines = text.strip().split('\n')
+    if not lines:
+        return None
+
+    # Heuristic: Assume name is in the first 1-3 lines and is usually capitalized
+    # Filter out lines that look like contact info (email, phone, linkedin, github)
+    potential_name_lines = []
+    for line in lines[:3]: # Check first 3 lines
+        line = line.strip()
+        if not re.search(r'[@\d\.\-]', line) and len(line.split()) <= 4 and line.isupper() or (line and line[0].isupper() and all(word[0].isupper() or not word.isalpha() for word in line.split())):
+            potential_name_lines.append(line)
+
+    if potential_name_lines:
+        # Take the longest potential name line as the name
+        name = max(potential_name_lines, key=len)
+        # Remove common resume headers if they somehow get picked up as names
+        name = re.sub(r'summary|education|experience|skills|projects|certifications', '', name, flags=re.IGNORECASE).strip()
+        if name:
+            return name.title() # Return in title case
+    return None
+
+
 def get_top_keywords(text, num_keywords=15):
     """Extracts and returns the top N most frequent keywords from text, excluding stop words."""
     cleaned_text = clean_text(text)
@@ -410,12 +437,14 @@ if jd_text and resume_files:
 
         exp = extract_years_of_experience(text)
         email = extract_email(text)
+        candidate_name = extract_name(text) or file.name.replace('.pdf', '').replace('_', ' ').title() # Use extracted name or cleaned file name
         # Call semantic_score and unpack all returned values, including semantic_similarity
         score, matched_keywords, missing_skills, feedback, semantic_similarity = semantic_score(text, jd_text, exp)
         summary = f"{exp}+ years exp. | {text.strip().splitlines()[0]}" if text else f"{exp}+ years exp."
 
         results.append({
             "File Name": file.name,
+            "Candidate Name": candidate_name, # Store extracted name
             "Score (%)": score,
             "Years Experience": exp,
             "Summary": summary,
@@ -434,9 +463,8 @@ if jd_text and resume_files:
     st.markdown("## 📊 Candidate Score Comparison")
     if not df.empty:
         fig, ax = plt.subplots(figsize=(10, 6))
-        # Use a more readable name for the x-axis labels, removing .pdf and replacing _ with space
-        candidate_names_display = [name.replace('.pdf', '').replace('_', ' ').title() for name in df['File Name']]
-        bars = ax.bar(candidate_names_display, df['Score (%)'], color='skyblue')
+        # Use the extracted candidate name for the x-axis labels
+        bars = ax.bar(df['Candidate Name'], df['Score (%)'], color='skyblue')
         ax.set_xlabel("Candidate", fontsize=12)
         ax.set_ylabel("Score (%)", fontsize=12)
         ax.set_title("Resume Screening Scores", fontsize=14, fontweight='bold')
@@ -455,8 +483,12 @@ if jd_text and resume_files:
     st.markdown("## 📝 Detailed Candidate Analysis")
 
     if not df.empty:
+        # Get top JD skills once for all candidates
+        jd_top_skills_list = get_top_keywords(jd_text, num_keywords=20)
+        jd_top_skills_set = set(jd_top_skills_list)
+
         for _, row in df.iterrows():
-            candidate_display_name = row['File Name'].replace('.pdf', '').replace('_', ' ').title()
+            candidate_display_name = row['Candidate Name'] # Use the extracted name
             st.subheader(f"Analysis for {candidate_display_name}")
             individual_analysis_paragraph = (
                 f"**{candidate_display_name}** scored **{row['Score (%)']:.2f}%** "
@@ -464,36 +496,40 @@ if jd_text and resume_files:
                 f"This candidate's profile is assessed as: **{row['Feedback']}**. "
             )
 
-            if row['Matched Keywords']:
-                individual_analysis_paragraph += f"Key strengths include matched skills such as: **{row['Matched Keywords']}**. "
-            else:
-                individual_analysis_paragraph += "Few specific matched skills were identified. "
-
-            if row['Missing Skills']:
-                individual_analysis_paragraph += f"Areas for potential development or skills missing from the job description include: **{row['Missing Skills']}**."
-            else:
-                individual_analysis_paragraph += "No significant missing skills were identified relative to the job description."
-
             st.markdown(individual_analysis_paragraph)
 
             # --- New Feature: Semantic Similarity Score ---
             st.markdown(f"**Semantic Similarity (JD vs. Resume):** {row['Semantic Similarity']:.2f} (Higher is better)")
 
-            # --- New Feature: Top Skills in Resume ---
-            st.markdown("### 🎯 Top Skills in Resume (Keywords)")
-            top_resume_skills = get_top_keywords(row['Resume Raw Text'], num_keywords=15)
-            if top_resume_skills:
-                st.write(", ".join(top_resume_skills))
-            else:
-                st.info("No significant top skills found in this resume.")
+            # --- Enhanced Skill Matching Breakdown ---
+            st.markdown("### 📊 Skill Alignment with Job Description")
+            resume_words_for_matching = {word for word in re.findall(r'\b\w+\b', clean_text(row['Resume Raw Text'])) if word not in STOP_WORDS}
 
-            # --- New Feature: Top Skills in Job Description (for comparison) ---
-            st.markdown("### 💼 Top Skills in Job Description (for comparison)")
-            top_jd_skills = get_top_keywords(jd_text, num_keywords=15)
-            if top_jd_skills:
-                st.write(", ".join(top_jd_skills))
+            matched_jd_skills = []
+            missing_jd_skills = []
+            for skill in jd_top_skills_list:
+                if skill in resume_words_for_matching:
+                    matched_jd_skills.append(skill)
+                else:
+                    missing_jd_skills.append(skill)
+
+            if matched_jd_skills:
+                st.markdown(f"**✅ Matched Job Description Skills:** {', '.join(sorted(matched_jd_skills))}")
             else:
-                st.info("No significant top skills found in the job description.")
+                st.info("No significant top JD skills matched in this resume.")
+
+            if missing_jd_skills:
+                st.markdown(f"**❌ Missing Job Description Skills:** {', '.join(sorted(missing_jd_skills))}")
+            else:
+                st.success("All top JD skills found in this resume!")
+
+            # Percentage of JD skills matched
+            if jd_top_skills_list:
+                match_percentage = (len(matched_jd_skills) / len(jd_top_skills_list)) * 100
+                st.markdown(f"**Overall JD Skill Match:** {match_percentage:.2f}% of top JD skills found.")
+            else:
+                st.info("No top skills identified in the Job Description for matching percentage.")
+
 
             # --- New Feature: Experience Match Visual ---
             st.markdown("### ⏳ Experience Match")
@@ -503,18 +539,6 @@ if jd_text and resume_files:
                 st.success(f"Candidate has {row['Years Experience']:.1f} years of experience, meeting or exceeding the required {min_experience} years.")
             else:
                 st.warning(f"Candidate has {row['Years Experience']:.1f} years of experience, less than the required {min_experience} years.")
-
-            # Removed: Individual Resume Keyword Cloud as requested
-            # st.markdown("### ☁️ Resume Keyword Cloud")
-            # resume_words_for_cloud = " ".join([word for word in re.findall(r'\b\w+\b', clean_text(row['Resume Raw Text'])) if word not in STOP_WORDS])
-            # if resume_words_for_cloud:
-            #     wordcloud_resume = WordCloud(width=600, height=300, background_color='white').generate(resume_words_for_cloud)
-            #     fig_resume, ax_resume = plt.subplots(figsize=(8, 4))
-            #     ax_resume.imshow(wordcloud_resume, interpolation='bilinear')
-            #     ax_resume.axis('off')
-            #     st.pyplot(fig_resume)
-            # else:
-            #     st.info("No significant keywords to display for this resume after filtering common words.")
 
             with st.expander("📄 Resume Preview"):
                 st.code(resume_text_map.get(row['File Name'], ''))
@@ -529,7 +553,7 @@ if jd_text and resume_files:
         top_candidate = df.iloc[0]
         st.markdown("## 🏆 Top Candidate Recommendation")
         st.success(
-            f"Based on the screening, **{top_candidate['File Name'].replace('.pdf', '').replace('_', ' ').title()}** "
+            f"Based on the screening, **{top_candidate['Candidate Name']}** "
             f"is the top-ranked candidate with a score of **{top_candidate['Score (%)']:.2f}%** and "
             f"**{top_candidate['Years Experience']:.1f} years of experience**. "
             f"Their profile shows a **{top_candidate['Feedback'].lower()}**."
@@ -580,13 +604,13 @@ Recruitment Team
         if st.button("📧 Send Emails"):
             for _, row in email_ready.iterrows():
                 # Replace placeholders in the email body
-                msg = body.replace("{{name}}", row['File Name'].replace(".pdf", "").split('_')[0].title())\
+                msg = body.replace("{{name}}", row['Candidate Name'])\
                             .replace("{{score}}", str(round(row['Score (%)'], 2)))
                 # Assuming `jd_option` holds the job role name
                 msg = msg.replace("[Job Role]", jd_option if jd_option != "Upload my own" else "the specified role")
 
                 send_email_to_candidate(
-                    name=row["File Name"].replace(".pdf", ""),
+                    name=row["Candidate Name"], # Use the extracted name for email
                     score=row["Score (%)"],
                     feedback=row["Tag"],
                     recipient=row["Email"],
