@@ -193,32 +193,44 @@ if jd_text and resume_files:
     st.download_button("📥 Download Results CSV", data=df.to_csv(index=False), file_name="screening_results.csv")
 
     # --- Insights ---
-    st.markdown("### 📊 Smart Insights")
+st.markdown("### 📊 Smart Insights")
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("📈 Avg Score", f"{df['Score'].mean():.2f}%")
-    col2.metric("💼 Avg Exp", f"{df['Years'].mean():.1f} yrs")
-    col3.metric("🎓 Avg CGPA", f"{df['CGPA'].mean():.2f}")
-    col4.metric("✅ Shortlisted", df[df["Tag"] != "❌ Not Shortlisted"].shape[0])
+col1, col2, col3, col4 = st.columns(4)
 
-    st.markdown("### ☁️ Word Cloud of Matched Keywords")
+# Handle cases where columns might be missing
+avg_score = df["Score"].mean() if "Score" in df.columns else 0
+avg_exp = df["Years"].mean() if "Years" in df.columns else 0
+avg_cgpa = df["CGPA"].mean() if "CGPA" in df.columns else 0
+shortlisted_count = df[df["Tag"] != "❌ Not Shortlisted"].shape[0] if "Tag" in df.columns else 0
 
-    if "Matched Keywords" in df.columns and not df["Matched Keywords"].isnull().all():
+col1.metric("📈 Avg Score", f"{avg_score:.2f}%")
+col2.metric("💼 Avg Exp", f"{avg_exp:.1f} yrs")
+col3.metric("🎓 Avg CGPA", f"{avg_cgpa:.2f}")
+col4.metric("✅ Shortlisted", shortlisted_count)
+
+# --- Word Cloud Section ---
+st.markdown("### ☁️ Word Cloud of Matched Keywords")
+
+if "Matched Keywords" in df.columns and not df["Matched Keywords"].isnull().all():
     all_words = []
-        for kw in df["Matched Keywords"].dropna():
-            if isinstance(kw, str):
-                all_words.extend(kw.split(", "))
-    
-        if all_words:
+    for kw in df["Matched Keywords"].dropna():
+        if isinstance(kw, str):
+            all_words.extend(kw.split(", "))
+
+    if all_words:
+        try:
             wordcloud = WordCloud(width=800, height=400, background_color="white").generate(" ".join(all_words))
             fig, ax = plt.subplots(figsize=(10, 4))
             ax.imshow(wordcloud, interpolation='bilinear')
             ax.axis("off")
             st.pyplot(fig)
-        else:
-            st.info("No keywords found to generate a word cloud.")
+        except Exception as e:
+            st.warning(f"⚠️ Could not generate word cloud: {e}")
     else:
-        st.warning("⚠️ No matched keywords available to display word cloud.")
+        st.info("ℹ️ No keywords found to generate a word cloud.")
+else:
+    st.warning("⚠️ No matched keywords available to display word cloud.")
+
 
 
     # --- Top Candidate Highlights ---
