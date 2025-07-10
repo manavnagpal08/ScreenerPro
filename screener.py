@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 from wordcloud import WordCloud # Import WordCloud
 from sentence_transformers import SentenceTransformer
 import nltk # Import NLTK
+import collections # For counting word frequencies
+from sklearn.metrics.pairwise import cosine_similarity # For semantic similarity
 
 # Download NLTK stopwords data if not already downloaded
 # This line will only run once when the app starts or when this part of the code is executed.
@@ -208,6 +210,14 @@ def extract_email(text):
     match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
     return match.group(0) if match else None
 
+def get_top_keywords(text, num_keywords=15):
+    """Extracts and returns the top N most frequent keywords from text, excluding stop words."""
+    cleaned_text = clean_text(text)
+    words = [word for word in re.findall(r'\b\w+\b', cleaned_text) if word not in STOP_WORDS]
+    word_counts = collections.Counter(words)
+    return [word for word, count in word_counts.most_common(num_keywords)]
+
+
 def smart_score(resume_text, jd_text, years_exp):
     """
     Calculates a 'smart score' based on keyword overlap and experience.
@@ -241,7 +251,8 @@ def smart_score(resume_text, jd_text, years_exp):
     elif not matched_keywords:
         feedback = "Very few common keywords found. Significant mismatch."
 
-    return score, matched_keywords, missing_skills, feedback
+    return score, matched_keywords, missing_skills, feedback, 0.0 # Return 0.0 for semantic similarity in fallback
+
 
 def semantic_score(resume_text, jd_text, years_exp):
     """
@@ -260,17 +271,22 @@ def semantic_score(resume_text, jd_text, years_exp):
     matched_keywords = ""
     missing_skills = ""
     feedback = "Initial assessment."
+    semantic_similarity = 0.0 # Initialize semantic_similarity
 
     # If ML model is not loaded, fall back to smart_score
     if ml_model is None:
         st.error("❌ ML model not loaded. Falling back to smart_score for all metrics.")
-        score, matched_keywords, missing_skills, feedback = smart_score(resume_text, jd_text, years_exp)
-        return score, matched_keywords, missing_skills, feedback
+        score, matched_keywords, missing_skills, feedback, _ = smart_score(resume_text, jd_text, years_exp)
+        return score, matched_keywords, missing_skills, feedback, semantic_similarity
 
     try:
         # Generate embeddings for JD and resume
         jd_embed = model.encode(jd_clean)
         resume_embed = model.encode(resume_clean)
+
+        # Calculate semantic similarity (cosine similarity)
+        semantic_similarity = cosine_similarity(jd_embed.reshape(1, -1), resume_embed.reshape(1, -1))[0][0]
+        semantic_similarity = float(np.clip(semantic_similarity, 0, 1)) # Ensure between 0 and 1
 
         # Extract numerical features for the ML model - these are NOT filtered by STOP_WORDS for embedding input
         # but keyword_overlap_count is filtered to be consistent with training.
@@ -324,15 +340,16 @@ def semantic_score(resume_text, jd_text, years_exp):
         if score < 10:
             st.warning("⚠️ ML score is very low. Using fallback smart_score for a more reliable assessment.")
             # Re-run smart_score to ensure consistent logic for fallback, which also uses STOP_WORDS
-            score, matched_keywords, missing_skills, feedback = smart_score(resume_text, jd_text, years_exp)
+            score, matched_keywords, missing_skills, feedback, _ = smart_score(resume_text, jd_text, years_exp) # Discard semantic_similarity from fallback
 
-        return round(score, 2), matched_keywords, missing_skills, feedback
+        return round(score, 2), matched_keywords, missing_skills, feedback, round(semantic_similarity, 2)
 
     except Exception as e:
         st.error(f"❌ semantic_score failed during prediction: {e}. Falling back to smart_score.")
         # Fallback to smart_score if any error occurs during ML prediction
-        score, matched_keywords, missing_skills, feedback = smart_score(resume_text, jd_text, years_exp)
-        return score, matched_keywords, missing_skills, feedback
+        score, matched_keywords, missing_skills, feedback, _ = smart_score(resume_text, jd_text, years_exp)
+        return score, matched_keywords, missing_skills, feedback, semantic_similarity # Return 0.0 for semantic_similarity
+
 
 # --- Streamlit UI ---
 st.title("🧠 ScreenerPro – AI Resume Screener")
@@ -390,8 +407,8 @@ if jd_text and resume_files:
 
         exp = extract_years_of_experience(text)
         email = extract_email(text)
-        # Call semantic_score and unpack all returned values
-        score, matched_keywords, missing_skills, feedback = semantic_score(text, jd_text, exp)
+        # Call semantic_score and unpack all returned values, including semantic_similarity
+        score, matched_keywords, missing_skills, feedback, semantic_similarity = semantic_score(text, jd_text, exp)
         summary = f"{exp}+ years exp. | {text.strip().splitlines()[0]}" if text else f"{exp}+ years exp."
 
         results.append({
@@ -403,6 +420,7 @@ if jd_text and resume_files:
             "Matched Keywords": matched_keywords,
             "Missing Skills": missing_skills,
             "Feedback": feedback,
+            "Semantic Similarity": semantic_similarity, # Add semantic similarity to results
             "Resume Raw Text": text # Store raw text for individual word cloud
         })
         resume_text_map[file.name] = text
@@ -413,8 +431,10 @@ if jd_text and resume_files:
     st.markdown("## 📊 Candidate Score Comparison")
     if not df.empty:
         fig, ax = plt.subplots(figsize=(10, 6))
-        bars = ax.bar(df['File Name'].apply(lambda x: x.replace('.pdf', '')), df['Score (%)'], color='skyblue')
-        ax.set_xlabel("Candidate Resume", fontsize=12)
+        # Use a more readable name for the x-axis labels
+        candidate_names = [name.replace('.pdf', '').replace('_', ' ').title() for name in df['File Name']]
+        bars = ax.bar(candidate_names, df['Score (%)'], color='skyblue')
+        ax.set_xlabel("Candidate", fontsize=12)
         ax.set_ylabel("Score (%)", fontsize=12)
         ax.set_title("Resume Screening Scores", fontsize=14, fontweight='bold')
         ax.set_ylim(0, 100) # Ensure y-axis goes from 0 to 100
@@ -433,9 +453,10 @@ if jd_text and resume_files:
 
     if not df.empty:
         for _, row in df.iterrows():
-            st.subheader(f"Analysis for {row['File Name']}")
+            candidate_display_name = row['File Name'].replace('.pdf', '').replace('_', ' ').title()
+            st.subheader(f"Analysis for {candidate_display_name}")
             individual_analysis_paragraph = (
-                f"**{row['File Name'].replace('.pdf', '').replace('_', ' ').title()}** scored **{row['Score (%)']:.2f}%** "
+                f"**{candidate_display_name}** scored **{row['Score (%)']:.2f}%** "
                 f"with **{row['Years Experience']:.1f} years of experience**. "
                 f"This candidate's profile is assessed as: **{row['Feedback']}**. "
             )
@@ -452,17 +473,45 @@ if jd_text and resume_files:
 
             st.markdown(individual_analysis_paragraph)
 
-            # --- Individual Resume Keyword Cloud ---
-            st.markdown("### ☁️ Resume Keyword Cloud")
-            resume_words_for_cloud = " ".join([word for word in re.findall(r'\b\w+\b', clean_text(row['Resume Raw Text'])) if word not in STOP_WORDS])
-            if resume_words_for_cloud:
-                wordcloud_resume = WordCloud(width=600, height=300, background_color='white').generate(resume_words_for_cloud)
-                fig_resume, ax_resume = plt.subplots(figsize=(8, 4))
-                ax_resume.imshow(wordcloud_resume, interpolation='bilinear')
-                ax_resume.axis('off')
-                st.pyplot(fig_resume)
+            # --- New Feature: Semantic Similarity Score ---
+            st.markdown(f"**Semantic Similarity (JD vs. Resume):** {row['Semantic Similarity']:.2f} (Higher is better)")
+
+            # --- New Feature: Top Skills in Resume ---
+            st.markdown("### 🎯 Top Skills in Resume (Keywords)")
+            top_resume_skills = get_top_keywords(row['Resume Raw Text'], num_keywords=15)
+            if top_resume_skills:
+                st.write(", ".join(top_resume_skills))
             else:
-                st.info("No significant keywords to display for this resume after filtering common words.")
+                st.info("No significant top skills found in this resume.")
+
+            # --- New Feature: Top Skills in Job Description ---
+            st.markdown("### 💼 Top Skills in Job Description (Keywords)")
+            top_jd_skills = get_top_keywords(jd_text, num_keywords=15)
+            if top_jd_skills:
+                st.write(", ".join(top_jd_skills))
+            else:
+                st.info("No significant top skills found in the job description.")
+
+            # --- New Feature: Experience Match Visual ---
+            st.markdown("### ⏳ Experience Match")
+            exp_ratio = min(row['Years Experience'] / min_experience, 1.0) if min_experience > 0 else 1.0
+            st.progress(exp_ratio)
+            if row['Years Experience'] >= min_experience:
+                st.success(f"Candidate has {row['Years Experience']:.1f} years of experience, meeting or exceeding the required {min_experience} years.")
+            else:
+                st.warning(f"Candidate has {row['Years Experience']:.1f} years of experience, less than the required {min_experience} years.")
+
+            # Removed: Individual Resume Keyword Cloud as requested
+            # st.markdown("### ☁️ Resume Keyword Cloud")
+            # resume_words_for_cloud = " ".join([word for word in re.findall(r'\b\w+\b', clean_text(row['Resume Raw Text'])) if word not in STOP_WORDS])
+            # if resume_words_for_cloud:
+            #     wordcloud_resume = WordCloud(width=600, height=300, background_color='white').generate(resume_words_for_cloud)
+            #     fig_resume, ax_resume = plt.subplots(figsize=(8, 4))
+            #     ax_resume.imshow(wordcloud_resume, interpolation='bilinear')
+            #     ax_resume.axis('off')
+            #     st.pyplot(fig_resume)
+            # else:
+            #     st.info("No significant keywords to display for this resume after filtering common words.")
 
             with st.expander("📄 Resume Preview"):
                 st.code(resume_text_map.get(row['File Name'], ''))
