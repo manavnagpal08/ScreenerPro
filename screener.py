@@ -17,7 +17,7 @@ import nltk # Import NLTK
 # It's good practice to put this outside functions if it's a one-time setup.
 try:
     nltk.data.find('corpora/stopwords')
-except nltk.downloader.DownloadError:
+except LookupError: # Changed from nltk.downloader.DownloadError to LookupError
     nltk.download('stopwords')
     st.success("✅ NLTK stopwords downloaded successfully!")
 
@@ -382,9 +382,9 @@ if jd_text and resume_files:
             "Years Experience": exp,
             "Summary": summary,
             "Email": email or "Not found",
-            "Matched Keywords": matched_keywords, # New field
-            "Missing Skills": missing_skills,     # New field
-            "Feedback": feedback                 # New field
+            "Matched Keywords": matched_keywords, # Correct
+            "Missing Skills": missing_skills,     # Corrected: was matched_keywords
+            "Feedback": feedback                 # Correct
         })
         resume_text_map[file.name] = text
 
