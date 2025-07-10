@@ -134,19 +134,19 @@ def extract_email(text):
     match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
     return match.group(0) if match else None
 
+
 def semantic_score(resume_text, jd_text, years_exp):
     try:
         jd_embed = model.encode([jd_text])[0]
         resume_embed = model.encode([resume_text])[0]
         cosine_score = cosine_similarity([jd_embed], [resume_embed])[0][0] * 100
 
-        # Keyword matching (JD vs resume word overlap)
         resume_words = set(re.findall(r'\b\w+\b', resume_text.lower()))
         jd_words = set(re.findall(r'\b\w+\b', jd_text.lower()))
         matched_keywords = resume_words & jd_words
         keyword_score = min(len(matched_keywords), 20)
 
-        # Role-based core skills
+        # Detect job role
         role_core_skills = {
             'data_analyst': ['sql', 'excel', 'tableau', 'powerbi', 'python', 'r', 'statistics', 'dashboard', 'data'],
             'data_scientist': ['python', 'r', 'machine learning', 'deep learning', 'pandas', 'numpy', 'tensorflow', 'scikit-learn', 'nlp'],
@@ -162,22 +162,19 @@ def semantic_score(resume_text, jd_text, years_exp):
             'ui_ux_designer': ['figma', 'adobe xd', 'ui', 'ux', 'prototyping', 'wireframe', 'design system', 'user research']
         }
 
-        # Derive role key from selected JD name
-        role_key = jd_option.lower().replace(" ", "_")
+        role_key = "data_analyst"  # TEMP hardcoded — later link to JD filename or dropdown
         core_skills = role_core_skills.get(role_key, [])
         core_bonus = sum(1 for skill in core_skills if skill in resume_words)
         core_bonus = min(core_bonus * 2, 10)
 
-        # Experience bonus
         experience_bonus = min(years_exp, 10)
 
-        # Final weighted score
         final_score = 0.5 * cosine_score + 0.25 * keyword_score + 0.15 * experience_bonus + 0.1 * core_bonus
         return round(min(final_score, 100), 2)
-    except:
+
+    except Exception as e:
+        print("Error in semantic_score:", e)
         return 0.0
-
-
 
 def generate_summary(text, experience):
     lines = text.strip().split("\n")[:5]
