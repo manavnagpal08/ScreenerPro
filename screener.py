@@ -10,6 +10,7 @@ from sentence_transformers import SentenceTransformer
 from email_sender import send_email_to_candidate
 from login import login_section
 import runpy
+from datetime import datetime
 
 # --- Initialize model ---
 model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -83,13 +84,24 @@ def extract_text_from_pdf(uploaded_file):
 
 def extract_years_of_experience(text):
     text = text.lower()
-    patterns = [r'(\d{1,2})\s*\+?\s*(years?|yrs?|year)', r'experience\s*[-:]?\s*(\d{1,2})\s*(years?|yrs?|year)']
-    years = []
-    for pattern in patterns:
-        found = re.findall(pattern, text)
-        for match in found:
-            years.append(int(match[0]))
-    return max(years) if years else 0
+    job_date_ranges = re.findall(r'(\w+\s+\d{4})\s*(?:to|\-|–)\s*(present|\w+\s+\d{4})', text)
+    total_months = 0
+    for start, end in job_date_ranges:
+        try:
+            start_date = datetime.strptime(start, '%B %Y')
+        except:
+            continue
+        if end.lower() == 'present':
+            end_date = datetime.now()
+        else:
+            try:
+                end_date = datetime.strptime(end, '%B %Y')
+            except:
+                continue
+        total_months += (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
+
+    years = total_months // 12
+    return int(years)
 
 def extract_email(text):
     match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
