@@ -56,7 +56,7 @@ html, body, [class*="css"] {
 }
 .dashboard-card:hover {
     transform: translateY(-6px);
-    box-shadow: 0 10px 24px rgba(0,0,0,0.1);
+    box_shadow: 0 10px 24px rgba(0,0,0,0.1);
     background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
 }
 .dashboard-header {
@@ -104,16 +104,33 @@ if "tab_override" in st.session_state:
 if tab == "🏠 Dashboard":
     st.markdown('<div class="dashboard-header">📊 Overview Dashboard</div>', unsafe_allow_html=True)
 
-    resume_count = len(os.listdir("uploaded_resumes")) if os.path.exists("uploaded_resumes") else 0
+    # Initialize metrics
+    resume_count = 0
     jd_count = len([f for f in os.listdir("data") if f.endswith(".txt")]) if os.path.exists("data") else 0
     shortlisted = 0
     avg_score = 0.0
+
+    # Load results.csv if it exists to get the latest screening data
     if os.path.exists("results.csv"):
         try:
-            df = pd.read_csv("results.csv")
-            shortlisted = df[(df["Score (%)"] >= 80) & (df["Years Experience"] >= 2)].shape[0]
-            avg_score = df["Score (%)"].mean()
-        except: pass
+            df_results = pd.read_csv("results.csv")
+            resume_count = df_results["File Name"].nunique() # Count unique resumes screened
+            
+            # Define cutoff for shortlisted candidates (consistent with streamlit_app.py)
+            # Make sure these values match the sliders in streamlit_app.py for consistency
+            cutoff_score = 80 
+            min_exp_required = 2
+
+            shortlisted = df_results[(df_results["Score (%)"] >= cutoff_score) & 
+                                     (df_results["Years Experience"] >= min_exp_required)].shape[0]
+            avg_score = df_results["Score (%)"].mean()
+        except pd.errors.EmptyDataError:
+            st.warning("`results.csv` is empty. No screening data to display yet.")
+        except Exception as e:
+            st.error(f"Error reading `results.csv`: {e}")
+            df_results = pd.DataFrame() # Ensure df_results is defined as empty if error occurs
+    else:
+        df_results = pd.DataFrame() # Initialize empty if file doesn't exist
 
     col1, col2, col3 = st.columns(3)
     col1.markdown(f"""<div class="dashboard-card">📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True)
@@ -132,10 +149,9 @@ if tab == "🏠 Dashboard":
             st.rerun()
 
     # Optional: Dashboard Insights
-    if os.path.exists("results.csv"):
+    if not df_results.empty: # Use df_results loaded from CSV
         try:
-            df = pd.read_csv("results.csv")
-            df['Tag'] = df.apply(lambda row:
+            df_results['Tag'] = df_results.apply(lambda row:
                 "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3
                 else "✅ Good Fit" if row['Score (%)'] >= 75
                 else "⚠️ Needs Review", axis=1)
@@ -146,7 +162,7 @@ if tab == "🏠 Dashboard":
 
             with col_g1:
                 st.markdown("##### 🔥 Candidate Distribution")
-                pie_data = df['Tag'].value_counts().reset_index()
+                pie_data = df_results['Tag'].value_counts().reset_index()
                 pie_data.columns = ['Tag', 'Count']
                 fig_pie, ax1 = plt.subplots(figsize=(4.5, 4.5))
                 ax1.pie(pie_data['Count'], labels=pie_data['Tag'], autopct='%1.1f%%', startangle=90, textprops={'fontsize': 10})
@@ -157,20 +173,21 @@ if tab == "🏠 Dashboard":
                 st.markdown("##### 📊 Experience Distribution")
                 bins = [0, 2, 5, 10, 20]
                 labels = ['0-2 yrs', '3-5 yrs', '6-10 yrs', '10+ yrs']
-                df['Experience Group'] = pd.cut(df['Years Experience'], bins=bins, labels=labels, right=False)
-                exp_counts = df['Experience Group'].value_counts().sort_index()
+                df_results['Experience Group'] = pd.cut(df_results['Years Experience'], bins=bins, labels=labels, right=False)
+                exp_counts = df_results['Experience Group'].value_counts().sort_index()
                 fig_bar, ax2 = plt.subplots(figsize=(5, 4))
                 sns.barplot(x=exp_counts.index, y=exp_counts.values, palette="coolwarm", ax=ax2)
                 ax2.set_ylabel("Candidates")
                 ax2.set_xlabel("Experience Range")
                 ax2.tick_params(axis='x', labelrotation=0)
                 st.pyplot(fig_bar)
-                            # 📋 Top 5 Most Common Skills - Enhanced & Resized
+            
+            # 📋 Top 5 Most Common Skills - Enhanced & Resized
             st.markdown("##### 🧠 Top 5 Most Common Skills")
 
-            if 'Matched Keywords' in df.columns:
+            if 'Matched Keywords' in df_results.columns: # Use df_results
                 all_skills = []
-                for skills in df['Matched Keywords'].dropna():
+                for skills in df_results['Matched Keywords'].dropna(): # Use df_results
                     all_skills.extend([s.strip().lower() for s in skills.split(",") if s.strip()])
 
                 skill_counts = pd.Series(all_skills).value_counts().head(5)
@@ -195,15 +212,14 @@ if tab == "🏠 Dashboard":
             else:
                 st.info("No skill data available in results.")
 
-        
-        except:
-            st.warning("⚠️ Could not render insights due to data error.")
+        except Exception as e: # Catch specific exceptions or log for debugging
+            st.warning(f"⚠️ Could not render insights due to data error: {e}")
 
 # ======================
 # Page Routing via exec
 # ======================
 elif tab == "🧠 Resume Screener":
-    runpy.run_path("screener.py")
+    runpy.run_path("streamlit_app.py") # Changed to streamlit_app.py for clarity
 
 elif tab == "📁 Manage JDs":
     with open("manage_jds.py", encoding="utf-8") as f:
