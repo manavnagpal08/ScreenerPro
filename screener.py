@@ -15,7 +15,7 @@ import collections # For counting word frequencies
 from sklearn.metrics.pairwise import cosine_similarity # For semantic similarity
 import json # Explicitly import json module here as well
 
-# Firebase imports
+# Firebase imports - these are needed to access firestore.client()
 from firebase_admin import credentials, initialize_app, auth, firestore
 
 # Download NLTK stopwords data if not already downloaded
@@ -411,41 +411,8 @@ def semantic_score(resume_text, jd_text, years_exp):
 def app(): # Define the app() function for screener.py
     st.title("🧠 ScreenerPro – AI Resume Screener")
 
-    # Firebase initialization for screener.py if it's run standalone
-    # This block is similar to main.py's initialization
-    if 'firebase_initialized_screener' not in st.session_state:
-        try:
-            firebase_config_data = None
-            service_account_key_path = "firebase_service_account.json"
-            
-            if os.path.exists(service_account_key_path):
-                with open(service_account_key_path, "r") as f:
-                    firebase_config_data = json.load(f)
-                st.success("✅ Firebase config loaded from local 'firebase_service_account.json' in screener.py!")
-            else:
-                canvas_config_str = os.environ.get('__firebase_config', '{}')
-                if canvas_config_str != '{}':
-                    try:
-                        firebase_config_data = json.loads(canvas_config_str)
-                        st.success("✅ Firebase config loaded from Canvas environment in screener.py!")
-                    except json.JSONDecodeError as e:
-                        st.error(f"❌ Error decoding Canvas Firebase config JSON in screener.py: {e}")
-                        st.stop()
-                
-            if not firebase_config_data or not firebase_config_data.get('projectId'):
-                st.error("Firebase configuration not found in screener.py. Please ensure 'firebase_service_account.json' is in the root directory or '__firebase_config' is set.")
-                st.stop()
-
-            if not initialize_app(): # Check if an app is already initialized
-                cred = credentials.Certificate(firebase_config_data)
-                initialize_app(cred)
-            st.session_state['firebase_initialized_screener'] = True
-            
-        except Exception as e:
-            st.error(f"❌ Firebase initialization failed in screener.py: {e}")
-            st.stop()
-
-    # Get Firestore client (assuming it's initialized either by main.py or the block above)
+    # Get Firestore client (assuming it's initialized by main.py)
+    # This line will now directly access the client, assuming main.py has run its initialization.
     db = firestore.client()
 
 
