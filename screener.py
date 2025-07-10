@@ -4,6 +4,7 @@ import pandas as pd
 import re
 import os
 import sklearn
+import json
 import joblib
 import numpy as np
 from datetime import datetime # Needed for extract_years_of_experience
