@@ -278,7 +278,7 @@ def smart_score(resume_text, jd_text, years_exp):
     elif not matched_keywords:
         feedback = "Very few common keywords found. Significant mismatch."
 
-    return score, matched_keywords, missing_skills, feedback, 0.0 # Return 0.0 for semantic similarity in fallback
+    return score, matched_keywords, missing_skills, feedback, 0.0, 0.0 # Return 0.0 for semantic similarity and jd_coverage_percentage in fallback
 
 
 def semantic_score(resume_text, jd_text, years_exp):
@@ -299,12 +299,13 @@ def semantic_score(resume_text, jd_text, years_exp):
     missing_skills = ""
     feedback = "Initial assessment."
     semantic_similarity = 0.0 # Initialize semantic_similarity
+    jd_coverage_percentage = 0.0 # Initialize jd_coverage_percentage
 
     # If ML model is not loaded, fall back to smart_score
     if ml_model is None:
         st.error("❌ ML model not loaded. Falling back to smart_score for all metrics.")
-        score, matched_keywords, missing_skills, feedback, _ = smart_score(resume_text, jd_text, years_exp)
-        return score, matched_keywords, missing_skills, feedback, semantic_similarity
+        score, matched_keywords, missing_skills, feedback, _, _ = smart_score(resume_text, jd_text, years_exp)
+        return score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage
 
     try:
         # Generate embeddings for JD and resume
@@ -332,12 +333,18 @@ def semantic_score(resume_text, jd_text, years_exp):
         jd_top_skills = get_top_keywords(jd_clean, num_keywords=20) # Get more keywords for better coverage
         matched_core_skills_count = sum(1 for skill in jd_top_skills if skill in resume_clean)
 
+        # Calculate JD Keyword Coverage Percentage
+        if len(jd_words_filtered) > 0:
+            jd_coverage_percentage = (keyword_overlap_count / len(jd_words_filtered)) * 100
+        else:
+            jd_coverage_percentage = 0.0
+
 
         # Ensure years_exp is a float, default to 0.0 if None
         years_exp_for_model = float(years_exp) if years_exp is not None else 0.0
 
-        # *** IMPORTANT CHANGE: Include years_exp in extra_feats for prediction consistency ***
-        extra_feats = np.array([keyword_overlap_count, resume_len, matched_core_skills_count, years_exp_for_model])
+        # *** IMPORTANT CHANGE: Include jd_coverage_percentage in extra_feats for prediction consistency ***
+        extra_feats = np.array([keyword_overlap_count, resume_len, matched_core_skills_count, years_exp_for_model, jd_coverage_percentage])
 
         # Concatenate all features for the ML model
         features = np.concatenate([jd_embed, resume_embed, extra_feats])
@@ -370,15 +377,15 @@ def semantic_score(resume_text, jd_text, years_exp):
         if score < 10:
             st.warning("⚠️ ML score is very low. Using fallback smart_score for a more reliable assessment.")
             # Re-run smart_score to ensure consistent logic for fallback, which also uses STOP_WORDS
-            score, matched_keywords, missing_skills, feedback, _ = smart_score(resume_text, jd_text, years_exp) # Discard semantic_similarity from fallback
+            score, matched_keywords, missing_skills, feedback, _, _ = smart_score(resume_text, jd_text, years_exp) # Discard semantic_similarity and jd_coverage_percentage from fallback
 
-        return round(score, 2), matched_keywords, missing_skills, feedback, round(semantic_similarity, 2)
+        return round(score, 2), matched_keywords, missing_skills, feedback, round(semantic_similarity, 2), round(jd_coverage_percentage, 2)
 
     except Exception as e:
         st.error(f"❌ semantic_score failed during prediction: {e}. Falling back to smart_score.")
         # Fallback to smart_score if any error occurs during ML prediction
-        score, matched_keywords, missing_skills, feedback, _ = smart_score(resume_text, jd_text, years_exp)
-        return score, matched_keywords, missing_skills, feedback, semantic_similarity # Return 0.0 for semantic_similarity
+        score, matched_keywords, missing_skills, feedback, _, _ = smart_score(resume_text, jd_text, years_exp)
+        return score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage # Return 0.0 for semantic_similarity and jd_coverage_percentage
 
 
 # --- Streamlit UI ---
@@ -438,8 +445,8 @@ if jd_text and resume_files:
         exp = extract_years_of_experience(text)
         email = extract_email(text)
         candidate_name = extract_name(text) or file.name.replace('.pdf', '').replace('_', ' ').title() # Use extracted name or cleaned file name
-        # Call semantic_score and unpack all returned values, including semantic_similarity
-        score, matched_keywords, missing_skills, feedback, semantic_similarity = semantic_score(text, jd_text, exp)
+        # Call semantic_score and unpack all returned values, including semantic_similarity and jd_coverage_percentage
+        score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage = semantic_score(text, jd_text, exp)
         summary = f"{exp}+ years exp. | {text.strip().splitlines()[0]}" if text else f"{exp}+ years exp."
 
         results.append({
@@ -453,6 +460,7 @@ if jd_text and resume_files:
             "Missing Skills": missing_skills,
             "Feedback": feedback,
             "Semantic Similarity": semantic_similarity, # Add semantic similarity to results
+            "JD Keyword Coverage (%)": jd_coverage_percentage, # Add JD keyword coverage
             "Resume Raw Text": text # Store raw text for individual word cloud
         })
         resume_text_map[file.name] = text
@@ -501,6 +509,9 @@ if jd_text and resume_files:
             # --- New Feature: Semantic Similarity Score ---
             st.markdown(f"**Semantic Similarity (JD vs. Resume):** {row['Semantic Similarity']:.2f} (Higher is better)")
 
+            # --- New Feature: JD Keyword Coverage Percentage ---
+            st.markdown(f"**JD Keyword Coverage:** {row['JD Keyword Coverage (%)']:.2f}% of job description keywords found in resume.")
+
             # --- Enhanced Skill Matching Breakdown ---
             st.markdown("### 📊 Skill Alignment with Job Description")
             resume_words_for_matching = {word for word in re.findall(r'\b\w+\b', clean_text(row['Resume Raw Text'])) if word not in STOP_WORDS}
@@ -523,12 +534,12 @@ if jd_text and resume_files:
             else:
                 st.success("All top JD skills found in this resume!")
 
-            # Percentage of JD skills matched
-            if jd_top_skills_list:
-                match_percentage = (len(matched_jd_skills) / len(jd_top_skills_list)) * 100
-                st.markdown(f"**Overall JD Skill Match:** {match_percentage:.2f}% of top JD skills found.")
-            else:
-                st.info("No top skills identified in the Job Description for matching percentage.")
+            # Percentage of JD skills matched (already covered by JD Keyword Coverage now)
+            # if jd_top_skills_list:
+            #     match_percentage = (len(matched_jd_skills) / len(jd_top_skills_list)) * 100
+            #     st.markdown(f"**Overall JD Skill Match:** {match_percentage:.2f}% of top JD skills found.")
+            # else:
+            #     st.info("No top skills identified in the Job Description for matching percentage.")
 
 
             # --- New Feature: Experience Match Visual ---
