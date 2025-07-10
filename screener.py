@@ -8,7 +8,7 @@ import joblib
 import numpy as np
 from datetime import datetime # Needed for extract_years_of_experience
 import matplotlib.pyplot as plt
-from wordcloud import WordCloud
+from wordcloud import WordCloud # Import WordCloud
 from sentence_transformers import SentenceTransformer
 import nltk # Import NLTK
 
@@ -78,33 +78,6 @@ CUSTOM_STOP_WORDS = set([
     "officer", "president", "vice", "executive", "ceo", "cto", "cfo", "coo", "hr", "human",
     "resources", "recruitment", "talent", "acquisition", "onboarding", "training", "development",
     "performance", "compensation", "benefits", "payroll", "compliance", "legal", "finance",
-    "accounting", "auditing", "tax", "budgeting", "forecasting", "investments", "marketing",
-    "sales", "customer", "service", "support", "operations", "supply", "chain", "logistics",
-    "procurement", "manufacturing", "production", "quality", "assurance", "control", "research",
-    "innovation", "product", "program", "portfolio", "governance", "risk", "communication",
-    "presentation", "negotiation", "problem", "solving", "critical", "thinking", "analytical",
-    "creativity", "adaptability", "flexibility", "teamwork", "collaboration", "interpersonal",
-    "organizational", "time", "multitasking", "detail", "oriented", "independent", "proactive",
-    "self", "starter", "results", "driven", "client", "facing", "stakeholder", "engagement",
-    "vendor", "budget", "cost", "reduction", "process", "improvement", "standardization",
-    "optimization", "automation", "digital", "transformation", "change", "methodologies",
-    "industry", "regulations", "regulatory", "documentation", "technical", "writing",
-    "dashboards", "visualizations", "workshops", "feedback", "reviews", "appraisals",
-    "offboarding", "employee", "relations", "diversity", "inclusion", "equity", "belonging",
-    "corporate", "social", "responsibility", "csr", "sustainability", "environmental", "esg",
-    "ethics", "integrity", "professionalism", "confidentiality", "discretion", "accuracy",
-    "precision", "efficiency", "effectiveness", "scalability", "robustness", "reliability",
-    "vulnerability", "assessment", "penetration", "incident", "response", "disaster",
-    "recovery", "continuity", "bcp", "drp", "gdpr", "hipaa", "soc2", "iso", "nist", "pci",
-    "dss", "ccpa", "privacy", "protection", "grc", "cybersecurity", "information", "infosec",
-    "threat", "intelligence", "soc", "event", "siem", "identity", "access", "iam", "privileged",
-    "pam", "multi", "factor", "authentication", "mfa", "single", "sign", "on", "sso",
-    "encryption", "decryption", "firewall", "ids", "ips", "vpn", "endpoint", "antivirus",
-    "malware", "detection", "forensics", "handling", "assessments", "policies", "procedures",
-    "guidelines", "mitre", "att&ck", "modeling", "secure", "lifecycle", "sdlc", "awareness",
-    "phishing", "vishing", "smishing", "ransomware", "spyware", "adware", "rootkits",
-    "botnets", "trojans", "viruses", "worms", "zero", "day", "exploits", "patches", "patching",
-    "updates", "upgrades", "configuration", "ticketing", "crm", "erp", "scm", "hcm", "financial",
     "accounting", "auditing", "tax", "budgeting", "forecasting", "investments", "marketing",
     "sales", "customer", "service", "support", "operations", "supply", "chain", "logistics",
     "procurement", "manufacturing", "production", "quality", "assurance", "control", "research",
@@ -393,6 +366,20 @@ min_experience = st.slider("💼 Minimum Experience Required", 0, 15, 2)
 df = pd.DataFrame() # Initialize DataFrame outside the if block
 
 if jd_text and resume_files:
+    # --- Job Description Keyword Cloud ---
+    st.markdown("## ☁️ Job Description Keyword Cloud")
+    jd_words_for_cloud = " ".join([word for word in re.findall(r'\b\w+\b', clean_text(jd_text)) if word not in STOP_WORDS])
+    if jd_words_for_cloud:
+        wordcloud = WordCloud(width=800, height=400, background_color='white').generate(jd_words_for_cloud)
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.imshow(wordcloud, interpolation='bilinear')
+        ax.axis('off')
+        st.pyplot(fig)
+    else:
+        st.info("No significant keywords to display for the Job Description after filtering common words.")
+    st.divider()
+
+
     results = []
     resume_text_map = {}
     for file in resume_files:
@@ -415,18 +402,27 @@ if jd_text and resume_files:
             "Email": email or "Not found",
             "Matched Keywords": matched_keywords,
             "Missing Skills": missing_skills,
-            "Feedback": feedback
+            "Feedback": feedback,
+            "Resume Raw Text": text # Store raw text for individual word cloud
         })
         resume_text_map[file.name] = text
 
     df = pd.DataFrame(results).sort_values(by="Score (%)", ascending=False)
 
-    # --- Overall Candidate Comparison Chart ---
+    # --- Overall Candidate Comparison Chart (Improved Matplotlib Bar Chart) ---
     st.markdown("## 📊 Candidate Score Comparison")
     if not df.empty:
-        # Create a bar chart of scores
-        chart_data = df[['File Name', 'Score (%)']].set_index('File Name')
-        st.bar_chart(chart_data)
+        fig, ax = plt.subplots(figsize=(10, 6))
+        bars = ax.bar(df['File Name'].apply(lambda x: x.replace('.pdf', '')), df['Score (%)'], color='skyblue')
+        ax.set_xlabel("Candidate Resume", fontsize=12)
+        ax.set_ylabel("Score (%)", fontsize=12)
+        ax.set_title("Resume Screening Scores", fontsize=14, fontweight='bold')
+        ax.set_ylim(0, 100) # Ensure y-axis goes from 0 to 100
+        plt.xticks(rotation=45, ha='right') # Rotate labels for readability
+        for bar in bars:
+            yval = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2, yval + 1, round(yval, 2), ha='center', va='bottom') # Add score labels
+        st.pyplot(fig)
     else:
         st.info("Upload resumes to see a comparison chart.")
 
@@ -455,6 +451,18 @@ if jd_text and resume_files:
                 individual_analysis_paragraph += "No significant missing skills were identified relative to the job description."
 
             st.markdown(individual_analysis_paragraph)
+
+            # --- Individual Resume Keyword Cloud ---
+            st.markdown("### ☁️ Resume Keyword Cloud")
+            resume_words_for_cloud = " ".join([word for word in re.findall(r'\b\w+\b', clean_text(row['Resume Raw Text'])) if word not in STOP_WORDS])
+            if resume_words_for_cloud:
+                wordcloud_resume = WordCloud(width=600, height=300, background_color='white').generate(resume_words_for_cloud)
+                fig_resume, ax_resume = plt.subplots(figsize=(8, 4))
+                ax_resume.imshow(wordcloud_resume, interpolation='bilinear')
+                ax_resume.axis('off')
+                st.pyplot(fig_resume)
+            else:
+                st.info("No significant keywords to display for this resume after filtering common words.")
 
             with st.expander("📄 Resume Preview"):
                 st.code(resume_text_map.get(row['File Name'], ''))
