@@ -390,63 +390,61 @@ if jd_text and resume_files:
 
     df = pd.DataFrame(results).sort_values(by="Score (%)", ascending=False)
 
-    # === 📊 Global Resume Screening Insights (Now as a paragraph) ===
-    st.markdown("## 📊 Screening Analysis")
-
-    # Generate a comprehensive analysis paragraph
-    analysis_paragraph = ""
+    # --- Overall Candidate Comparison Chart ---
+    st.markdown("## 📊 Candidate Score Comparison")
     if not df.empty:
-        analysis_paragraph += "Here's an analysis of the uploaded resumes against the job description:\n\n"
-
-        # Calculate overall insights for the paragraph
-        avg_score = df['Score (%)'].mean()
-        avg_exp = df['Years Experience'].mean()
-
-        all_matched_skills_list = []
-        for keywords_str in df['Matched Keywords'].dropna():
-            all_matched_skills_list.extend([skill.strip() for skill in keywords_str.split(',') if skill.strip()])
-        top_matched_skills_series = pd.Series(all_matched_skills_list).value_counts().head(5)
-
-        all_missing_skills_list = []
-        for skills_str in df['Missing Skills'].dropna():
-            all_missing_skills_list.extend([skill.strip() for skill in skills_str.split(',') if skill.strip()])
-        top_missing_skills_series = pd.Series(all_missing_skills_list).value_counts().head(5)
-
-        analysis_paragraph += f"Across all submitted resumes, the average compatibility score is **{avg_score:.2f}%** with an average of **{avg_exp:.1f} years of experience**.\n\n"
-
-        if not top_matched_skills_series.empty:
-            analysis_paragraph += "The most frequently matched skills across candidates include: **"
-            analysis_paragraph += ", ".join([f"{skill}" for skill in top_matched_skills_series.index]) + "**.\n\n"
-        else:
-            analysis_paragraph += "No significant common matched skills were found across candidates after filtering.\n\n"
-
-        if not top_missing_skills_series.empty:
-            analysis_paragraph += "Conversely, common skills often missing from candidates' resumes, relative to the job description, are: **"
-            analysis_paragraph += ", ".join([f"{skill}" for skill in top_missing_skills_series.index]) + "**.\n\n"
-        else:
-            analysis_paragraph += "No significant common missing skills were identified across candidates after filtering.\n\n"
-
-        analysis_paragraph += "This overview provides a quick understanding of the overall candidate pool's alignment with the job requirements, highlighting key strengths and common gaps."
-
-    st.markdown(analysis_paragraph)
+        # Create a bar chart of scores
+        chart_data = df[['File Name', 'Score (%)']].set_index('File Name')
+        st.bar_chart(chart_data)
+    else:
+        st.info("Upload resumes to see a comparison chart.")
 
     st.divider()
 
-    # === 🏆 Show Top 3 Candidates ===
-    st.markdown("## 🏆 Top Candidates")
-    top_candidates_display = df.head(3)
+    # === Detailed Individual Candidate Analysis ===
+    st.markdown("## 📝 Detailed Candidate Analysis")
 
-    if not top_candidates_display.empty:
-        for _, row in top_candidates_display.iterrows():
-            st.subheader(f"{row['File Name']} — {row['Score (%)']}%")
-            st.write(f"🧠 Experience: {row['Years Experience']} years")
-            st.caption(f"Matched Skills: {row['Matched Keywords']}")
-            st.caption(f"Missing: {row['Missing Skills']}")
-            st.info(f"📋 Feedback: {row['Feedback']}")
+    if not df.empty:
+        for _, row in df.iterrows():
+            st.subheader(f"Analysis for {row['File Name']}")
+            individual_analysis_paragraph = (
+                f"**{row['File Name'].replace('.pdf', '').replace('_', ' ').title()}** scored **{row['Score (%)']:.2f}%** "
+                f"with **{row['Years Experience']:.1f} years of experience**. "
+                f"This candidate's profile is assessed as: **{row['Feedback']}**. "
+            )
+
+            if row['Matched Keywords']:
+                individual_analysis_paragraph += f"Key strengths include matched skills such as: **{row['Matched Keywords']}**. "
+            else:
+                individual_analysis_paragraph += "Few specific matched skills were identified. "
+
+            if row['Missing Skills']:
+                individual_analysis_paragraph += f"Areas for potential development or skills missing from the job description include: **{row['Missing Skills']}**."
+            else:
+                individual_analysis_paragraph += "No significant missing skills were identified relative to the job description."
+
+            st.markdown(individual_analysis_paragraph)
+
             with st.expander("📄 Resume Preview"):
                 st.code(resume_text_map.get(row['File Name'], ''))
+            st.markdown("---") # Separator for individual analyses
     else:
-        st.info("No candidates to display yet.")
+        st.info("No candidates to display yet for detailed analysis.")
+
+    st.divider()
+
+    # === "Who is Better" Statement ===
+    if not df.empty:
+        top_candidate = df.iloc[0]
+        st.markdown("## 🏆 Top Candidate Recommendation")
+        st.success(
+            f"Based on the screening, **{top_candidate['File Name'].replace('.pdf', '').replace('_', ' ').title()}** "
+            f"is the top-ranked candidate with a score of **{top_candidate['Score (%)']:.2f}%** and "
+            f"**{top_candidate['Years Experience']:.1f} years of experience**. "
+            f"Their profile shows a **{top_candidate['Feedback'].lower()}**."
+        )
+    else:
+        st.info("Upload resumes to get a top candidate recommendation.")
 
     st.divider()
 
@@ -458,7 +456,7 @@ if jd_text and resume_files:
 
     st.metric("✅ Shortlisted Candidates", len(shortlisted))
 
-    st.markdown("### 📋 All Candidate Results")
+    st.markdown("### 📋 All Candidate Results Table")
     st.dataframe(df) # Display the full DataFrame
 
     st.download_button(
