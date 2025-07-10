@@ -6,7 +6,7 @@ import os
 import sklearn
 import joblib
 import numpy as np
-from datetime import datetime
+from datetime import datetime # Needed for extract_years_of_experience
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 from sentence_transformers import SentenceTransformer
@@ -78,6 +78,33 @@ CUSTOM_STOP_WORDS = set([
     "officer", "president", "vice", "executive", "ceo", "cto", "cfo", "coo", "hr", "human",
     "resources", "recruitment", "talent", "acquisition", "onboarding", "training", "development",
     "performance", "compensation", "benefits", "payroll", "compliance", "legal", "finance",
+    "accounting", "auditing", "tax", "budgeting", "forecasting", "investments", "marketing",
+    "sales", "customer", "service", "support", "operations", "supply", "chain", "logistics",
+    "procurement", "manufacturing", "production", "quality", "assurance", "control", "research",
+    "innovation", "product", "program", "portfolio", "governance", "risk", "communication",
+    "presentation", "negotiation", "problem", "solving", "critical", "thinking", "analytical",
+    "creativity", "adaptability", "flexibility", "teamwork", "collaboration", "interpersonal",
+    "organizational", "time", "multitasking", "detail", "oriented", "independent", "proactive",
+    "self", "starter", "results", "driven", "client", "facing", "stakeholder", "engagement",
+    "vendor", "budget", "cost", "reduction", "process", "improvement", "standardization",
+    "optimization", "automation", "digital", "transformation", "change", "methodologies",
+    "industry", "regulations", "regulatory", "documentation", "technical", "writing",
+    "dashboards", "visualizations", "workshops", "feedback", "reviews", "appraisals",
+    "offboarding", "employee", "relations", "diversity", "inclusion", "equity", "belonging",
+    "corporate", "social", "responsibility", "csr", "sustainability", "environmental", "esg",
+    "ethics", "integrity", "professionalism", "confidentiality", "discretion", "accuracy",
+    "precision", "efficiency", "effectiveness", "scalability", "robustness", "reliability",
+    "vulnerability", "assessment", "penetration", "incident", "response", "disaster",
+    "recovery", "continuity", "bcp", "drp", "gdpr", "hipaa", "soc2", "iso", "nist", "pci",
+    "dss", "ccpa", "privacy", "protection", "grc", "cybersecurity", "information", "infosec",
+    "threat", "intelligence", "soc", "event", "siem", "identity", "access", "iam", "privileged",
+    "pam", "multi", "factor", "authentication", "mfa", "single", "sign", "on", "sso",
+    "encryption", "decryption", "firewall", "ids", "ips", "vpn", "endpoint", "antivirus",
+    "malware", "detection", "forensics", "handling", "assessments", "policies", "procedures",
+    "guidelines", "mitre", "att&ck", "modeling", "secure", "lifecycle", "sdlc", "awareness",
+    "phishing", "vishing", "smishing", "ransomware", "spyware", "adware", "rootkits",
+    "botnets", "trojans", "viruses", "worms", "zero", "day", "exploits", "patches", "patching",
+    "updates", "upgrades", "configuration", "ticketing", "crm", "erp", "scm", "hcm", "financial",
     "accounting", "auditing", "tax", "budgeting", "forecasting", "investments", "marketing",
     "sales", "customer", "service", "support", "operations", "supply", "chain", "logistics",
     "procurement", "manufacturing", "production", "quality", "assurance", "control", "research",
@@ -287,7 +314,11 @@ def semantic_score(resume_text, jd_text, years_exp):
         core_skills = ['sql', 'excel', 'python', 'tableau', 'powerbi', 'r', 'aws'] # These are specific, not general stop words
         matched_core_skills_count = sum(1 for skill in core_skills if skill in resume_clean)
 
-        extra_feats = np.array([keyword_overlap_count, resume_len, matched_core_skills_count])
+        # Ensure years_exp is a float, default to 0.0 if None
+        years_exp_for_model = float(years_exp) if years_exp is not None else 0.0
+
+        # *** IMPORTANT CHANGE: Include years_exp in extra_feats for prediction consistency ***
+        extra_feats = np.array([keyword_overlap_count, resume_len, matched_core_skills_count, years_exp_for_model])
 
         # Concatenate all features for the ML model
         features = np.concatenate([jd_embed, resume_embed, extra_feats])
