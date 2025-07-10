@@ -3,33 +3,29 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from wordcloud import WordCloud
+from login import login_section
+from email_sender import send_email_to_candidate
 import os
-import json # Keep json for potential config loading if needed, but Firebase specific parts are removed
+import json
+import pdfplumber
+import runpy
 
-# Import your different application modules.
-# Ensure these files exist and define an `app()` function if called as `module.app()`
-import login
-import screener
-import analytics
-import email_page
-import search
-import notes
-import manage_jds # Assuming manage_jds.py now has a def app():
 
-# --- Page Config (Should be called only once in main.py) ---
+# --- Page Config ---
 st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide")
 
-# --- Authentication Check (Simplified without Firebase) ---
-# This part assumes a simple hardcoded login or a placeholder.
-# If you had a more complex auth system, it would go here.
-if 'authenticated' not in st.session_state:
-    st.session_state.authenticated = False
 
-# Call the login section. If it returns False, stop the app.
-if not login.login_section():
-    st.stop() # Stop execution if not logged in
+# --- Dark Mode Toggle ---
+dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
+if dark_mode:
+    st.markdown("""
+    <style>
+    body { background-color: #121212 !important; color: white !important; }
+    .block-container { background-color: #1e1e1e !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# --- Global Styling (Applied once) ---
+# --- Global Fonts & UI Styling ---
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -45,7 +41,7 @@ html, body, [class*="css"] {
 }
 @keyframes fadeIn {
     0% { opacity: 0; transform: translateY(20px); }
-    100% { transform: translateY(0); }
+    100% { opacity: 1; transform: translateY(0); }
 }
 .dashboard-card {
     padding: 2rem;
@@ -80,21 +76,14 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
-# --- Dark Mode Toggle ---
-dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
-if dark_mode:
-    st.markdown("""
-    <style>
-    body { background-color: #121212 !important; color: white !important; }
-    .block-container { background-color: #1e1e1e !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
-
 # --- Branding ---
 st.image("logo.png", width=300)
 st.title("🧠 ScreenerPro – AI Hiring Assistant")
 
+
+# --- Auth ---
+if not login_section():
+    st.stop()
 
 # --- Navigation Control ---
 default_tab = st.session_state.get("tab_override", "🏠 Dashboard")
@@ -122,23 +111,25 @@ if tab == "🏠 Dashboard":
     avg_score = 0.0
     df_results = pd.DataFrame() # Initialize empty DataFrame
 
-    # Load results from session state (since Firebase is removed)
+    # Load results from session state instead of results.csv
     if 'screening_results' in st.session_state and st.session_state['screening_results']:
-        df_results = pd.DataFrame(st.session_state['screening_results'])
-        st.info("✅ Loaded screening results from session state.")
+        try:
+            df_results = pd.DataFrame(st.session_state['screening_results'])
+            resume_count = df_results["File Name"].nunique() # Count unique resumes screened
+            
+            # Define cutoff for shortlisted candidates (consistent with streamlit_app.py)
+            # Make sure these values match the sliders in streamlit_app.py for consistency
+            cutoff_score = 80 
+            min_exp_required = 2
+
+            shortlisted = df_results[(df_results["Score (%)"] >= cutoff_score) & 
+                                     (df_results["Years Experience"] >= min_exp_required)].shape[0]
+            avg_score = df_results["Score (%)"].mean()
+        except Exception as e:
+            st.error(f"Error processing screening results from session state: {e}")
+            df_results = pd.DataFrame() # Reset df_results if error occurs
     else:
-        st.info("No screening results found. Please run the Resume Screener.")
-
-    if not df_results.empty:
-        resume_count = df_results["File Name"].nunique() # Count unique resumes screened
-        
-        # Define cutoff for shortlisted candidates (consistent with screener.py)
-        cutoff_score = 80 
-        min_exp_required = 2
-
-        shortlisted = df_results[(df_results["Score (%)"] >= cutoff_score) & 
-                                 (df_results["Years Experience"] >= min_exp_required)].shape[0]
-        avg_score = df_results["Score (%)"].mean()
+        st.info("No screening results available in this session yet. Please run the Resume Screener.")
 
 
     col1, col2, col3 = st.columns(3)
@@ -225,30 +216,30 @@ if tab == "🏠 Dashboard":
             st.warning(f"⚠️ Could not render insights due to data error: {e}")
 
 # ======================
-# Page Routing via function calls
+# Page Routing via exec
 # ======================
 elif tab == "🧠 Resume Screener":
-    screener.app() # Call the app function in screener.py
+    runpy.run_path("screener.py") # Changed to screener.py
 
 elif tab == "📁 Manage JDs":
-    # Assuming manage_jds.py has an app() function
-    manage_jds.app()
+    with open("manage_jds.py", encoding="utf-8") as f:
+        exec(f.read())
 
 elif tab == "📊 Screening Analytics":
-    # Assuming analytics.py has an app() function
-    analytics.app()
+    with open("analytics.py", encoding="utf-8") as f:
+        exec(f.read())
 
 elif tab == "📤 Email Candidates":
-    # Assuming email_page.py has an app() function
-    email_page.app()
+    with open("email_page.py", encoding="utf-8") as f:
+        exec(f.read())
 
 elif tab == "🔍 Search Resumes":
-    # Assuming search.py has an app() function
-    search.app()
+    with open("search.py", encoding="utf-8") as f:
+        exec(f.read())
 
 elif tab == "📝 Candidate Notes":
-    # Assuming notes.py has an app() function
-    notes.app()
+    with open("notes.py", encoding="utf-8") as f:
+        exec(f.read())
 
 elif tab == "🚪 Logout":
     st.session_state.authenticated = False
