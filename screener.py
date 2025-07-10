@@ -212,65 +212,46 @@ def get_top_keywords(text, num_keywords=15):
     word_counts = collections.Counter(words)
     return [word for word, count in word_counts.most_common(num_keywords)]
 
-def smart_score(resume_text, jd_text, years_exp):
-    """
-    Calculates a 'smart score' based on keyword overlap and experience.
-    Also identifies matched and missing keywords, and provides simple feedback.
-    Applies STOP_WORDS filtering for keyword analysis.
-    """
-    resume_clean = clean_text(resume_text)
-    jd_clean = clean_text(jd_text)
-
-    resume_words = {word for word in re.findall(r'\b\w+\b', resume_clean) if word not in STOP_WORDS}
-    jd_words = {word for word in re.findall(r'\b\w+\b', jd_clean) if word not in STOP_WORDS}
-
-    overlap = resume_words & jd_words
-    matched_keywords = ", ".join(sorted(list(overlap)))
-
-    missing_skills_set = jd_words - resume_words
-    missing_skills = ", ".join(sorted(list(missing_skills_set)))
-
-    keyword_overlap_count = len(overlap)
-    if len(jd_words) > 0:
-        jd_coverage_percentage = (keyword_overlap_count / len(jd_words)) * 100
-    else:
-        jd_coverage_percentage = 0.0
-
-    base_score = min(len(overlap), 25) * 3
-    experience_score = min(years_exp, 10)
-    score = base_score + experience_score
-    score = round(min(score, 100), 2)
-
-    feedback = "Good keyword match and experience."
-    if score < 50:
-        feedback = "The resume shows limited direct keyword alignment. It's recommended to manually review for transferable skills or nuanced experiences not captured by initial keyword scans."
-    elif years_exp < 2:
-        feedback = "Strong keyword alignment, but the candidate's experience level is at the lower end. Consider if their potential outweighs the experience gap."
-    elif not matched_keywords:
-        feedback = "Minimal direct keyword overlap. This profile appears to be a notable mismatch for the specified role."
-
-    return score, matched_keywords, missing_skills, feedback, 0.0, round(jd_coverage_percentage, 2)
-
-
 def semantic_score(resume_text, jd_text, years_exp):
     """
     Calculates a semantic score using an ML model and provides additional details.
     Falls back to smart_score if the ML model is not loaded or prediction fails.
-    Applies STOP_WORDS filtering for keyword analysis before display.
+    Applies STOP_WORDS filtering for keyword analysis (internally, not for display).
     """
     jd_clean = clean_text(jd_text)
     resume_clean = clean_text(resume_text)
 
     score = 0.0
-    matched_keywords = ""
-    missing_skills = ""
     feedback = "Initial assessment."
     semantic_similarity = 0.0
-    jd_coverage_percentage = 0.0
+    jd_coverage_percentage = 0.0 # Still calculated, but not explicitly displayed
 
     if ml_model is None or model is None:
-        score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage = smart_score(resume_text, jd_text, years_exp)
-        return score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage
+        # Fallback if ML models are not loaded
+        # For simplicity, if ML model isn't there, we don't calculate advanced metrics
+        # and provide a generic feedback.
+        # In a real scenario, you might want to implement a simpler keyword-based fallback score here.
+        st.warning("ML models not loaded. Providing basic score and feedback.")
+        # Simplified fallback for score and feedback
+        resume_words = {word for word in re.findall(r'\b\w+\b', resume_clean) if word not in STOP_WORDS}
+        jd_words = {word for word in re.findall(r'\b\w+\b', jd_clean) if word not in STOP_WORDS}
+        
+        overlap_count = len(resume_words & jd_words)
+        total_jd_words = len(jd_words)
+        
+        basic_score = (overlap_count / total_jd_words) * 70 if total_jd_words > 0 else 0
+        basic_score += min(years_exp * 5, 30) # Add up to 30 for experience
+        score = round(min(basic_score, 100), 2)
+        
+        if score > 70:
+            feedback = "Good potential based on keyword match and experience. Manual review recommended."
+        elif score > 40:
+            feedback = "Moderate potential. Review for transferable skills."
+        else:
+            feedback = "Lower match based on basic keyword alignment. Manual review advised."
+        
+        return score, feedback, 0.0 # Return 0 for semantic similarity if ML not available
+
 
     try:
         jd_embed = model.encode(jd_clean)
@@ -279,12 +260,9 @@ def semantic_score(resume_text, jd_text, years_exp):
         semantic_similarity = cosine_similarity(jd_embed.reshape(1, -1), resume_embed.reshape(1, -1))[0][0]
         semantic_similarity = float(np.clip(semantic_similarity, 0, 1))
 
-        resume_words_all = set(re.findall(r'\b\w+\b', resume_clean))
-        jd_words_all = set(re.findall(r'\b\w+\b', jd_clean))
-
-        resume_words_filtered = {word for word in resume_words_all if word not in STOP_WORDS}
-        jd_words_filtered = {word for word in jd_words_all if word not in STOP_WORDS}
-
+        # Internal calculation for model, not for display
+        resume_words_filtered = {word for word in re.findall(r'\b\w+\b', resume_clean) if word not in STOP_WORDS}
+        jd_words_filtered = {word for word in re.findall(r'\b\w+\b', jd_clean) if word not in STOP_WORDS}
         keyword_overlap_count = len(resume_words_filtered & jd_words_filtered)
         
         years_exp_for_model = float(years_exp) if years_exp is not None else 0.0
@@ -307,31 +285,42 @@ def semantic_score(resume_text, jd_text, years_exp):
 
         score = float(np.clip(blended_score, 0, 100))
 
-        overlap_words_set_display = resume_words_filtered & jd_words_filtered
-        matched_keywords = ", ".join(sorted(list(overlap_words_set_display)))
-        missing_skills_set_display = jd_words_filtered - resume_words_filtered
-        missing_skills = ", ".join(sorted(list(missing_skills_set_display)))
-
         if score > 90:
-            feedback = "Excellent fit: Outstanding alignment with job requirements, high keyword coverage, and strong relevant experience. **Highly Recommended for Interview.**"
+            feedback = "Excellent fit: Outstanding alignment with job requirements, high conceptual match, and strong relevant experience. **Highly Recommended for Interview.**"
         elif score >= 75:
-            feedback = "Good fit: Solid alignment with the role, good keyword coverage, and relevant experience demonstrated. **Recommended for Further Review/Interview.**"
+            feedback = "Good fit: Solid alignment with the role, good conceptual match, and relevant experience demonstrated. **Recommended for Further Review/Interview.**"
         elif score >= 60:
-            feedback = "Moderate fit: Decent potential, but some areas for improvement in specific keyword alignment or deeper experience matching. **Consider for a deeper dive.**"
+            feedback = "Moderate fit: Decent potential, but some areas for improvement in deeper experience matching or nuanced skill alignment. **Consider for a deeper dive.**"
         else:
-            # Enhanced feedback for lower fit (more genuine)
-            feedback = "Initial assessment indicates a lower match based on keywords and semantic alignment. This candidate may possess transferable skills or unique experiences not immediately highlighted, but a more **in-depth manual review is essential to determine suitability.**"
+            feedback = "Initial assessment indicates a lower match based on semantic alignment and experience. This candidate may possess transferable skills or unique experiences not immediately highlighted, but a more **in-depth manual review is essential to determine suitability.**"
 
-        if score < 10:
-            # Fallback to smart_score if semantic score is very low
-            score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage = smart_score(resume_text, jd_text, years_exp)
+        if score < 10: # Fallback to a "not a good fit" for extremely low scores
+             feedback = "Minimal alignment with the job requirements. This candidate is likely not a good fit for this role."
 
-        return round(score, 2), matched_keywords, missing_skills, feedback, round(semantic_similarity, 2), round(jd_coverage_percentage, 2)
+        return round(score, 2), feedback, round(semantic_similarity, 2)
 
     except Exception as e:
-        # Fallback to smart_score if ML model prediction fails
-        score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage = smart_score(resume_text, jd_text, years_exp)
-        return score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage
+        st.warning(f"Error during semantic scoring, falling back to basic: {e}")
+        # Simplified fallback for score and feedback if ML prediction fails
+        resume_words = {word for word in re.findall(r'\b\w+\b', resume_clean) if word not in STOP_WORDS}
+        jd_words = {word for word in re.findall(r'\b\w+\b', jd_clean) if word not in STOP_WORDS}
+        
+        overlap_count = len(resume_words & jd_words)
+        total_jd_words = len(jd_words)
+        
+        basic_score = (overlap_count / total_jd_words) * 70 if total_jd_words > 0 else 0
+        basic_score += min(years_exp * 5, 30) # Add up to 30 for experience
+        score = round(min(basic_score, 100), 2)
+
+        if score > 70:
+            feedback = "Good potential based on keyword match and experience. Manual review recommended."
+        elif score > 40:
+            feedback = "Moderate potential. Review for transferable skills."
+        else:
+            feedback = "Lower match based on basic keyword alignment. Manual review advised."
+
+        return score, feedback, 0.0 # Return 0 for semantic similarity on fallback
+
 
 # --- Email Generation Function ---
 def create_mailto_link(recipient_email, candidate_name, job_title="Job Opportunity", sender_name="Recruiting Team"):
@@ -425,7 +414,7 @@ if jd_text and resume_files:
         email = extract_email(text)
         candidate_name = extract_name(text) or file.name.replace('.pdf', '').replace('_', ' ').title()
 
-        score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage = semantic_score(text, jd_text, exp)
+        score, feedback, semantic_similarity = semantic_score(text, jd_text, exp)
 
         results.append({
             "File Name": file.name,
@@ -433,11 +422,8 @@ if jd_text and resume_files:
             "Score (%)": score,
             "Years Experience": exp,
             "Email": email or "Not Found",
-            "Matched Keywords": matched_keywords,
-            "Missing Skills": missing_skills,
             "Feedback": feedback,
             "Semantic Similarity": semantic_similarity,
-            "JD Keyword Coverage (%)": jd_coverage_percentage,
             "Resume Raw Text": text
         })
         resume_text_map[file.name] = text
@@ -479,8 +465,6 @@ if jd_text and resume_files:
     st.caption("Dive deeper into each candidate's strengths and areas for improvement relative to the job description.")
 
     if not df.empty:
-        jd_top_skills_list = get_top_keywords(jd_text, num_keywords=20)
-        
         for idx, row in df.iterrows():
             candidate_display_name = row['Candidate Name']
             
@@ -494,7 +478,6 @@ if jd_text and resume_files:
                     st.write(f"**Years of Experience:** {row['Years Experience']:.1f} years")
                     st.write(f"**Contact Email:** {row['Email']}")
                     st.write(f"**Semantic Similarity (JD vs. Resume):** **{row['Semantic Similarity']:.2f}** (Higher score indicates closer conceptual match.)")
-                    st.write(f"**JD Keyword Coverage:** **{row['JD Keyword Coverage (%)']:.2f}%** (Direct keyword match from job description.)")
 
                 with col_exp_match:
                     st.markdown("### Experience Match")
@@ -505,29 +488,6 @@ if jd_text and resume_files:
                     else:
                         st.warning(f"Candidate has {row['Years Experience']:.1f} years, less than required {min_experience} years.")
 
-                st.markdown("---")
-                st.markdown("### 🎯 Key Skill Alignment")
-                st.caption("How well the candidate's skills align with the top skills identified in the Job Description.")
-                resume_words_for_matching = {word for word in re.findall(r'\b\w+\b', clean_text(row['Resume Raw Text'])) if word not in STOP_WORDS}
-
-                matched_jd_skills = []
-                missing_jd_skills = []
-                for skill in jd_top_skills_list:
-                    if skill in resume_words_for_matching:
-                        matched_jd_skills.append(skill)
-                    else:
-                        missing_jd_skills.append(skill)
-
-                if matched_jd_skills:
-                    st.markdown(f"**✅ Matched Skills:** {', '.join(sorted(matched_jd_skills))}")
-                else:
-                    st.info("No significant top JD skills were directly matched in this resume.")
-
-                if missing_jd_skills:
-                    st.markdown(f"**❌ Missing Skills:** {', '.join(sorted(missing_jd_skills))}")
-                else:
-                    st.success("All top JD skills found in this resume!")
-                
                 with st.expander("📄 View Full Resume Text"):
                     st.code(resume_text_map.get(row['File Name'], ''), height=300)
             st.markdown("---")
@@ -544,7 +504,7 @@ if jd_text and resume_files:
 
     if not shortlisted_candidates.empty:
         st.success(f"**{len(shortlisted_candidates)}** candidate(s) meet your specified criteria (Score ≥ {cutoff}%, Experience ≥ {min_experience} years).")
-        st.dataframe(shortlisted_candidates[['Candidate Name', 'Score (%)', 'Years Experience', 'Feedback', 'Semantic Similarity', 'JD Keyword Coverage (%)']], use_container_width=True)
+        st.dataframe(shortlisted_candidates[['Candidate Name', 'Score (%)', 'Years Experience', 'Feedback', 'Semantic Similarity']], use_container_width=True)
 
         st.markdown("### Next Steps Recommendation:")
         for idx, candidate in shortlisted_candidates.iterrows():
@@ -552,7 +512,7 @@ if jd_text and resume_files:
             st.write(f"**Overall Fit:** {candidate['Feedback']}")
             
             # --- AI Suggestion ---
-            ai_suggestion_text = f"Given their high score of **{candidate['Score (%)']:.2f}%**, strong **semantic similarity of {candidate['Semantic Similarity']:.2f}**, and solid experience, **we strongly recommend proceeding with an interview for {candidate['Candidate Name']}**. Their profile indicates a high likelihood of success in this role. Focus on exploring their practical application of the matched skills during the interview."
+            ai_suggestion_text = f"Given their high score of **{candidate['Score (%)']:.2f}%**, strong **semantic similarity of {candidate['Semantic Similarity']:.2f}**, and solid experience, **we strongly recommend proceeding with an interview for {candidate['Candidate Name']}**. Their profile indicates a high likelihood of success in this role. Focus on exploring their practical application of relevant skills during the interview."
             st.write(f"**AI Suggestion:** {ai_suggestion_text}")
 
             if candidate['Email'] != "Not Found":
@@ -578,7 +538,7 @@ if jd_text and resume_files:
 
     st.markdown("## 📋 Comprehensive Candidate Results Table")
     st.caption("Full details for all processed resumes.")
-    display_df = df[['Candidate Name', 'Score (%)', 'Years Experience', 'JD Keyword Coverage (%)', 'Semantic Similarity', 'Feedback', 'Tag', 'Email']]
+    display_df = df[['Candidate Name', 'Score (%)', 'Years Experience', 'Semantic Similarity', 'Feedback', 'Tag', 'Email']]
     st.dataframe(display_df, use_container_width=True)
 
     # Add download button for results
