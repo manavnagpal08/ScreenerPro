@@ -9,12 +9,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 from email_sender import send_email_to_candidate
 from login import login_section
+import runpy
 
-import torch
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model = SentenceTransformer('all-MiniLM-L6-v2', device=device)
-
+# --- Initialize model ---
+model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # --- UI Styling ---
 st.markdown("""
@@ -49,7 +47,7 @@ body {
 </style>
 """, unsafe_allow_html=True)
 
-st.header("\ud83d\udcc2 Semantic Resume Screening (AI-Based)")
+st.header("📂 Semantic Resume Screening (AI-Based)")
 
 # --- Job Description Section ---
 jd_text = ""
@@ -60,7 +58,7 @@ if os.path.exists(jd_dir):
         if fname.endswith(".txt"):
             job_roles[fname.replace(".txt", "").replace("_", " ").title()] = os.path.join(jd_dir, fname)
 
-jd_option = st.selectbox("\ud83d\udccc Select Job Role or Upload Your Own JD", list(job_roles.keys()))
+jd_option = st.selectbox("📌 Select Job Role or Upload Your Own JD", list(job_roles.keys()))
 if jd_option == "Upload my own":
     jd_file = st.file_uploader("Upload Job Description (TXT)", type="txt")
     if jd_file:
@@ -71,9 +69,9 @@ else:
         with open(jd_path, "r", encoding="utf-8") as f:
             jd_text = f.read()
 
-resume_files = st.file_uploader("\ud83d\uddd5\ufe0f Upload Resumes (PDFs)", type="pdf", accept_multiple_files=True)
-cutoff = st.slider("\ud83d\udcc8 Score Cutoff", 0, 100, 80)
-min_experience = st.slider("\ud83d\udcbc Minimum Experience Required", 0, 15, 2)
+resume_files = st.file_uploader("🗕 Upload Resumes (PDFs)", type="pdf", accept_multiple_files=True)
+cutoff = st.slider("📈 Score Cutoff", 0, 100, 80)
+min_experience = st.slider("💼 Minimum Experience Required", 0, 15, 2)
 
 # --- Extractors ---
 def extract_text_from_pdf(uploaded_file):
@@ -102,7 +100,7 @@ def semantic_score(resume_text, jd_text, years_exp):
         jd_embed = model.encode([jd_text])[0]
         resume_embed = model.encode([resume_text])[0]
         score = cosine_similarity([jd_embed], [resume_embed])[0][0] * 100
-        score += min(years_exp, 10)  # Experience bonus
+        score += min(years_exp, 10)
         return round(min(score, 100), 2)
     except:
         return 0.0
@@ -113,10 +111,10 @@ def generate_summary(text, experience):
 
 def get_tag(score, exp):
     if score > 90 and exp >= 3:
-        return "\ud83d\udd25 Top Talent"
+        return "🔥 Top Talent"
     elif score >= 75:
-        return "\u2705 Good Fit"
-    return "\u26a0\ufe0f Needs Review"
+        return "✅ Good Fit"
+    return "⚠️ Needs Review"
 
 def plot_wordcloud(texts):
     text = ' '.join(texts)
@@ -130,7 +128,7 @@ def plot_wordcloud(texts):
 if jd_text and resume_files:
     results = []
     resume_text_map = {}
-    st.info("\ud83d\udcc1 Starting semantic screening using embeddings...")
+    st.info("📁 Starting semantic screening using embeddings...")
 
     for file in resume_files:
         text = extract_text_from_pdf(file)
@@ -156,20 +154,20 @@ if jd_text and resume_files:
     df['Tag'] = df.apply(lambda row: get_tag(row['Score (%)'], row['Years Experience']), axis=1)
     shortlisted = df[(df['Score (%)'] >= cutoff) & (df['Years Experience'] >= min_experience)]
 
-    st.metric("\ud83d\udcca Avg. Score", f"{df['Score (%)'].mean():.2f}%")
-    st.metric("\ud83d\udcbc Shortlisted", len(shortlisted))
+    st.metric("📊 Avg. Score", f"{df['Score (%)'].mean():.2f}%")
+    st.metric("💼 Shortlisted", len(shortlisted))
 
-    st.markdown("### \ud83c\udfc6 Top Candidates")
+    st.markdown("### 🏆 Top Candidates")
     for _, row in df.head(3).iterrows():
         st.subheader(f"{row['File Name']} — {row['Score (%)']}%")
         st.text(row['Summary'])
         st.caption(f"Email: {row['Email']}")
-        with st.expander("\ud83d\udcc4 Resume Preview"):
+        with st.expander("📄 Resume Preview"):
             st.code(resume_text_map.get(row['File Name'], ""))
 
-    st.download_button("\ud83d\udcc4 Download Results CSV", df.to_csv(index=False).encode("utf-8"), file_name="results.csv")
+    st.download_button("📄 Download Results CSV", df.to_csv(index=False).encode("utf-8"), file_name="results.csv")
 
-    st.markdown("### \u2709\ufe0f Send Emails to Shortlisted Candidates")
+    st.markdown("### ✉️ Send Emails to Shortlisted Candidates")
     email_ready = shortlisted[shortlisted['Email'].str.contains("@", na=False)]
 
     subject = st.text_input("Email Subject", "You're Shortlisted - Next Steps")
@@ -183,7 +181,7 @@ Regards,
 Recruitment Team
 """)
 
-    if st.button("\ud83d\udce7 Send Emails"):
+    if st.button("📧 Send Emails"):
         for _, row in email_ready.iterrows():
             msg = body.replace("{{name}}", row['File Name'].replace(".pdf", "")).replace("{{score}}", str(row['Score (%)']))
             send_email_to_candidate(
@@ -194,4 +192,4 @@ Recruitment Team
                 subject=subject,
                 message=msg
             )
-        st.success("\u2705 Emails sent to shortlisted candidates!")
+        st.success("✅ Emails sent to shortlisted candidates!")
