@@ -219,7 +219,7 @@ if tab == "🏠 Dashboard":
 # Page Routing via exec
 # ======================
 elif tab == "🧠 Resume Screener":
-    runpy.run_path("streamlit_app.py") # Changed to streamlit_app.py for clarity
+    runpy.run_path("screener.py") # Changed to screener.py
 
 elif tab == "📁 Manage JDs":
     with open("manage_jds.py", encoding="utf-8") as f:
