@@ -89,21 +89,20 @@ def smart_score(resume_text, jd_text, years_exp):
 def semantic_score(resume_text, jd_text, years_exp):
     if ml_model is None:
         return 0.0
+
     try:
-        # --- Clean text ---
-        def clean_text(t):
-            t = re.sub(r'\n', ' ', t)
-            t = re.sub(r'\s+', ' ', t)
-            return t.strip().lower()
+        def clean_text(text):
+            text = re.sub(r'\s+', ' ', text)
+            return text.strip().lower()
 
         jd_clean = clean_text(jd_text)
         resume_clean = clean_text(resume_text)
 
-        # --- Embeddings ---
+        # Embeddings
         jd_embed = model.encode(jd_clean)
         resume_embed = model.encode(resume_clean)
 
-        # --- Extra numerical features ---
+        # Features
         resume_words = set(re.findall(r'\b\w+\b', resume_clean))
         jd_words = set(re.findall(r'\b\w+\b', jd_clean))
         keyword_overlap = len(resume_words & jd_words)
@@ -115,20 +114,22 @@ def semantic_score(resume_text, jd_text, years_exp):
         extra_feats = np.array([keyword_overlap, resume_len, matched_skills])
         features = np.concatenate([jd_embed, resume_embed, extra_feats])
 
-        # --- Predict ---
+        # Check final shape
+        print("🔍 Feature vector shape:", features.shape)
+
         score = ml_model.predict([features])[0]
         score = float(np.clip(score, 0, 100))
 
-        # Fallback
         if score < 10:
             from screener import smart_score
+            print("⚠️ Fallback to rule-based score")
             score, _, _, _ = smart_score(resume_text, jd_text, years_exp)
 
         return round(score, 2)
-    except Exception as e:
-        print("❌ semantic_score error:", e)
-        return 0.0
 
+    except Exception as e:
+        print("❌ Error in semantic_score:", e)
+        return 0.0
 
 # --- Streamlit UI ---
 st.title("🧠 ScreenerPro – AI Resume Screener")
