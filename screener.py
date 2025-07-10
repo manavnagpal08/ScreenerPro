@@ -66,7 +66,8 @@ CUSTOM_STOP_WORDS = set([
     "solution", "solutions", "system", "systems", "platform", "platforms", "framework", "frameworks",
     "database", "databases", "server", "servers", "cloud", "computing", "machine", "learning",
     "artificial", "intelligence", "api", "apis", "rest", "graphql", "agile", "scrum", "kanban",
-    "devops", "ci", "cd", "testing", "qa", "security", "network", "networking", "virtualization",
+    "devops", "ci", "cd", "testing", "qa",
+    "security", "network", "networking", "virtualization",
     "containerization", "docker", "kubernetes", "git", "github", "gitlab", "bitbucket", "jira",
     "confluence", "slack", "microsoft", "google", "amazon", "azure", "oracle", "sap", "crm", "erp",
     "salesforce", "servicenow", "tableau", "powerbi", "qlikview", "excel", "word", "powerpoint",
@@ -278,7 +279,8 @@ def smart_score(resume_text, jd_text, years_exp):
     elif not matched_keywords:
         feedback = "Very few common keywords found. Significant mismatch."
 
-    return score, matched_keywords, missing_skills, feedback, 0.0, 0.0 # Return 0.0 for semantic similarity and jd_coverage_percentage in fallback
+    # Note: smart_score doesn't calculate semantic_similarity or jd_coverage_percentage
+    return score, matched_keywords, missing_skills, feedback, 0.0, 0.0
 
 
 def semantic_score(resume_text, jd_text, years_exp):
@@ -304,7 +306,7 @@ def semantic_score(resume_text, jd_text, years_exp):
     # If ML model is not loaded, fall back to smart_score
     if ml_model is None:
         st.error("❌ ML model not loaded. Falling back to smart_score for all metrics.")
-        score, matched_keywords, missing_skills, feedback, _, _ = smart_score(resume_text, jd_text, years_exp)
+        score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage = smart_score(resume_text, jd_text, years_exp)
         return score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage
 
     try:
@@ -333,7 +335,7 @@ def semantic_score(resume_text, jd_text, years_exp):
         jd_top_skills = get_top_keywords(jd_clean, num_keywords=20) # Get more keywords for better coverage
         matched_core_skills_count = sum(1 for skill in jd_top_skills if skill in resume_clean)
 
-        # Calculate JD Keyword Coverage Percentage
+        # Calculate JD Keyword Coverage Percentage (for display, not directly for ML model input in this fix)
         if len(jd_words_filtered) > 0:
             jd_coverage_percentage = (keyword_overlap_count / len(jd_words_filtered)) * 100
         else:
@@ -343,8 +345,9 @@ def semantic_score(resume_text, jd_text, years_exp):
         # Ensure years_exp is a float, default to 0.0 if None
         years_exp_for_model = float(years_exp) if years_exp is not None else 0.0
 
-        # *** IMPORTANT CHANGE: Include jd_coverage_percentage in extra_feats for prediction consistency ***
-        extra_feats = np.array([keyword_overlap_count, resume_len, matched_core_skills_count, years_exp_for_model, jd_coverage_percentage])
+        # *** FIX: Removed jd_coverage_percentage from extra_feats passed to ML model ***
+        # The ml_screening_model.pkl was likely trained with 4 extra features, not 5.
+        extra_feats = np.array([keyword_overlap_count, resume_len, matched_core_skills_count, years_exp_for_model])
 
         # Concatenate all features for the ML model
         features = np.concatenate([jd_embed, resume_embed, extra_feats])
@@ -377,15 +380,15 @@ def semantic_score(resume_text, jd_text, years_exp):
         if score < 10:
             st.warning("⚠️ ML score is very low. Using fallback smart_score for a more reliable assessment.")
             # Re-run smart_score to ensure consistent logic for fallback, which also uses STOP_WORDS
-            score, matched_keywords, missing_skills, feedback, _, _ = smart_score(resume_text, jd_text, years_exp) # Discard semantic_similarity and jd_coverage_percentage from fallback
+            score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage = smart_score(resume_text, jd_text, years_exp)
 
         return round(score, 2), matched_keywords, missing_skills, feedback, round(semantic_similarity, 2), round(jd_coverage_percentage, 2)
 
     except Exception as e:
         st.error(f"❌ semantic_score failed during prediction: {e}. Falling back to smart_score.")
         # Fallback to smart_score if any error occurs during ML prediction
-        score, matched_keywords, missing_skills, feedback, _, _ = smart_score(resume_text, jd_text, years_exp)
-        return score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage # Return 0.0 for semantic_similarity and jd_coverage_percentage
+        score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage = smart_score(resume_text, jd_text, years_exp)
+        return score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage
 
 
 # --- Streamlit UI ---
