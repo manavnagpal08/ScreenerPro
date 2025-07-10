@@ -203,22 +203,22 @@ if jd_text and resume_files:
 
     st.markdown("### ☁️ Word Cloud of Matched Keywords")
 
-if "Matched Keywords" in df.columns and not df["Matched Keywords"].isnull().all():
+    if "Matched Keywords" in df.columns and not df["Matched Keywords"].isnull().all():
     all_words = []
-    for kw in df["Matched Keywords"].dropna():
-        if isinstance(kw, str):
-            all_words.extend(kw.split(", "))
+        for kw in df["Matched Keywords"].dropna():
+            if isinstance(kw, str):
+                all_words.extend(kw.split(", "))
     
-    if all_words:
-        wordcloud = WordCloud(width=800, height=400, background_color="white").generate(" ".join(all_words))
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax.imshow(wordcloud, interpolation='bilinear')
-        ax.axis("off")
-        st.pyplot(fig)
+        if all_words:
+            wordcloud = WordCloud(width=800, height=400, background_color="white").generate(" ".join(all_words))
+            fig, ax = plt.subplots(figsize=(10, 4))
+            ax.imshow(wordcloud, interpolation='bilinear')
+            ax.axis("off")
+            st.pyplot(fig)
+        else:
+            st.info("No keywords found to generate a word cloud.")
     else:
-        st.info("No keywords found to generate a word cloud.")
-else:
-    st.warning("⚠️ No matched keywords available to display word cloud.")
+        st.warning("⚠️ No matched keywords available to display word cloud.")
 
 
     # --- Top Candidate Highlights ---
