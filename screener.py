@@ -10,8 +10,11 @@ from sentence_transformers import SentenceTransformer
 from email_sender import send_email_to_candidate
 from login import login_section
 
-# --- Initialize model ---
-model = SentenceTransformer('all-MiniLM-L6-v2')
+import torch
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model = SentenceTransformer('all-MiniLM-L6-v2', device=device)
+
 
 # --- UI Styling ---
 st.markdown("""
