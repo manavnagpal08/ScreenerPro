@@ -367,9 +367,21 @@ def semantic_score(resume_text, jd_text, years_exp):
         predicted_score = ml_model.predict([features])[0]
         st.success(f"🧠 Predicted score (ML base): {predicted_score:.2f}")
 
-        # Blend ML predicted score with JD keyword coverage for stronger JD influence
-        # Changed weights to 0.5 for both to give equal importance to ML prediction and JD keyword coverage.
-        blended_score = (predicted_score * 0.5) + (jd_coverage_percentage * 0.5)
+        # Blend ML predicted score with JD keyword coverage and semantic similarity for stronger differentiation
+        # Dynamic weighting:
+        # If semantic similarity is high, give it more weight.
+        # If JD coverage is high, give it more weight.
+        # This aims to make the score more sensitive to both conceptual and keyword alignment.
+        # Weights are adjusted to ensure a sum of 1.0 for the blending components.
+        # Example: 0.4 for ML predicted, 0.3 for JD coverage, 0.3 for semantic similarity (scaled to 100)
+        blended_score = (predicted_score * 0.4) + \
+                        (jd_coverage_percentage * 0.3) + \
+                        (semantic_similarity * 100 * 0.3) # Scale semantic_similarity to 0-100 range
+
+        # Apply a penalty if JD keyword coverage is very low, to push down irrelevant resumes
+        if jd_coverage_percentage < 10: # Example threshold, can be adjusted
+            blended_score -= 10 # Deduct 10 points for very low coverage
+
         score = float(np.clip(blended_score, 0, 100)) # Ensure score is between 0 and 100
 
 
@@ -381,13 +393,13 @@ def semantic_score(resume_text, jd_text, years_exp):
 
         # Generate feedback based on ML score
         if score > 90:
-            feedback = "Excellent fit based on semantic analysis and strong JD keyword coverage."
+            feedback = "Excellent fit: Strong semantic match, high JD keyword coverage, and relevant experience."
         elif score >= 75:
-            feedback = "Good fit, strong semantic match and good JD keyword coverage."
+            feedback = "Good fit: Solid semantic match, good JD keyword coverage, and adequate experience."
         elif score >= 50:
-            feedback = "Moderate fit. Some areas for improvement, consider reviewing JD alignment."
+            feedback = "Moderate fit: Some alignment, but consider improving JD keyword coverage or experience."
         else:
-            feedback = "Lower overall match. Significant mismatch with job description keywords."
+            feedback = "Lower fit: Significant gaps in semantic match and JD keyword coverage. Review for relevance."
 
         # Original fallback logic: if ML score is too low, use smart_score to be more robust
         # Note: The fallback will now also return jd_coverage_percentage
