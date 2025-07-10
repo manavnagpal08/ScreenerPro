@@ -4,79 +4,29 @@ import pandas as pd
 import re
 import os
 import joblib
+import numpy as np
+from datetime import datetime
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
-from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 from email_sender import send_email_to_candidate
 from login import login_section
-import runpy
-from datetime import datetime
 
-# --- Initialize model ---
+# --- Load Embedding + ML Model ---
 model = SentenceTransformer("all-MiniLM-L6-v2")
-ml_model = joblib.load("ml_screening_model.pkl")
+try:
+    ml_model = joblib.load("ml_screening_model.pkl")
+except Exception as e:
+    st.error(f"❌ Failed to load ML model: {e}")
+    ml_model = None
 
-# --- UI Styling ---
-st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-<style>
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
-    transition: all 0.3s ease-in-out;
-}
-body {
-    background: linear-gradient(135deg, #f3f4f6, #f0fdf4);
-}
-.main .block-container {
-    padding: 2rem;
-    border-radius: 20px;
-    background: rgba(255, 255, 255, 0.95);
-    box-shadow: 0 12px 36px rgba(0,0,0,0.12);
-    animation: fadeInZoom 0.9s ease-in-out;
-    border: 1px solid #e0e0e0;
-}
-@keyframes fadeInZoom {
-    from { opacity: 0; transform: scale(0.98); }
-    to { opacity: 1; transform: scale(1); }
-}
-[data-testid="stMetric"] > div {
-    background: #ffffffdd;
-    padding: 1.2rem;
-    border-radius: 14px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.07);
-    margin-bottom: 1rem;
-}
-</style>
-""", unsafe_allow_html=True)
+# --- Helpers ---
+def clean_text(text):
+    text = re.sub(r'\n', ' ', text)
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'[^\x00-\x7F]+', ' ', text)
+    return text.strip().lower()
 
-st.header("📂 Semantic Resume Screening (AI-Based)")
-
-# --- Job Description Section ---
-jd_text = ""
-job_roles = {"Upload my own": None}
-jd_dir = "data"
-if os.path.exists(jd_dir):
-    for fname in os.listdir(jd_dir):
-        if fname.endswith(".txt"):
-            job_roles[fname.replace(".txt", "").replace("_", " ").title()] = os.path.join(jd_dir, fname)
-
-jd_option = st.selectbox("📌 Select Job Role or Upload Your Own JD", list(job_roles.keys()))
-if jd_option == "Upload my own":
-    jd_file = st.file_uploader("Upload Job Description (TXT)", type="txt")
-    if jd_file:
-        jd_text = jd_file.read().decode("utf-8")
-else:
-    jd_path = job_roles[jd_option]
-    if jd_path and os.path.exists(jd_path):
-        with open(jd_path, "r", encoding="utf-8") as f:
-            jd_text = f.read()
-
-resume_files = st.file_uploader("🗕 Upload Resumes (PDFs)", type="pdf", accept_multiple_files=True)
-cutoff = st.slider("📈 Score Cutoff", 0, 100, 80)
-min_experience = st.slider("💼 Minimum Experience Required", 0, 15, 2)
-
-# --- Extractors ---
 def extract_text_from_pdf(uploaded_file):
     try:
         with pdfplumber.open(uploaded_file) as pdf:
@@ -87,11 +37,8 @@ def extract_text_from_pdf(uploaded_file):
 def extract_years_of_experience(text):
     text = text.lower()
     total_months = 0
-
-    # ✅ Detect ranges like 'Jan 2020 - Jul 2023' or 'May 2022 to Present'
     job_date_ranges = re.findall(
-        r'(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})\s*(?:to|–|-)'
-        r'\s*(present|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})',
+        r'(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})\s*(?:to|–|-)\s*(present|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})',
         text
     )
 
@@ -118,7 +65,6 @@ def extract_years_of_experience(text):
         delta_months = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
         total_months += max(delta_months, 0)
 
-    # ✅ Fallback: look for '4+ years', 'Experience: 3.5 years', etc.
     if total_months == 0:
         match = re.search(r'(\d+(?:\.\d+)?)\s*(\+)?\s*(year|yrs|years)\b', text)
         if not match:
@@ -128,16 +74,21 @@ def extract_years_of_experience(text):
 
     return round(total_months / 12, 1)
 
-
-
-
-
 def extract_email(text):
     match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
     return match.group(0) if match else None
 
+def smart_score(resume_text, jd_text, years_exp):
+    resume_words = set(re.findall(r'\b\w+\b', resume_text.lower()))
+    jd_words = set(re.findall(r'\b\w+\b', jd_text.lower()))
+    overlap = resume_words & jd_words
+    base = min(len(overlap), 25)
+    score = (base * 3) + min(years_exp, 10)
+    return round(min(score, 100), 2), ", ".join(overlap), "", []
 
 def semantic_score(resume_text, jd_text, years_exp):
+    if ml_model is None:
+        return 0.0
     try:
         jd_clean = clean_text(jd_text)
         resume_clean = clean_text(resume_text)
@@ -146,10 +97,12 @@ def semantic_score(resume_text, jd_text, years_exp):
         resume_embed = model.encode(resume_clean)
         features = np.concatenate([jd_embed, resume_embed])
 
+        print("📄 Resume len:", len(resume_clean), "| JD len:", len(jd_clean), "| Exp:", years_exp)
         score = ml_model.predict([features])[0]
+        print("🧠 Raw predicted score:", score)
+
         score = float(np.clip(score, 0, 100))
 
-        # Fallback if score looks wrong
         if score < 10:
             print("⚠️ ML score too low. Using rule-based fallback.")
             score, _, _, _ = smart_score(resume_text, jd_text, years_exp)
@@ -159,32 +112,34 @@ def semantic_score(resume_text, jd_text, years_exp):
         print("❌ Error in semantic_score:", e)
         return 0.0
 
+# --- Streamlit UI ---
+st.title("🧠 ScreenerPro – AI Resume Screener")
 
-def generate_summary(text, experience):
-    lines = text.strip().split("\n")[:5]
-    return f"{experience}+ years exp. | {lines[0]}" if lines else f"{experience}+ years exp."
+jd_text = ""
+job_roles = {"Upload my own": None}
+if os.path.exists("data"):
+    for fname in os.listdir("data"):
+        if fname.endswith(".txt"):
+            job_roles[fname.replace(".txt", "").replace("_", " ").title()] = os.path.join("data", fname)
 
-def get_tag(score, exp):
-    if score > 90 and exp >= 3:
-        return "🔥 Top Talent"
-    elif score >= 75:
-        return "✅ Good Fit"
-    return "⚠️ Needs Review"
+jd_option = st.selectbox("📌 Select Job Role or Upload Your Own JD", list(job_roles.keys()))
+if jd_option == "Upload my own":
+    jd_file = st.file_uploader("Upload Job Description (TXT)", type="txt")
+    if jd_file:
+        jd_text = jd_file.read().decode("utf-8")
+else:
+    jd_path = job_roles[jd_option]
+    if jd_path and os.path.exists(jd_path):
+        with open(jd_path, "r", encoding="utf-8") as f:
+            jd_text = f.read()
 
-def plot_wordcloud(texts):
-    text = ' '.join(texts)
-    wordcloud = WordCloud(width=800, height=400, background_color='white').generate(text)
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.imshow(wordcloud, interpolation='bilinear')
-    ax.axis('off')
-    st.pyplot(fig)
+resume_files = st.file_uploader("📄 Upload Resumes (PDF)", type="pdf", accept_multiple_files=True)
+cutoff = st.slider("📈 Score Cutoff", 0, 100, 80)
+min_experience = st.slider("💼 Minimum Experience Required", 0, 15, 2)
 
-# --- Screening Logic ---
 if jd_text and resume_files:
     results = []
     resume_text_map = {}
-    st.info("📁 Starting semantic screening using embeddings...")
-
     for file in resume_files:
         text = extract_text_from_pdf(file)
         if text.startswith("[ERROR]"):
@@ -194,7 +149,7 @@ if jd_text and resume_files:
         exp = extract_years_of_experience(text)
         email = extract_email(text)
         score = semantic_score(text, jd_text, exp)
-        summary = generate_summary(text, exp)
+        summary = f"{exp}+ years exp. | {text.strip().splitlines()[0]}" if text else f"{exp}+ years exp."
 
         results.append({
             "File Name": file.name,
@@ -206,11 +161,12 @@ if jd_text and resume_files:
         resume_text_map[file.name] = text
 
     df = pd.DataFrame(results).sort_values(by="Score (%)", ascending=False)
-    df['Tag'] = df.apply(lambda row: get_tag(row['Score (%)'], row['Years Experience']), axis=1)
+    df['Tag'] = df.apply(lambda row: "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3 else (
+        "✅ Good Fit" if row['Score (%)'] >= 75 else "⚠️ Needs Review"), axis=1)
     shortlisted = df[(df['Score (%)'] >= cutoff) & (df['Years Experience'] >= min_experience)]
 
     st.metric("📊 Avg. Score", f"{df['Score (%)'].mean():.2f}%")
-    st.metric("💼 Shortlisted", len(shortlisted))
+    st.metric("✅ Shortlisted", len(shortlisted))
 
     st.markdown("### 🏆 Top Candidates")
     for _, row in df.head(3).iterrows():
@@ -220,7 +176,7 @@ if jd_text and resume_files:
         with st.expander("📄 Resume Preview"):
             st.code(resume_text_map.get(row['File Name'], ""))
 
-    st.download_button("📄 Download Results CSV", df.to_csv(index=False).encode("utf-8"), file_name="results.csv")
+    st.download_button("📥 Download Results CSV", df.to_csv(index=False).encode("utf-8"), file_name="results.csv")
 
     st.markdown("### ✉️ Send Emails to Shortlisted Candidates")
     email_ready = shortlisted[shortlisted['Email'].str.contains("@", na=False)]
@@ -232,7 +188,7 @@ Dear {{name}},
 We are pleased to inform you that you've been shortlisted for the next round.
 Your profile scored {{score}}% in our AI-powered screening system.
 
-Regards,
+Regards,  
 Recruitment Team
 """)
 
