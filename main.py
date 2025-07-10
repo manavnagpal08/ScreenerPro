@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-import json # Still needed for general JSON operations if any, but not for Firebase config
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
