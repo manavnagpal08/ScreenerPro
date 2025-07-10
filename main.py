@@ -1,9 +1,5 @@
 import streamlit as st
 import os
-import json # Corrected: Added import for the json module
-import pandas as pd # Added for Dashboard section
-import matplotlib.pyplot as plt # Added for Dashboard section
-import seaborn as sns # Added for Dashboard section
 import json # Explicitly import json module
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -14,29 +10,21 @@ from firebase_admin import credentials, initialize_app, auth, firestore
 
 # Import your different application modules.
 # Ensure these files exist and have an 'app()' function defined within them.
-@@ -19,24 +22,30 @@
+import login
+import screener
+import analytics
+import email_page
+import search
+import generate_jds # This is a script, not a Streamlit page, so it's not called via app()
+import notes
+import manage_jds # Assuming manage_jds.py now has a def app():
+
 # --- Page Config (Should be called only once in main.py) ---
 st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide")
 
-# --- Firebase Initialization (Consistent and Centralized) ---
-# This block ensures Firebase is initialized only once and handles authentication.
 # --- Firebase Initialization (Consistent and Centralized for Local & Canvas) ---
 if 'firebase_initialized' not in st.session_state:
     try:
-        # Use the global __firebase_config variable provided by the environment
-        firebase_config = json.loads(os.environ.get('__firebase_config', '{}'))
-        if not firebase_config:
-            st.error("Firebase configuration not found. Please ensure __firebase_config is set in the environment.")
-            st.stop() # Stop here if Firebase config is critical for any part of the app
-
-        from firebase_admin import credentials, initialize_app, auth, firestore
-
-        # Check if an app is already initialized to prevent multiple initializations
-        if not initialize_app(): # This checks if any app is initialized
-            cred = credentials.Certificate(firebase_config)
-            initialize_app(cred)
-        st.session_state['firebase_initialized'] = True
-        # st.success("✅ Firebase initialized successfully!") # Avoid too many success messages
         service_account_key_path = "firebase_service_account.json"
         
         if os.path.exists(service_account_key_path):
@@ -61,45 +49,129 @@ if 'firebase_initialized' not in st.session_state:
 
         # Authenticate user (anonymously for simplicity in this demo)
         if 'user_authenticated' not in st.session_state:
-@@ -52,9 +61,10 @@
+            initial_auth_token = os.environ.get('__initial_auth_token')
+            if initial_auth_token:
+                try:
+                    # In a real client-side Streamlit app, you'd use firebase_auth.signInWithCustomToken.
+                    # Here, we simulate by setting session state.
+                    st.session_state['user_authenticated'] = True
+                    st.session_state['user_id'] = "authenticated_user_id" # Placeholder for actual user ID
+                    # st.info("User authenticated via custom token (simulated).")
+                except Exception as e:
                     st.error(f"Authentication failed (Firebase Admin): {e}")
                     st.session_state['user_authenticated'] = False
             else:
-                st.session_state['user_authenticated'] = True
                 # For local running, we don't expect __initial_auth_token, so proceed to login
                 st.session_state['user_authenticated'] = False # Let login.py handle authentication
                 st.session_state['user_id'] = "anonymous_user_id" # Placeholder
-                # st.warning("No custom auth token. Proceeding as anonymous user (simulated).")
                 # st.warning("No custom auth token. Proceeding to login.")
 
     except Exception as e:
         st.error(f"❌ Firebase initialization or authentication failed: {e}")
-@@ -131,12 +141,13 @@
+        st.session_state['firebase_initialized'] = False
+        st.session_state['user_authenticated'] = False
+        st.stop() # Stop if Firebase is essential and fails to initialize
+
+
+# --- Global Styling (Applied once) ---
+st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+.main .block-container {
+    padding: 2rem;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+    animation: fadeIn 0.8s ease-in-out;
+}
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { transform: translateY(0); }
+}
+.dashboard-card {
+    padding: 2rem;
+    text-align: center;
+    font-weight: 600;
+    border-radius: 16px;
+    background: linear-gradient(145deg, #f1f2f6, #ffffff);
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+}
+.dashboard-card:hover {
+    transform: translateY(-6px);
+    box_shadow: 0 10px 24px rgba(0,0,0,0.1);
+    background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
+}
+.dashboard-header {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #222;
+    padding-bottom: 0.5rem;
+    border-bottom: 3px solid #00cec9;
+    display: inline-block;
+    margin-bottom: 2rem;
+    animation: slideInLeft 0.8s ease-out;
+}
+@keyframes slideInLeft {
+    0% { transform: translateX(-40px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+</style>
+""", unsafe_allow_html=True)
+
+# --- Dark Mode Toggle ---
+dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
+if dark_mode:
+    st.markdown("""
+    <style>
+    body { background-color: #121212 !important; color: white !important; }
+    .block-container { background-color: #1e1e1e !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+# --- Branding ---
+st.image("logo.png", width=300)
+st.title("🧠 ScreenerPro – AI Hiring Assistant")
 
 
 # --- Authentication Check ---
-if not st.session_state.get('user_authenticated'):
 # The login.login_section() handles the 'authenticated' state.
 # We only proceed to the main app if 'authenticated' is True.
 if not st.session_state.get('authenticated'): # Check the 'authenticated' state from login.py
     st.sidebar.title("🔐 HR Login")
     login.login_section() # Call the login section from login.py
-    # If login_section returns False (not authenticated), st.stop() will prevent further execution
-    if not st.session_state.get('authenticated'): # Check the 'authenticated' state from login.py
-        st.stop()
     if not st.session_state.get('authenticated'):
         st.stop() # Stop execution if not logged in
 else:
     # If authenticated, show the main application with sidebar navigation
     st.sidebar.title("HR Dashboard")
-@@ -159,155 +170,155 @@
+    st.sidebar.markdown("---")
+
+    # Navigation options
+    page = st.sidebar.radio("Go to", [
+        "🏠 Dashboard",
+        "🧠 Resume Screener",
+        "📁 Manage JDs", # This will be a placeholder
+        "📊 Screening Analytics",
+        "📤 Email Candidates",
+        "🔍 Search Resumes",
+        "📝 Candidate Notes", # This will be a placeholder
+        "🚪 Logout"
+    ])
+
+    # ======================
+    # Page Routing via function calls
     # ======================
     if page == "🏠 Dashboard":
         # Access Firestore client here after initialization
-        from firebase_admin import firestore # Re-import firestore here if it's not globally available
         # from firebase_admin import firestore # Already imported at the top
         db = firestore.client()
-        app_id = os.environ.get('__app_id', 'default-app-id')
         app_id = os.environ.get('__app_id', 'default-app-id') # Still use for collection path
         public_collection_ref = db.collection('artifacts').document(app_id).collection('public').document('data').collection('screening_results')
 
@@ -128,7 +200,7 @@ else:
 
         if not df_results.empty:
             resume_count = df_results["File Name"].nunique() # Count unique resumes screened
-
+            
             # Define cutoff for shortlisted candidates (consistent with screener.py)
             cutoff_score = 80 
             min_exp_required = 2
@@ -188,7 +260,7 @@ else:
                     ax2.set_xlabel("Experience Range")
                     ax2.tick_params(axis='x', labelrotation=0)
                     st.pyplot(fig_bar)
-
+                
                 # 📋 Top 5 Most Common Skills - Enhanced & Resized
                 st.markdown("##### 🧠 Top 5 Most Common Skills")
 
