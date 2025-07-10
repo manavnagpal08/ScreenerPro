@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Firebase imports (moved here for clarity, but already imported below)
+# Firebase imports
 from firebase_admin import credentials, initialize_app, auth, firestore
 
 # Import your different application modules.
@@ -22,47 +22,52 @@ import manage_jds # Assuming manage_jds.py now has a def app():
 # --- Page Config (Should be called only once in main.py) ---
 st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide")
 
-# --- Firebase Initialization (Consistent and Centralized for Local & Canvas) ---
+# --- Firebase Initialization (Consistent and Centralized for Local, Canvas & Streamlit Cloud) ---
 if 'firebase_initialized' not in st.session_state:
     try:
-        service_account_key_path = "firebase_service_account.json"
+        firebase_config_data = None
         
+        # 1. Try to load from local service account file (recommended for local/GitHub)
+        service_account_key_path = "firebase_service_account.json"
         if os.path.exists(service_account_key_path):
-            # Use local service account key if found
-            cred = credentials.Certificate(service_account_key_path)
-            if not initialize_app(): # Check if an app is already initialized
-                initialize_app(cred)
-            st.session_state['firebase_initialized'] = True
-            st.success("✅ Firebase initialized successfully using local service account key!")
+            with open(service_account_key_path, "r") as f:
+                firebase_config_data = json.load(f)
+            st.success("✅ Firebase config loaded from local 'firebase_service_account.json'!")
         else:
-            # Fallback to Canvas environment variable if local key not found
-            firebase_config = json.loads(os.environ.get('__firebase_config', '{}'))
-            if not firebase_config or not firebase_config.get('apiKey'):
-                st.error("Firebase configuration not found. Please ensure 'firebase_service_account.json' is in the root directory or '__firebase_config' is set in the environment.")
-                st.stop() # Stop here if Firebase config is critical for any part of the app
+            # 2. Fallback to Canvas environment variable (__firebase_config)
+            canvas_config_str = os.environ.get('__firebase_config', '{}')
+            if canvas_config_str != '{}':
+                try:
+                    firebase_config_data = json.loads(canvas_config_str)
+                    st.success("✅ Firebase config loaded from Canvas environment!")
+                except json.JSONDecodeError as e:
+                    st.error(f"❌ Error decoding Canvas Firebase config JSON: {e}")
+                    st.stop()
+            
+        # Final check if config was loaded and is valid
+        if not firebase_config_data or not firebase_config_data.get('projectId'): # Use projectId for validation
+            st.error("Firebase configuration not found. Please ensure 'firebase_service_account.json' is in the root directory or '__firebase_config' is set in the environment.")
+            st.stop() # Stop here if Firebase config is critical for any part of the app
 
-            if not initialize_app(): # Check if an app is already initialized
-                cred = credentials.Certificate(firebase_config)
-                initialize_app(cred)
-            st.session_state['firebase_initialized'] = True
-            st.success("✅ Firebase initialized successfully using environment config!")
-
+        # Initialize Firebase App
+        # Check if an app is already initialized to prevent multiple initializations
+        if not initialize_app(): 
+            cred = credentials.Certificate(firebase_config_data)
+            initialize_app(cred)
+        st.session_state['firebase_initialized'] = True
+        
         # Authenticate user (anonymously for simplicity in this demo)
         if 'user_authenticated' not in st.session_state:
-            initial_auth_token = os.environ.get('__initial_auth_token')
+            initial_auth_token = os.environ.get('__initial_auth_token') # Canvas specific
             if initial_auth_token:
-                try:
-                    # In a real client-side Streamlit app, you'd use firebase_auth.signInWithCustomToken.
-                    # Here, we simulate by setting session state.
-                    st.session_state['user_authenticated'] = True
-                    st.session_state['user_id'] = "authenticated_user_id" # Placeholder for actual user ID
-                    # st.info("User authenticated via custom token (simulated).")
-                except Exception as e:
-                    st.error(f"Authentication failed (Firebase Admin): {e}")
-                    st.session_state['user_authenticated'] = False
+                # In a real client-side Streamlit app, you'd use firebase_auth.signInWithCustomToken.
+                # Here, we simulate by setting session state for the backend admin SDK context.
+                st.session_state['user_authenticated'] = True
+                st.session_state['user_id'] = "authenticated_user_id" # Placeholder for actual user ID
+                # st.info("User authenticated via custom token (simulated).")
             else:
-                # For local running, we don't expect __initial_auth_token, so proceed to login
-                st.session_state['user_authenticated'] = False # Let login.py handle authentication
+                # For local/Streamlit Cloud, rely on login.py for authentication
+                st.session_state['user_authenticated'] = False
                 st.session_state['user_id'] = "anonymous_user_id" # Placeholder
                 # st.warning("No custom auth token. Proceeding to login.")
 
@@ -71,6 +76,9 @@ if 'firebase_initialized' not in st.session_state:
         st.session_state['firebase_initialized'] = False
         st.session_state['user_authenticated'] = False
         st.stop() # Stop if Firebase is essential and fails to initialize
+
+# Set up Firestore client after successful initialization
+db = firestore.client()
 
 
 # --- Global Styling (Applied once) ---
@@ -89,7 +97,7 @@ html, body, [class*="css"] {
 }
 @keyframes fadeIn {
     0% { opacity: 0; transform: translateY(20px); }
-    100% { transform: translateY(0); }
+    100% { opacity: 1; transform: translateY(0); }
 }
 .dashboard-card {
     padding: 2rem;
@@ -169,9 +177,7 @@ else:
     # Page Routing via function calls
     # ======================
     if page == "🏠 Dashboard":
-        # Access Firestore client here after initialization
-        # from firebase_admin import firestore # Already imported at the top
-        db = firestore.client()
+        # Access Firestore client here after initialization (db is global now)
         app_id = os.environ.get('__app_id', 'default-app-id') # Still use for collection path
         public_collection_ref = db.collection('artifacts').document(app_id).collection('public').document('data').collection('screening_results')
 
@@ -294,9 +300,9 @@ else:
             except Exception as e: # Catch specific exceptions or log for debugging
                 st.warning(f"⚠️ Could not render insights due to data error: {e}")
 
-# ======================
-# Page Routing via function calls
-# ======================
+    # ======================
+    # Page Routing via function calls
+    # ======================
     elif page == "🧠 Resume Screener":
         screener.app() # Call the app function in screener.py
 
