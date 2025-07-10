@@ -10,3 +10,4 @@ sentence-transformers
 torch
 NLTK
 firebase-admin
+json
