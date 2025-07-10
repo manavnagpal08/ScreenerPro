@@ -4,7 +4,6 @@ import pandas as pd
 import re
 import os
 import sklearn
-import json
 import joblib
 import numpy as np
 from datetime import datetime # Needed for extract_years_of_experience
@@ -14,64 +13,14 @@ from sentence_transformers import SentenceTransformer
 import nltk # Import NLTK
 import collections # For counting word frequencies
 from sklearn.metrics.pairwise import cosine_similarity # For semantic similarity
+import json # Explicitly import json module here as well
 
 # Firebase imports
-from firebase_admin import credentials, initialize_app
-from firebase_admin import firestore
-from firebase_admin import auth
+from firebase_admin import credentials, initialize_app, auth, firestore
 
-# Initialize Firebase (only once per app run)
-# Check if firebase_admin is already initialized to prevent multiple initializations
-if not st.session_state.get('firebase_initialized'):
-    try:
-        # Use the global __firebase_config variable provided by the environment
-        firebase_config = json.loads(os.environ.get('__firebase_config', '{}'))
-        if not firebase_config:
-            st.error("Firebase configuration not found. Please ensure __firebase_config is set.")
-            st.stop()
-
-        cred = credentials.Certificate(firebase_config)
-        initialize_app(cred)
-        st.session_state['firebase_initialized'] = True
-        st.success("✅ Firebase initialized successfully!")
-    except Exception as e:
-        st.error(f"❌ Firebase initialization failed: {e}")
-        st.stop()
-
-db = firestore.client()
-
-# Authenticate user (anonymously for simplicity in this demo)
-if 'user_authenticated' not in st.session_state:
-    try:
-        # Use the global __initial_auth_token if available, otherwise sign in anonymously
-        initial_auth_token = os.environ.get('__initial_auth_token')
-        if initial_auth_token:
-            # Sign in with custom token
-            # Note: firebase_admin.auth is for server-side auth. For client-side,
-            # you'd use firebase_auth.signInWithCustomToken.
-            # For this Streamlit context, we'll just assume auth is handled
-            # by the environment and proceed.
-            st.session_state['user_authenticated'] = True
-            st.session_state['user_id'] = "authenticated_user" # Placeholder
-            st.info("User authenticated via custom token (simulated).")
-        else:
-            # Anonymous sign-in (simulated for firebase_admin)
-            st.session_state['user_authenticated'] = True
-            st.session_state['user_id'] = "anonymous_user" # Placeholder
-            st.warning("No custom auth token. Proceeding as anonymous user (simulated).")
-    except Exception as e:
-        st.error(f"Authentication failed: {e}")
-        st.session_state['user_authenticated'] = False
-
-if not st.session_state.get('user_authenticated'):
-    st.warning("Authentication required to use the app.")
-    st.stop()
-
-
-# --- Configuration ---
-MODEL_SAVE_PATH = "ml_screening_model.pkl" # Path to your trained ML model
-
-# Ensure NLTK stopwords are downloaded
+# Download NLTK stopwords data if not already downloaded
+# This line will only run once when the app starts or when this part of the code is executed.
+# It's good practice to put this outside functions if it's a one-time setup.
 try:
     nltk.data.find('corpora/stopwords')
 except LookupError:
@@ -79,7 +28,38 @@ except LookupError:
     st.success("✅ NLTK stopwords downloaded successfully!")
 
 
-# --- Stop Words List (Must be consistent with train_model.py) ---
+# --- External Dependencies (Ensure these files exist in your environment) ---
+# from email_sender import send_email_to_candidate
+# from login import login_section
+
+# Placeholder for send_email_to_candidate if the file is not available
+def send_email_to_candidate(name, score, feedback, recipient, subject, message):
+    st.info(f"Simulating email send to {recipient} (Name: {name}, Score: {score}%, Feedback: {feedback})")
+    st.info(f"Subject: {subject}\nMessage: {message}")
+    # In a real application, you would integrate your email sending logic here
+    pass
+
+# Placeholder for login_section if the file is not available
+def login_section():
+    # In a real application, you would have your login logic here
+    st.sidebar.success("Login section placeholder.")
+    return True # Assume logged in for demonstration
+
+
+# --- Load Embedding + ML Model ---
+# IMPORTANT: Ensure this SentenceTransformer model matches the one used in train_model.py
+model = SentenceTransformer("all-MiniLM-L6-v2") 
+try:
+    ml_model = joblib.load("ml_screening_model.pkl")
+    st.success("✅ ML model loaded successfully")
+except Exception as e:
+    st.error(f"❌ Could not load model: {e}. Please ensure 'ml_screening_model.pkl' is in the same directory.")
+    ml_model = None
+
+st.info(f"📦 Loaded model: {type(ml_model).__name__} | sklearn: {sklearn.__version__}")
+
+# --- Stop Words List (Using NLTK) ---
+# Get the English stop words from NLTK and convert to a set for efficient lookups
 NLTK_STOP_WORDS = set(nltk.corpus.stopwords.words('english'))
 
 # You can add custom words to this set if NLTK's list doesn't cover everything you consider a stop word
@@ -428,227 +408,263 @@ def semantic_score(resume_text, jd_text, years_exp):
 
 
 # --- Streamlit UI ---
-st.title("🧠 ScreenerPro – AI Resume Screener")
+def app(): # Define the app() function for screener.py
+    st.title("🧠 ScreenerPro – AI Resume Screener")
 
-# Login section (if enabled)
-# from login import login_section # Assuming login_section is in login.py
-# if not login_section():
-#     st.stop()
+    # Firebase initialization for screener.py if it's run standalone
+    # This block is similar to main.py's initialization
+    if 'firebase_initialized_screener' not in st.session_state:
+        try:
+            firebase_config_data = None
+            service_account_key_path = "firebase_service_account.json"
+            
+            if os.path.exists(service_account_key_path):
+                with open(service_account_key_path, "r") as f:
+                    firebase_config_data = json.load(f)
+                st.success("✅ Firebase config loaded from local 'firebase_service_account.json' in screener.py!")
+            else:
+                canvas_config_str = os.environ.get('__firebase_config', '{}')
+                if canvas_config_str != '{}':
+                    try:
+                        firebase_config_data = json.loads(canvas_config_str)
+                        st.success("✅ Firebase config loaded from Canvas environment in screener.py!")
+                    except json.JSONDecodeError as e:
+                        st.error(f"❌ Error decoding Canvas Firebase config JSON in screener.py: {e}")
+                        st.stop()
+                
+            if not firebase_config_data or not firebase_config_data.get('projectId'):
+                st.error("Firebase configuration not found in screener.py. Please ensure 'firebase_service_account.json' is in the root directory or '__firebase_config' is set.")
+                st.stop()
 
-jd_text = ""
-job_roles = {"Upload my own": None}
-if os.path.exists("data"):
-    for fname in os.listdir("data"):
-        if fname.endswith(".txt"):
-            job_roles[fname.replace(".txt", "").replace("_", " ").title()] = os.path.join("data", fname)
+            if not initialize_app(): # Check if an app is already initialized
+                cred = credentials.Certificate(firebase_config_data)
+                initialize_app(cred)
+            st.session_state['firebase_initialized_screener'] = True
+            
+        except Exception as e:
+            st.error(f"❌ Firebase initialization failed in screener.py: {e}")
+            st.stop()
 
-jd_option = st.selectbox("📌 Select Job Role or Upload Your Own JD", list(job_roles.keys()))
-if jd_option == "Upload my own":
-    jd_file = st.file_uploader("Upload Job Description (TXT)", type="txt")
-    if jd_file:
-        jd_text = jd_file.read().decode("utf-8")
-else:
-    jd_path = job_roles[jd_option]
-    if jd_path and os.path.exists(jd_path):
-        with open(jd_path, "r", encoding="utf-8") as f:
-            jd_text = f.read()
+    # Get Firestore client (assuming it's initialized either by main.py or the block above)
+    db = firestore.client()
 
-resume_files = st.file_uploader("📄 Upload Resumes (PDF)", type="pdf", accept_multiple_files=True)
-cutoff = st.slider("📈 Score Cutoff", 0, 100, 80)
-min_experience = st.slider("💼 Minimum Experience Required", 0, 15, 2)
 
-df = pd.DataFrame() # Initialize DataFrame outside the if block
+    jd_text = ""
+    job_roles = {"Upload my own": None}
+    if os.path.exists("data"):
+        for fname in os.listdir("data"):
+            if fname.endswith(".txt"):
+                job_roles[fname.replace(".txt", "").replace("_", " ").title()] = os.path.join("data", fname)
 
-if jd_text and resume_files:
-    # --- Job Description Keyword Cloud ---
-    st.markdown("## ☁️ Job Description Keyword Cloud")
-    jd_words_for_cloud = " ".join([word for word in re.findall(r'\b\w+\b', clean_text(jd_text)) if word not in STOP_WORDS])
-    if jd_words_for_cloud:
-        wordcloud = WordCloud(width=800, height=400, background_color='white').generate(jd_words_for_cloud)
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.imshow(wordcloud, interpolation='bilinear')
-        ax.axis('off')
-        st.pyplot(fig)
+    jd_option = st.selectbox("📌 Select Job Role or Upload Your Own JD", list(job_roles.keys()))
+    if jd_option == "Upload my own":
+        jd_file = st.file_uploader("Upload Job Description (TXT)", type="txt")
+        if jd_file:
+            jd_text = jd_file.read().decode("utf-8")
     else:
-        st.info("No significant keywords to display for the Job Description after filtering common words.")
-    st.divider()
+        jd_path = job_roles[jd_option]
+        if jd_path and os.path.exists(jd_path):
+            with open(jd_path, "r", encoding="utf-8") as f:
+                jd_text = f.read()
+
+    resume_files = st.file_uploader("📄 Upload Resumes (PDF)", type="pdf", accept_multiple_files=True)
+    cutoff = st.slider("📈 Score Cutoff", 0, 100, 80)
+    min_experience = st.slider("💼 Minimum Experience Required", 0, 15, 2)
+
+    df = pd.DataFrame() # Initialize DataFrame outside the if block
+
+    if jd_text and resume_files:
+        # --- Job Description Keyword Cloud ---
+        st.markdown("## ☁️ Job Description Keyword Cloud")
+        jd_words_for_cloud = " ".join([word for word in re.findall(r'\b\w+\b', clean_text(jd_text)) if word not in STOP_WORDS])
+        if jd_words_for_cloud:
+            wordcloud = WordCloud(width=800, height=400, background_color='white').generate(jd_words_for_cloud)
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.imshow(wordcloud, interpolation='bilinear')
+            ax.axis('off')
+            st.pyplot(fig)
+        else:
+            st.info("No significant keywords to display for the Job Description after filtering common words.")
+        st.divider()
 
 
-    results = []
-    resume_text_map = {}
-    for file in resume_files:
-        text = extract_text_from_pdf(file)
-        if text.startswith("[ERROR]"):
-            st.error(f"Could not process {file.name}: {text}")
-            continue
+        results = []
+        resume_text_map = {}
+        for file in resume_files:
+            text = extract_text_from_pdf(file)
+            if text.startswith("[ERROR]"):
+                st.error(f"Could not process {file.name}: {text}")
+                continue
 
-        exp = extract_years_of_experience(text)
-        email = extract_email(text)
-        candidate_name = extract_name(text) or file.name.replace('.pdf', '').replace('_', ' ').title() # Use extracted name or cleaned file name
-        # Call semantic_score and unpack all returned values, including semantic_similarity and jd_coverage_percentage
-        score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage = semantic_score(text, jd_text, exp)
-        summary = f"{exp}+ years exp. | {text.strip().splitlines()[0]}" if text else f"{exp}+ years exp."
+            exp = extract_years_of_experience(text)
+            email = extract_email(text)
+            candidate_name = extract_name(text) or file.name.replace('.pdf', '').replace('_', ' ').title() # Use extracted name or cleaned file name
+            # Call semantic_score and unpack all returned values, including semantic_similarity and jd_coverage_percentage
+            score, matched_keywords, missing_skills, feedback, semantic_similarity, jd_coverage_percentage = semantic_score(text, jd_text, exp)
+            summary = f"{exp}+ years exp. | {text.strip().splitlines()[0]}" if text else f"{exp}+ years exp."
 
-        results.append({
-            "File Name": file.name,
-            "Candidate Name": candidate_name, # Store extracted name
-            "Score (%)": score,
-            "Years Experience": exp,
-            "Summary": summary,
-            "Email": email or "Not found",
-            "Matched Keywords": matched_keywords,
-            "Missing Skills": missing_skills,
-            "Feedback": feedback,
-            "Semantic Similarity": semantic_similarity, # Add semantic similarity to results
-            "JD Keyword Coverage (%)": jd_coverage_percentage, # Add JD keyword coverage
-            "Resume Raw Text": text # Store raw text for individual word cloud
-        })
-        resume_text_map[file.name] = text
-
-    df = pd.DataFrame(results).sort_values(by="Score (%)", ascending=False)
-
-    # --- Save results to Firestore ---
-    app_id = os.environ.get('__app_id', 'default-app-id')
-    public_collection_ref = db.collection('artifacts').document(app_id).collection('public').document('data').collection('screening_results')
-    
-    # Store the entire list of results in a single document
-    try:
-        with st.spinner("Saving screening results to database..."):
-            public_collection_ref.document('latest_results').set({
-                'timestamp': firestore.SERVER_TIMESTAMP,
-                'data': results # Save the list of dictionaries
+            results.append({
+                "File Name": file.name,
+                "Candidate Name": candidate_name, # Store extracted name
+                "Score (%)": score,
+                "Years Experience": exp,
+                "Summary": summary,
+                "Email": email or "Not found",
+                "Matched Keywords": matched_keywords,
+                "Missing Skills": missing_skills,
+                "Feedback": feedback,
+                "Semantic Similarity": semantic_similarity, # Add semantic similarity to results
+                "JD Keyword Coverage (%)": jd_coverage_percentage, # Add JD keyword coverage
+                "Resume Raw Text": text # Store raw text for individual word cloud
             })
-        st.success("✅ Screening results saved to database!")
-    except Exception as e:
-        st.error(f"❌ Failed to save results to database: {e}")
+            resume_text_map[file.name] = text
 
-    # --- Overall Candidate Comparison Chart (Improved Matplotlib Bar Chart) ---
-    st.markdown("## 📊 Candidate Score Comparison")
-    if not df.empty:
-        fig, ax = plt.subplots(figsize=(10, 6))
-        # Use the extracted candidate name for the x-axis labels
-        bars = ax.bar(df['Candidate Name'], df['Score (%)'], color='skyblue')
-        ax.set_xlabel("Candidate", fontsize=12)
-        ax.set_ylabel("Score (%)", fontsize=12)
-        ax.set_title("Resume Screening Scores", fontsize=14, fontweight='bold')
-        ax.set_ylim(0, 100) # Ensure y-axis goes from 0 to 100
-        plt.xticks(rotation=45, ha='right') # Rotate labels for readability
-        for bar in bars:
-            yval = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2, yval + 1, round(yval, 2), ha='center', va='bottom') # Add score labels
-        st.pyplot(fig)
-    else:
-        st.info("Upload resumes to see a comparison chart.")
+        df = pd.DataFrame(results).sort_values(by="Score (%)", ascending=False)
 
-    st.divider()
+        # --- Save results to Firestore ---
+        try:
+            app_id = os.environ.get('__app_id', 'default-app-id')
+            public_collection_ref = db.collection('artifacts').document(app_id).collection('public').document('data').collection('screening_results')
+            
+            # Store the entire DataFrame as a list of dictionaries in a single document
+            # This overwrites previous results, which is suitable for "latest_results"
+            public_collection_ref.document('latest_results').set({'data': df.to_dict(orient='records')})
+            st.success("✅ Screening results saved to Firestore.")
+        except Exception as e:
+            st.error(f"❌ Error saving results to Firestore: {e}")
+            st.warning("⚠️ Results are only available for this session.")
 
-    # === Detailed Individual Candidate Analysis ===
-    st.markdown("## 📝 Detailed Candidate Analysis")
+        # --- Save results to session state for main.py to access (fallback/alternative) ---
+        st.session_state['screening_results'] = results
 
-    if not df.empty:
-        # Get top JD skills once for all candidates
-        jd_top_skills_list = get_top_keywords(jd_text, num_keywords=20)
-        jd_top_skills_set = set(jd_top_skills_list)
 
-        for _, row in df.iterrows():
-            candidate_display_name = row['Candidate Name'] # Use the extracted name
-            st.subheader(f"Analysis for {candidate_display_name}")
-            individual_analysis_paragraph = (
-                f"**{candidate_display_name}** scored **{row['Score (%)']:.2f}%** "
-                f"with **{row['Years Experience']:.1f} years of experience**. "
-                f"This candidate's profile is assessed as: **{row['Feedback']}**. "
-            )
+        # --- Overall Candidate Comparison Chart (Improved Matplotlib Bar Chart) ---
+        st.markdown("## 📊 Candidate Score Comparison")
+        if not df.empty:
+            fig, ax = plt.subplots(figsize=(10, 6))
+            # Use the extracted candidate name for the x-axis labels
+            bars = ax.bar(df['Candidate Name'], df['Score (%)'], color='skyblue')
+            ax.set_xlabel("Candidate", fontsize=12)
+            ax.set_ylabel("Score (%)", fontsize=12)
+            ax.set_title("Resume Screening Scores", fontsize=14, fontweight='bold')
+            ax.set_ylim(0, 100) # Ensure y-axis goes from 0 to 100
+            plt.xticks(rotation=45, ha='right') # Rotate labels for readability
+            for bar in bars:
+                yval = bar.get_height()
+                ax.text(bar.get_x() + bar.get_width()/2, yval + 1, round(yval, 2), ha='center', va='bottom') # Add score labels
+            st.pyplot(fig)
+        else:
+            st.info("Upload resumes to see a comparison chart.")
 
-            st.markdown(individual_analysis_paragraph)
+        st.divider()
 
-            # --- New Feature: Semantic Similarity Score ---
-            st.markdown(f"**Semantic Similarity (JD vs. Resume):** {row['Semantic Similarity']:.2f} (Higher is better)")
+        # === Detailed Individual Candidate Analysis ===
+        st.markdown("## 📝 Detailed Candidate Analysis")
 
-            # --- New Feature: JD Keyword Coverage Percentage ---
-            st.markdown(f"**JD Keyword Coverage:** {row['JD Keyword Coverage (%)']:.2f}% of job description keywords found in resume.")
+        if not df.empty:
+            # Get top JD skills once for all candidates
+            jd_top_skills_list = get_top_keywords(jd_text, num_keywords=20)
+            jd_top_skills_set = set(jd_top_skills_list)
 
-            # --- Enhanced Skill Matching Breakdown ---
-            st.markdown("### 📊 Skill Alignment with Job Description")
-            resume_words_for_matching = {word for word in re.findall(r'\b\w+\b', clean_text(row['Resume Raw Text'])) if word not in STOP_WORDS}
+            for _, row in df.iterrows():
+                candidate_display_name = row['Candidate Name'] # Use the extracted name
+                st.subheader(f"Analysis for {candidate_display_name}")
+                individual_analysis_paragraph = (
+                    f"**{candidate_display_name}** scored **{row['Score (%)']:.2f}%** "
+                    f"with **{row['Years Experience']:.1f} years of experience**. "
+                    f"This candidate's profile is assessed as: **{row['Feedback']}**. "
+                )
 
-            matched_jd_skills = []
-            missing_jd_skills = []
-            for skill in jd_top_skills_list:
-                if skill in resume_words_for_matching:
-                    matched_jd_skills.append(skill)
+                st.markdown(individual_analysis_paragraph)
+
+                # --- New Feature: Semantic Similarity Score ---
+                st.markdown(f"**Semantic Similarity (JD vs. Resume):** {row['Semantic Similarity']:.2f} (Higher is better)")
+
+                # --- New Feature: JD Keyword Coverage Percentage ---
+                st.markdown(f"**JD Keyword Coverage:** {row['JD Keyword Coverage (%)']:.2f}% of job description keywords found in resume.")
+
+                # --- Enhanced Skill Matching Breakdown ---
+                st.markdown("### 📊 Skill Alignment with Job Description")
+                resume_words_for_matching = {word for word in re.findall(r'\b\w+\b', clean_text(row['Resume Raw Text'])) if word not in STOP_WORDS}
+
+                matched_jd_skills = []
+                missing_jd_skills = []
+                for skill in jd_top_skills_list:
+                    if skill in resume_words_for_matching:
+                        matched_jd_skills.append(skill)
+                    else:
+                        missing_jd_skills.append(skill)
+
+                if matched_jd_skills:
+                    st.markdown(f"**✅ Matched Job Description Skills:** {', '.join(sorted(matched_jd_skills))}")
                 else:
-                    missing_jd_skills.append(skill)
+                    st.info("No significant top JD skills matched in this resume.")
 
-            if matched_jd_skills:
-                st.markdown(f"**✅ Matched Job Description Skills:** {', '.join(sorted(matched_jd_skills))}")
-            else:
-                st.info("No significant top JD skills matched in this resume.")
+                if missing_jd_skills:
+                    st.markdown(f"**❌ Missing Job Description Skills:** {', '.join(sorted(missing_jd_skills))}")
+                else:
+                    st.success("All top JD skills found in this resume!")
 
-            if missing_jd_skills:
-                st.markdown(f"**❌ Missing Job Description Skills:** {', '.join(sorted(missing_jd_skills))}")
-            else:
-                st.success("All top JD skills found in this resume!")
+                # --- New Feature: Experience Match Visual ---
+                st.markdown("### ⏳ Experience Match")
+                exp_ratio = min(row['Years Experience'] / min_experience, 1.0) if min_experience > 0 else 1.0
+                st.progress(exp_ratio)
+                if row['Years Experience'] >= min_experience:
+                    st.success(f"Candidate has {row['Years Experience']:.1f} years of experience, meeting or exceeding the required {min_experience} years.")
+                else:
+                    st.warning(f"Candidate has {row['Years Experience']:.1f} years of experience, less than the required {min_experience} years.")
 
-            # --- New Feature: Experience Match Visual ---
-            st.markdown("### ⏳ Experience Match")
-            exp_ratio = min(row['Years Experience'] / min_experience, 1.0) if min_experience > 0 else 1.0
-            st.progress(exp_ratio)
-            if row['Years Experience'] >= min_experience:
-                st.success(f"Candidate has {row['Years Experience']:.1f} years of experience, meeting or exceeding the required {min_experience} years.")
-            else:
-                st.warning(f"Candidate has {row['Years Experience']:.1f} years of experience, less than the required {min_experience} years.")
+                with st.expander("📄 Resume Preview"):
+                    st.code(resume_text_map.get(row['File Name'], ''))
+                st.markdown("---") # Separator for individual analyses
+        else:
+            st.info("No candidates to display yet for detailed analysis.")
 
-            with st.expander("📄 Resume Preview"):
-                st.code(resume_text_map.get(row['File Name'], ''))
-            st.markdown("---") # Separator for individual analyses
-    else:
-        st.info("No candidates to display yet for detailed analysis.")
+        st.divider()
 
-    st.divider()
+        # === "Who is Better" Statement ===
+        if not df.empty:
+            top_candidate = df.iloc[0]
+            st.markdown("## 🏆 Top Candidate Recommendation")
+            st.success(
+                f"Based on the screening, **{top_candidate['Candidate Name']}** "
+                f"is the top-ranked candidate with a score of **{top_candidate['Score (%)']:.2f}%** and "
+                f"**{top_candidate['Years Experience']:.1f} years of experience**. "
+                f"Their profile shows a **{top_candidate['Feedback'].lower()}**."
+            )
+        else:
+            st.info("Upload resumes to get a top candidate recommendation.")
 
-    # === "Who is Better" Statement ===
-    if not df.empty:
-        top_candidate = df.iloc[0]
-        st.markdown("## 🏆 Top Candidate Recommendation")
-        st.success(
-            f"Based on the screening, **{top_candidate['Candidate Name']}** "
-            f"is the top-ranked candidate with a score of **{top_candidate['Score (%)']:.2f}%** and "
-            f"**{top_candidate['Years Experience']:.1f} years of experience**. "
-            f"Their profile shows a **{top_candidate['Feedback'].lower()}**."
+        st.divider()
+
+        # Add a 'Tag' column for quick categorization
+        df['Tag'] = df.apply(lambda row: "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3 else (
+            "✅ Good Fit" if row['Score (%)'] >= 75 else "⚠️ Needs Review"), axis=1)
+
+        shortlisted = df[(df['Score (%)'] >= cutoff) & (df['Years Experience'] >= min_experience)]
+
+        st.metric("✅ Shortlisted Candidates", len(shortlisted))
+
+        st.markdown("### 📋 All Candidate Results Table")
+        st.dataframe(df) # Display the DataFrame
+
+        # Add download button for results
+        csv_data = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="⬇️ Download Results CSV",
+            data=csv_data,
+            file_name="candidate_screening_results.csv",
+            mime="text/csv",
         )
-    else:
-        st.info("Upload resumes to get a top candidate recommendation.")
 
-    st.divider()
-
-    # Add a 'Tag' column for quick categorization
-    df['Tag'] = df.apply(lambda row: "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3 else (
-        "✅ Good Fit" if row['Score (%)'] >= 75 else "⚠️ Needs Review"), axis=1)
-
-    shortlisted = df[(df['Score (%)'] >= cutoff) & (df['Years Experience'] >= min_experience)]
-
-    st.metric("✅ Shortlisted Candidates", len(shortlisted))
-
-    st.markdown("### 📋 All Candidate Results Table")
-    st.dataframe(df) # Display the DataFrame
-
-    # Add download button for results
-    csv_data = df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="⬇️ Download Results CSV",
-        data=csv_data,
-        file_name="candidate_screening_results.csv",
-        mime="text/csv",
-    )
-
-    # Add download button for detailed report (PDF)
-    # This would require a library like FPDF or ReportLab, which is outside the scope of this interaction.
-    # st.download_button(
-    #     label="⬇️ Download Detailed PDF Report",
-    #     data=b'', # Placeholder
-    #     file_name="detailed_report.pdf",
-    #     mime="application/pdf",
-    #     disabled=True, # Disable for now as functionality is not implemented
-    #     help="Detailed PDF report generation is not yet implemented."
-    # )
+        # Add download button for detailed report (PDF)
+        # This would require a library like FPDF or ReportLab, which is outside the scope of this interaction.
+        # st.download_button(
+        #     label="⬇️ Download Detailed PDF Report",
+        #     data=b'', # Placeholder
+        #     file_name="detailed_report.pdf",
+        #     mime="application/pdf",
+        #     disabled=True, # Disable for now as functionality is not implemented
+        #     help="Detailed PDF report generation is not yet implemented."
+        # )
 
