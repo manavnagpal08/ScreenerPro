@@ -587,51 +587,51 @@ def app(): # Define the app() function for screener.py
         else:
             st.info("No candidates to display yet for detailed analysis.")
 
-        st.divider()
+    st.divider()
 
-        # === "Who is Better" Statement ===
-        if not df.empty:
-            top_candidate = df.iloc[0]
-            st.markdown("## 🏆 Top Candidate Recommendation")
-            st.success(
-                f"Based on the screening, **{top_candidate['Candidate Name']}** "
-                f"is the top-ranked candidate with a score of **{top_candidate['Score (%)']:.2f}%** and "
-                f"**{top_candidate['Years Experience']:.1f} years of experience**. "
-                f"Their profile shows a **{top_candidate['Feedback'].lower()}**."
-            )
-        else:
-            st.info("Upload resumes to get a top candidate recommendation.")
-
-        st.divider()
-
-        # Add a 'Tag' column for quick categorization
-        df['Tag'] = df.apply(lambda row: "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3 else (
-            "✅ Good Fit" if row['Score (%)'] >= 75 else "⚠️ Needs Review"), axis=1)
-
-        shortlisted = df[(df['Score (%)'] >= cutoff) & (df['Years Experience'] >= min_experience)]
-
-        st.metric("✅ Shortlisted Candidates", len(shortlisted))
-
-        st.markdown("### 📋 All Candidate Results Table")
-        st.dataframe(df) # Display the DataFrame
-
-        # Add download button for results
-        csv_data = df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="⬇️ Download Results CSV",
-            data=csv_data,
-            file_name="candidate_screening_results.csv",
-            mime="text/csv",
+    # === "Who is Better" Statement ===
+    if not df.empty:
+        top_candidate = df.iloc[0]
+        st.markdown("## 🏆 Top Candidate Recommendation")
+        st.success(
+            f"Based on the screening, **{top_candidate['Candidate Name']}** "
+            f"is the top-ranked candidate with a score of **{top_candidate['Score (%)']:.2f}%** and "
+            f"**{top_candidate['Years Experience']:.1f} years of experience**. "
+            f"Their profile shows a **{top_candidate['Feedback'].lower()}**."
         )
+    else:
+        st.info("Upload resumes to get a top candidate recommendation.")
 
-        # Add download button for detailed report (PDF)
-        # This would require a library like FPDF or ReportLab, which is outside the scope of this interaction.
-        # st.download_button(
-        #     label="⬇️ Download Detailed PDF Report",
-        #     data=b'', # Placeholder
-        #     file_name="detailed_report.pdf",
-        #     mime="application/pdf",
-        #     disabled=True, # Disable for now as functionality is not implemented
-        #     help="Detailed PDF report generation is not yet implemented."
-        # )
+    st.divider()
+
+    # Add a 'Tag' column for quick categorization
+    df['Tag'] = df.apply(lambda row: "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3 else (
+        "✅ Good Fit" if row['Score (%)'] >= 75 else "⚠️ Needs Review"), axis=1)
+
+    shortlisted = df[(df['Score (%)'] >= cutoff) & (df['Years Experience'] >= min_experience)]
+
+    st.metric("✅ Shortlisted Candidates", len(shortlisted))
+
+    st.markdown("### 📋 All Candidate Results Table")
+    st.dataframe(df) # Display the DataFrame
+
+    # Add download button for results
+    csv_data = df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="⬇️ Download Results CSV",
+        data=csv_data,
+        file_name="candidate_screening_results.csv",
+        mime="text/csv",
+    )
+
+    # Add download button for detailed report (PDF)
+    # This would require a library like FPDF or ReportLab, which is outside the scope of this interaction.
+    # st.download_button(
+    #     label="⬇️ Download Detailed PDF Report",
+    #     data=b'', # Placeholder
+    #     file_name="detailed_report.pdf",
+    #     mime="application/pdf",
+    #     disabled=True, # Disable for now as functionality is not implemented
+    #     help="Detailed PDF report generation is not yet implemented."
+    # )
 
