@@ -21,7 +21,7 @@ except Exception as e:
     st.error(f"❌ Could not load model: {e}")
     ml_model = None
 
-
+st.info(f"📦 Loaded model: {type(ml_model).__name__} | sklearn: {sklearn.__version__}")
 # --- Helpers ---
 def clean_text(text):
     text = re.sub(r'\n', ' ', text)
