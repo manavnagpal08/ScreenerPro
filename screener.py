@@ -368,9 +368,8 @@ def semantic_score(resume_text, jd_text, years_exp):
         st.success(f"🧠 Predicted score (ML base): {predicted_score:.2f}")
 
         # Blend ML predicted score with JD keyword coverage for stronger JD influence
-        # This directly incorporates the JD's keyword relevance into the final score.
-        # Adjust weights (0.6 for ML, 0.4 for JD Coverage) as needed to emphasize JD coverage.
-        blended_score = (predicted_score * 0.6) + (jd_coverage_percentage * 0.4)
+        # Changed weights to 0.5 for both to give equal importance to ML prediction and JD keyword coverage.
+        blended_score = (predicted_score * 0.5) + (jd_coverage_percentage * 0.5)
         score = float(np.clip(blended_score, 0, 100)) # Ensure score is between 0 and 100
 
 
@@ -610,7 +609,8 @@ if jd_text and resume_files:
     )
 
     st.markdown("### ✉️ Send Emails to Shortlisted Candidates")
-    email_ready = shortlisted[email_ready['Email'].str.contains("@", na=False)]
+    # Corrected the variable name from email_ready to shortlisted for filtering
+    email_ready = shortlisted[shortlisted['Email'].str.contains("@", na=False)]
 
     if email_ready.empty:
         st.info("No shortlisted candidates with valid emails to send emails to.")
