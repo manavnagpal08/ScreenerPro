@@ -189,6 +189,56 @@ if jd_text and resume_files:
         resume_text_map[file.name] = text
 
     df = pd.DataFrame(results).sort_values(by="Score (%)", ascending=False)
+    # === 📊 Global Resume Screening Insights ===
+if not df.empty:
+    st.markdown("## 📊 Screening Insights & Summary")
+
+    avg_score = df['Score (%)'].mean()
+    avg_exp = df['Years Experience'].mean()
+    top_skills = pd.Series([
+        skill.strip().lower()
+        for skills in df['Matched Keywords'].dropna()
+        for skill in skills.split(',') if skill.strip()
+    ]).value_counts().head(5)
+
+    # Collect missing skills across all resumes
+    missing_skills = pd.Series([
+        skill.strip().lower()
+        for skills in df['Missing Skills'].dropna()
+        for skill in skills.split(',') if skill.strip()
+    ]).value_counts().head(5)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("📈 Average Score", f"{avg_score:.2f}%")
+        st.metric("🧠 Avg. Experience", f"{avg_exp:.1f} yrs")
+
+    with col2:
+        st.markdown("### 🔝 Top 5 Matched Skills")
+        for skill, count in top_skills.items():
+            st.markdown(f"- ✅ {skill} ({count})")
+
+        st.markdown("### ❌ Top 5 Missing Skills")
+        for skill, count in missing_skills.items():
+            st.markdown(f"- ⚠️ {skill} ({count})")
+
+    st.divider()
+
+    # === 🏆 Show Top 3 Candidates ===
+    st.markdown("## 🏆 Top Candidates")
+    top_candidates = df.sort_values(by='Score (%)', ascending=False).head(3)
+
+    for _, row in top_candidates.iterrows():
+        st.subheader(f"{row['File Name']} — {row['Score (%)']}%")
+        st.write(f"🧠 Experience: {row['Years Experience']} years")
+        st.caption(f"Matched Skills: {row['Matched Keywords']}")
+        st.caption(f"Missing: {row['Missing Skills']}")
+        st.info(f"📋 Feedback: {row['Feedback']}")
+        with st.expander("📄 Resume Preview"):
+            st.code(resume_text_map.get(row['File Name'], ''))
+
+    st.divider()
+
     df['Tag'] = df.apply(lambda row: "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3 else (
         "✅ Good Fit" if row['Score (%)'] >= 75 else "⚠️ Needs Review"), axis=1)
     shortlisted = df[(df['Score (%)'] >= cutoff) & (df['Years Experience'] >= min_experience)]
