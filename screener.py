@@ -116,6 +116,7 @@ def semantic_score(resume_text, jd_text, years_exp):
 
         # Check final shape
         print("🔍 Feature vector shape:", features.shape)
+        print("🔍 Feature shape at runtime:", features.shape)
 
         score = ml_model.predict([features])[0]
         score = float(np.clip(score, 0, 100))
