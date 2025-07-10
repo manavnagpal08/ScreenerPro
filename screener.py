@@ -434,9 +434,9 @@ if jd_text and resume_files:
     st.markdown("## 📊 Candidate Score Comparison")
     if not df.empty:
         fig, ax = plt.subplots(figsize=(10, 6))
-        # Use a more readable name for the x-axis labels
-        candidate_names = [name.replace('.pdf', '').replace('_', ' ').title() for name in df['File Name']]
-        bars = ax.bar(candidate_names, df['Score (%)'], color='skyblue')
+        # Use a more readable name for the x-axis labels, removing .pdf and replacing _ with space
+        candidate_names_display = [name.replace('.pdf', '').replace('_', ' ').title() for name in df['File Name']]
+        bars = ax.bar(candidate_names_display, df['Score (%)'], color='skyblue')
         ax.set_xlabel("Candidate", fontsize=12)
         ax.set_ylabel("Score (%)", fontsize=12)
         ax.set_title("Resume Screening Scores", fontsize=14, fontweight='bold')
@@ -487,8 +487,8 @@ if jd_text and resume_files:
             else:
                 st.info("No significant top skills found in this resume.")
 
-            # --- New Feature: Top Skills in Job Description ---
-            st.markdown("### 💼 Top Skills in Job Description (Keywords)")
+            # --- New Feature: Top Skills in Job Description (for comparison) ---
+            st.markdown("### 💼 Top Skills in Job Description (for comparison)")
             top_jd_skills = get_top_keywords(jd_text, num_keywords=15)
             if top_jd_skills:
                 st.write(", ".join(top_jd_skills))
