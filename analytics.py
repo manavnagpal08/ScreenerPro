@@ -43,7 +43,7 @@ st.markdown("## 📊 Screening Analytics Dashboard")
 # --- Load Data ---
 @st.cache_data(show_spinner=False)
 def load_screening_data():
-    """Loads screening results, prioritizing session state, then results.csv."""
+    """Loads screening results only from session state."""
     if 'screening_results' in st.session_state and st.session_state['screening_results']:
         try:
             st.info("✅ Loaded screening results from current session.")
@@ -52,24 +52,8 @@ def load_screening_data():
             st.error(f"Error loading results from session state: {e}")
             return pd.DataFrame() # Return empty DataFrame on error
     else:
-        data_source = "results.csv"
-        if os.path.exists(data_source):
-            try:
-                df_from_csv = pd.read_csv(data_source)
-                if df_from_csv.empty:
-                    st.warning("`results.csv` is empty. No screening data to display yet.")
-                else:
-                    st.info("📁 Loaded existing results from `results.csv` (No session data found).")
-                return df_from_csv
-            except pd.errors.EmptyDataError:
-                st.warning("`results.csv` is empty. No screening data to display yet.")
-                return pd.DataFrame() # Return empty DataFrame if file is empty
-            except Exception as e:
-                st.error(f"Error reading `results.csv`: {e}")
-                return pd.DataFrame() # Return empty DataFrame on error
-        else:
-            st.warning("⚠️ No screening data found in current session or `results.csv`. Please run the screener first.")
-            return pd.DataFrame() # Return empty DataFrame if file not found
+        st.warning("⚠️ No screening data found in current session. Please run the screener first.")
+        return pd.DataFrame() # Return empty DataFrame if no session data found
 
 df = load_screening_data()
 
