@@ -7,7 +7,12 @@ import os
 import json
 
 # Import the page functions from their respective files
-from login import login_section, load_users, admin_registration_section, is_current_user_admin
+# Updated imports for new admin functions
+from login import (
+    login_section, load_users, admin_registration_section,
+    admin_password_reset_section, admin_disable_enable_user_section, # NEW IMPORTS
+    is_current_user_admin
+)
 from email_sender import send_email_to_candidate
 from screener import resume_screener_page
 from analytics import analytics_dashboard_page
@@ -241,18 +246,32 @@ if tab == "🏠 Dashboard":
 # ⚙️ Admin Tools Section
 # ======================
 elif tab == "⚙️ Admin Tools":
-    st.header("⚙️ Admin Tools") # Changed to st.header
+    st.header("⚙️ Admin Tools")
     if is_admin:
-        admin_registration_section() # Display the admin registration form
-
+        st.write("Welcome, Administrator! Here you can manage user accounts.")
         st.markdown("---")
+
+        admin_registration_section() # Create New User Form
+        st.markdown("---")
+
+        admin_password_reset_section() # Reset User Password Form
+        st.markdown("---")
+
+        admin_disable_enable_user_section() # Disable/Enable User Form
+        st.markdown("---")
+
         st.subheader("👥 All Registered Users")
         st.warning("⚠️ **SECURITY WARNING:** This table displays usernames (email IDs) and **hashed passwords**. This is for **ADMINISTRATIVE DEBUGGING ONLY IN A SECURE ENVIRONMENT**. **NEVER expose this in a public or production application.**")
         try:
             users_data = load_users()
             if users_data:
-                user_list = [[user, "********"] for user in users_data.keys()]
-                st.dataframe(pd.DataFrame(user_list, columns=["Email/Username", "Hashed Password (DO NOT EXPOSE)"]), use_container_width=True)
+                display_users = []
+                for user, data in users_data.items():
+                    # Ensure compatibility with old entries that might just be a string (hashed_password)
+                    hashed_pass = data.get("password", data) if isinstance(data, dict) else data
+                    status = data.get("status", "N/A") if isinstance(data, dict) else "N/A"
+                    display_users.append([user, hashed_pass, status])
+                st.dataframe(pd.DataFrame(display_users, columns=["Email/Username", "Hashed Password (DO NOT EXPOSE)", "Status"]), use_container_width=True)
             else:
                 st.info("No users registered yet.")
         except Exception as e:
@@ -299,23 +318,3 @@ elif tab == "🚪 Logout":
     st.session_state.pop('username', None)
     st.success("✅ Logged out.")
     st.stop()
-elif tab == "⚙️ Admin Tools":
-    st.header("⚙️ Admin Tools") # Changed to st.header
-    if is_admin:
-        admin_registration_section() # Display the admin registration form
-
-        st.markdown("---")
-        st.subheader("👥 All Registered Users")
-        st.warning("⚠️ **SECURITY WARNING:** This table displays usernames (email IDs) and **hashed passwords**. This is for **ADMINISTRATIVE DEBUGGING ONLY IN A SECURE ENVIRONMENT**. **NEVER expose this in a public or production application.**")
-        try:
-            users_data = load_users()
-            if users_data:
-                # Convert dictionary to a list of (username, hashed_password) tuples
-                # Display both the username (email ID) and the hashed password
-                user_list = [[user, users_data[user]] for user in users_data.keys()] # <--- MODIFIED THIS LINE
-                st.dataframe(pd.DataFrame(user_list, columns=["Email/Username", "Hashed Password (DO NOT EXPOSE)"]), use_container_width=True)
-            else:
-                st.info("No users registered yet.")
-        except Exception as e:
-            st.error(f"Error loading user data: {e}")
-    
