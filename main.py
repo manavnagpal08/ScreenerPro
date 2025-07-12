@@ -2,24 +2,15 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from wordcloud import WordCloud # Although imported, WordCloud isn't used in the provided dashboard code
+from wordcloud import WordCloud
 import os
 import json
 
 # Import the page functions from their respective files
 from login import login_section
-# from email_sender import send_email_to_candidate # Not directly called, assuming email_page handles this
-from screener import resume_screener_page # Import the screener page function
-from analytics import analytics_dashboard_page # Import the analytics page function
-
-# You will need to ensure that manage_jds.py, search.py, and notes.py
-# define their main logic within functions (e.g., manage_jds_page(), search_page(), candidate_notes_page())
-# and that these functions are imported here if you want to call them as functions.
-# For now, the original exec(f.read()) approach is kept for these files as per your snippet.
-# Example if you refactor them into functions:
-# from manage_jds import manage_jds_page
-# from search import search_resumes_page
-# from notes import candidate_notes_page
+from email_sender import send_email_to_candidate
+from screener import resume_screener_page
+from analytics import analytics_dashboard_page
 
 
 # --- Page Config (Should only be in main.py) ---
@@ -175,43 +166,24 @@ div[data-testid="stNumberInput"] input {{
 
 /* --- Start of Hiding Streamlit UI elements CSS --- */
 
-/* Your provided hide_st_style rules */
-#MainMenu {{visibility: hidden;}}
-footer {{visibility: hidden;}}
-header {{visibility: hidden;}}
-
-/* More specific and robust hiding rules (from previous suggestions) */
-header[data-testid="stHeader"] {{
-    display: none !important;
-    visibility: hidden !important;
-}}
-
+/* Hide the entire top toolbar containing Share, Fork, and MainMenu (ellipsis) */
 div[data-testid="stToolbar"] {{
     display: none !important;
     visibility: hidden !important;
 }}
 
-.stDeployButton {{
-    display: none !important;
-    visibility: hidden !important;
-}}
-
-.viewerBadge_container__1QSob,
-.styles_viewerBadge__1yB5_,
-.viewerBadge_link__1S137,
-.viewerBadge_text__1JaDK,
-#GithubIcon,
-.css-1jc7ptx, .e1ewe7hr3, .e1ewe7hr1 {{
-    display: none !important;
-    visibility: hidden !important;
-}}
-
+/* Hide the "Hosted with Streamlit" badge at the bottom */
 div[data-testid="stConnectionStatus"] {{
     display: none !important;
     visibility: hidden !important;
 }}
-/* This specific selector was causing issues in some Streamlit versions, including it for completeness */
-.st-emotion-cache-ch5fef {{
+
+/* Fallback/additional selectors for completeness, though data-testid is usually sufficient */
+#MainMenu {{visibility: hidden; display: none !important;}}
+footer {{visibility: hidden; display: none !important;}}
+header {{visibility: hidden; display: none !important;}}
+.stDeployButton {{display: none !important; visibility: hidden !important;}}
+.viewerBadge_container__1QSob, .styles_viewerBadge__1yB5_, .viewerBadge_link__1S137, .viewerBadge_text__1JaDK, #GithubIcon, .css-1jc7ptx, .e1ewe7hr3, .e1ewe7hr1 {{
     display: none !important;
     visibility: hidden !important;
 }}
