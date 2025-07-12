@@ -36,7 +36,7 @@ if dark_mode:
     </style>
     """, unsafe_allow_html=True)
 
-# --- Global Fonts & UI Styling ---
+# --- Global Fonts & UI Styling & Hiding Specific Streamlit UI Elements ---
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -117,8 +117,57 @@ html, body, [class*="css"] {
     font-size: 1rem;
     font-weight: 600;
 }
+
+/* --- CSS to hide the "Fork" button and its surrounding elements --- */
+/* Target the main header bar where the deploy/fork elements are */
+header[data-testid="stHeader"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Target the toolbar that often contains the deploy/fork buttons */
+div[data-testid="stToolbar"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Target the "Deploy" button specifically (which often includes the Fork icon) */
+.stDeployButton {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* These are older or more general selectors that might still catch it as a fallback */
+.viewerBadge_container__1QSob,
+.styles_viewerBadge__1yB5_,
+.viewerBadge_link__1S137,
+.viewerBadge_text__1JaDK,
+#GithubIcon,
+.css-1jc7ptx, .e1ewe7hr3, .e1ewe7hr1 {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Hide the hamburger menu (if it's not needed) */
+#MainMenu {
+    visibility: hidden;
+    display: none !important;
+}
+/* Hide the Streamlit footer ("Made with Streamlit") */
+footer {
+    visibility: hidden;
+    display: none !important;
+}
+/* If a generic <header> or <footer> element exists from Streamlit, hide it */
+header, footer {
+    visibility: hidden;
+    display: none !important;
+}
+/* --- End of hiding CSS --- */
+
 </style>
 """, unsafe_allow_html=True)
+
 
 # --- Branding ---
 st.image("logo.png", width=300)
@@ -166,7 +215,7 @@ if tab == "🏠 Dashboard":
             min_exp_required = st.session_state.get('screening_min_experience', 2) # Default to 2 if not set
 
             shortlisted_df = df_results[(df_results["Score (%)"] >= cutoff_score) & 
-                                     (df_results["Years Experience"] >= min_exp_required)]
+                                        (df_results["Years Experience"] >= min_exp_required)]
             shortlisted = shortlisted_df.shape[0]
             avg_score = df_results["Score (%)"].mean()
         except Exception as e:
