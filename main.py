@@ -9,8 +9,17 @@ import json
 # Import the page functions from their respective files
 from login import login_section
 from email_sender import send_email_to_candidate
-from screener import resume_screener_page
-from analytics import analytics_dashboard_page
+from screener import resume_screener_page # Import the screener page function
+from analytics import analytics_dashboard_page # Import the analytics page function
+
+# Assuming other pages also have functions to encapsulate their logic:
+# You will need to ensure that manage_jds.py, search.py, and notes.py
+# define their main logic within functions (e.g., manage_jds_page(), search_page(), candidate_notes_page())
+# and that these functions are imported here.
+# For example:
+# from manage_jds import manage_jds_page
+# from search import search_resumes_page
+# from notes import candidate_notes_page # Renamed from notes.py to candidate_notes_page.py for clarity if it's a dedicated page
 
 
 # --- Page Config (Should only be in main.py) ---
@@ -19,9 +28,6 @@ st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wid
 
 # --- Dark Mode Toggle ---
 dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
-# Determine the current background color based on dark mode state
-# This variable will be used in the injected CSS
-current_bg_color = "#FFFFFF" # Default light mode background
 if dark_mode:
     st.markdown("""
     <style>
@@ -29,28 +35,26 @@ if dark_mode:
     .block-container { background-color: #1e1e1e !important; }
     </style>
     """, unsafe_allow_html=True)
-    current_bg_color = "#121212" # Dark mode background
 
-# --- Global Fonts & UI Styling & Specific Streamlit UI Element Hiding ---
-# IMPORTANT: All CSS curly braces that are NOT f-string variables must be escaped with double braces {{ }}
-st.markdown(f"""
+# --- Global Fonts & UI Styling ---
+st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
-html, body, [class*="css"] {{
+html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
-}}
-.main .block-container {{
+}
+.main .block-container {
     padding: 2rem;
     border-radius: 20px;
     background: rgba(255, 255, 255, 0.96);
     box-shadow: 0 12px 30px rgba(0,0,0,0.1);
     animation: fadeIn 0.8s ease-in-out;
-}}
-@keyframes fadeIn {{
-    0% {{ opacity: 0; transform: translateY(20px); }}
-    100% {{ opacity: 1; transform: translateY(0); }}
-}}
-.dashboard-card {{
+}
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+.dashboard-card {
     padding: 2rem;
     text-align: center;
     font-weight: 600;
@@ -60,13 +64,13 @@ html, body, [class*="css"] {{
     box-shadow: 0 6px 18px rgba(0,0,0,0.05);
     transition: transform 0.2s ease, box-shadow 0.3s ease;
     cursor: pointer;
-}}
-.dashboard-card:hover {{
+}
+.dashboard-card:hover {
     transform: translateY(-6px);
     box-shadow: 0 10px 24px rgba(0,0,0,0.1);
     background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
-}}
-.dashboard-header {{
+}
+.dashboard-header {
     font-size: 2.2rem;
     font-weight: 700;
     color: #222;
@@ -75,13 +79,13 @@ html, body, [class*="css"] {{
     display: inline-block;
     margin-bottom: 2rem;
     animation: slideInLeft 0.8s ease-out;
-}}
-@keyframes slideInLeft {{
-    0% {{ transform: translateX(-40px); opacity: 0; }}
-    100% {{ transform: translateX(0); opacity: 1; }}
-}}
+}
+@keyframes slideInLeft {
+    0% { transform: translateX(-40px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
 /* New CSS for custom buttons to look like cards */
-.custom-dashboard-button {{
+.custom-dashboard-button {
     width: 100%;
     height: 100%; /* Ensure it takes full height of its column */
     padding: 2rem;
@@ -99,88 +103,22 @@ html, body, [class*="css"] {{
     align-items: center;
     color: #333; /* Ensure text color is visible */
     min-height: 120px; /* Ensure a consistent height for the buttons */
-}}
-.custom-dashboard-button:hover {{
+}
+.custom-dashboard-button:hover {
     transform: translateY(-6px);
     box-shadow: 0 10px 24px rgba(0,0,0,0.1);
     background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
-}}
-.custom-dashboard-button span {{ /* For the icon */
+}
+.custom-dashboard-button span { /* For the icon */
     font-size: 1.5rem;
     margin-bottom: 0.5rem;
-}}
-.custom-dashboard-button div {{ /* For the text */
+}
+.custom-dashboard-button div { /* For the text */
     font-size: 1rem;
     font-weight: 600;
-}}
-
-/* --- Start of "invisibilize" CSS --- */
-
-/* Target the main header bar and make its background transparent */
-/* This is crucial for the top-right elements (Fork, Share) to blend in */
-header[data-testid="stHeader"] {{
-    background-color: transparent !important;
-    color: {current_bg_color} !important; /* Try to make text/icons blend */
-}}
-
-/* Target the toolbar/buttons within the header and try to blend them */
-div[data-testid="stToolbar"],
-.stDeployButton {{
-    background-color: transparent !important;
-    color: {current_bg_color} !important; /* Make icons/text blend */
-    border: none !important; /* Remove any borders */
-}}
-
-/* Specific selectors for the icons and text inside the toolbar/buttons */
-.viewerBadge_container__1QSob,
-.styles_viewerBadge__1yB5_,
-.viewerBadge_link__1S137,
-.viewerBadge_text__1JaDK,
-#GithubIcon,
-.css-1jc7ptx, .e1ewe7hr3, .e1ewe7hr1 {{
-    color: {current_bg_color} !important; /* Make icons/text blend */
-    background-color: transparent !important; /* Ensure background is clear */
-    /* If still visible, try to shrink or move off-screen as a last resort */
-    /* width: 0 !important; height: 0 !important; overflow: hidden !important; */
-    /* font-size: 0 !important; */
-}}
-
-/* Hide the hamburger menu (if it's not needed, but can hide useful debug options) */
-#MainMenu {{
-    visibility: hidden;
-    display: none !important;
-}}
-
-/* "Hosted with Streamlit" badge at the bottom */
-div[data-testid="stConnectionStatus"] {{
-    background-color: {current_bg_color} !important; /* Match app background */
-    color: {current_bg_color} !important; /* Make text blend */
-    border: none !important; /* Remove any border */
-    box-shadow: none !important; /* Remove any shadow */
-    /* Potentially make it smaller or move it if still visible */
-    /* transform: scale(0.1); opacity: 0; */
-}}
-
-/* Fallback for the badge if data-testid changes or isn't present */
-.st-emotion-cache-ch5fef {{ /* This class is often associated with the badge - inspect if it changes */
-    background-color: {current_bg_color} !important;
-    color: {current_bg_color} !important;
-    border: none !important;
-    box-shadow: none !important;
-}}
-
-/* Ensure the Streamlit footer itself also blends if it contains the badge */
-footer {{
-    background-color: {current_bg_color} !important;
-    color: {current_bg_color} !important;
-    border: none !important;
-}}
-
-/* --- End of "invisibilize" CSS --- */
-
+}
 </style>
 """, unsafe_allow_html=True)
-
 
 # --- Branding ---
 st.image("logo.png", width=300)
@@ -220,27 +158,30 @@ if tab == "🏠 Dashboard":
     if 'screening_results' in st.session_state and st.session_state['screening_results']:
         try:
             df_results = pd.DataFrame(st.session_state['screening_results'])
-            resume_count = df_results["File Name"].nunique()
+            resume_count = df_results["File Name"].nunique() # Count unique resumes screened
             
-            cutoff_score = st.session_state.get('screening_cutoff_score', 75)
-            min_exp_required = st.session_state.get('screening_min_experience', 2)
+            # Retrieve cutoff values from session state, with defaults
+            # These keys must match what's stored in screener.py
+            cutoff_score = st.session_state.get('screening_cutoff_score', 75) # Default to 75 if not set
+            min_exp_required = st.session_state.get('screening_min_experience', 2) # Default to 2 if not set
 
             shortlisted_df = df_results[(df_results["Score (%)"] >= cutoff_score) & 
-                                        (df_results["Years Experience"] >= min_exp_required)]
+                                     (df_results["Years Experience"] >= min_exp_required)]
             shortlisted = shortlisted_df.shape[0]
             avg_score = df_results["Score (%)"].mean()
         except Exception as e:
             st.error(f"Error processing screening results from session state: {e}")
-            df_results = pd.DataFrame()
-            shortlisted_df = pd.DataFrame()
+            df_results = pd.DataFrame() # Reset df_results if error occurs
+            shortlisted_df = pd.DataFrame() # Ensure this is also reset
     else:
         st.info("No screening results available in this session yet. Please run the Resume Screener.")
-        shortlisted_df = pd.DataFrame()
+        shortlisted_df = pd.DataFrame() # Ensure this is initialized even if no results
 
 
     col1, col2, col3 = st.columns(3)
     
     with col1:
+        # Make the "Resumes Screened" card interactive
         st.markdown(f"""<div class="dashboard-card">📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True)
         if resume_count > 0:
             with st.expander(f"View {resume_count} Screened Names"):
@@ -254,6 +195,7 @@ if tab == "🏠 Dashboard":
     col2.markdown(f"""<div class="dashboard-card">📝 <br><b>{jd_count}</b><br>Job Descriptions</div>""", unsafe_allow_html=True)
     
     with col3:
+        # Make the "Shortlisted Candidates" card interactive
         st.markdown(f"""<div class="dashboard-card">✅ <br><b>{shortlisted}</b><br>Shortlisted Candidates</div>""", unsafe_allow_html=True)
         if shortlisted > 0:
             with st.expander(f"View {shortlisted} Shortlisted Names"):
@@ -268,6 +210,7 @@ if tab == "🏠 Dashboard":
     col4, col5, col6 = st.columns(3)
     col4.markdown(f"""<div class="dashboard-card">📈 <br><b>{avg_score:.1f}%</b><br>Avg Score</div>""", unsafe_allow_html=True)
     
+    # Modified buttons to use custom HTML with dashboard-card styling
     with col5:
         st.markdown("""
         <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '🧠 Resume Screener']}}, '*');">
@@ -283,8 +226,10 @@ if tab == "🏠 Dashboard":
         </div>
         """, unsafe_allow_html=True)
 
-    if not df_results.empty:
+    # Optional: Dashboard Insights
+    if not df_results.empty: # Use df_results loaded from session state
         try:
+            # Updated Tagging logic from screener.py
             df_results['Tag'] = df_results.apply(lambda row: 
                 "👑 Exceptional Match" if row['Score (%)'] >= 90 and row['Years Experience'] >= 5 and row['Semantic Similarity'] >= 0.85 else (
                 "🔥 Strong Candidate" if row['Score (%)'] >= 80 and row['Years Experience'] >= 3 and row['Semantic Similarity'] >= 0.7 else (
@@ -304,7 +249,7 @@ if tab == "🏠 Dashboard":
                 ax1.pie(pie_data['Count'], labels=pie_data['Tag'], autopct='%1.1f%%', startangle=90, textprops={'fontsize': 10})
                 ax1.axis('equal')
                 st.pyplot(fig_pie)
-                plt.close(fig_pie)
+                plt.close(fig_pie) # Close the figure to free up memory
 
             with col_g2:
                 st.markdown("##### 📊 Experience Distribution")
@@ -318,19 +263,22 @@ if tab == "🏠 Dashboard":
                 ax2.set_xlabel("Experience Range")
                 ax2.tick_params(axis='x', labelrotation=0)
                 st.pyplot(fig_bar)
-                plt.close(fig_bar)
+                plt.close(fig_bar) # Close the figure to free up memory
             
+            # --- Candidate Distribution Summary Table ---
             st.markdown("##### 📋 Candidate Quality Breakdown")
             tag_summary = df_results['Tag'].value_counts().reset_index()
             tag_summary.columns = ['Candidate Tag', 'Count']
             st.dataframe(tag_summary, use_container_width=True, hide_index=True)
 
 
+            # 📋 Top 5 Most Common Skills - Enhanced & Resized
             st.markdown("##### 🧠 Top 5 Most Common Skills")
 
-            if 'Matched Keywords' in df_results.columns:
+            if 'Matched Keywords' in df_results.columns: # Use df_results
                 all_skills = []
-                for skills in df_results['Matched Keywords'].dropna():
+                for skills in df_results['Matched Keywords'].dropna(): # Use df_results
+                    # The Matched Keywords are already comma-separated and cleaned by screener.py
                     all_skills.extend([s.strip().lower() for s in skills.split(",") if s.strip()])
 
                 skill_counts = pd.Series(all_skills).value_counts().head(5)
@@ -352,38 +300,58 @@ if tab == "🏠 Dashboard":
 
                     fig_skills.tight_layout()
                     st.pyplot(fig_skills)
-                    plt.close(fig_skills)
+                    plt.close(fig_skills) # Close the figure to free up memory
                 else:
                     st.info("No skill data available in results for the Top 5 Skills chart.")
 
             else:
                 st.info("No 'Matched Keywords' column found in results for skill analysis.")
 
-        except Exception as e:
+        except Exception as e: # Catch specific exceptions or log for debugging
             st.warning(f"⚠️ Could not render insights due to data error: {e}")
 
 # ======================
 # Page Routing via function calls
 # ======================
 elif tab == "🧠 Resume Screener":
-    resume_screener_page()
+    resume_screener_page() # Call the function from screener.py
 
 elif tab == "📁 Manage JDs":
+    # Ensure manage_jds.py exists in the same directory and its logic is not in a function
+    # If you have a function like 'manage_jds_page' in manage_jds.py, import and call it:
+    # from manage_jds import manage_jds_page
+    # manage_jds_page()
+    # Otherwise, if it's a script meant to be executed directly:
     with open("manage_jds.py", encoding="utf-8") as f:
         exec(f.read())
 
 elif tab == "📊 Screening Analytics":
-    analytics_dashboard_page()
+    analytics_dashboard_page() # Call the function from analytics.py
 
 elif tab == "📤 Email Candidates":
+    # Ensure email_page.py exists in the same directory and its logic is not in a function
+    # If you have a function like 'email_candidates_page' in email_page.py, import and call it:
+    # from email_page import email_candidates_page
+    # email_candidates_page()
+    # Otherwise, if it's a script meant to be executed directly:
     with open("email_page.py", encoding="utf-8") as f:
         exec(f.read())
 
 elif tab == "🔍 Search Resumes":
+    # Ensure search.py exists in the same directory and its logic is not in a function
+    # If you have a function like 'search_resumes_page' in search.py, import and call it:
+    # from search import search_resumes_page
+    # search_resumes_page()
+    # Otherwise, if it's a script meant to be executed directly:
     with open("search.py", encoding="utf-8") as f:
         exec(f.read())
 
 elif tab == "📝 Candidate Notes":
+    # Ensure notes.py exists in the same directory and its logic is not in a function
+    # If you have a function like 'candidate_notes_page' in notes.py, import and call it:
+    # from notes import candidate_notes_page
+    # candidate_notes_page()
+    # Otherwise, if it's a script meant to be executed directly:
     with open("notes.py", encoding="utf-8") as f:
         exec(f.read())
 
@@ -404,9 +372,9 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("### Connect with Manav Nagpal")
 st.sidebar.markdown(
     "[LinkedIn Profile](https://www.linkedin.com/in/manav-nagpal-83b935209/) "
-    "&nbsp; 🔗"
+    "&nbsp; 🔗" # Using a link emoji as a simple icon
 )
 st.sidebar.markdown(
     "[Portfolio Website](https://manavnagpal.netlify.app/) "
-    "&nbsp; 🌐"
+    "&nbsp; 🌐" # Using a globe emoji for portfolio
 )
