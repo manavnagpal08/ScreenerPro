@@ -13,7 +13,7 @@ from analytics import analytics_dashboard_page # Import the analytics page funct
 # Removed runpy as we are now directly calling functions
 
 # --- Page Config (Should only be in main.py) ---
-st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide", page_icon="�")
+st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide", page_icon="🧠")
 
 
 # --- Dark Mode Toggle ---
@@ -327,4 +327,3 @@ elif tab == "🚪 Logout":
     st.session_state.authenticated = False
     st.success("✅ Logged out.")
     st.stop()
-�
