@@ -215,6 +215,13 @@ if tab == "🏠 Dashboard":
                 st.pyplot(fig_bar)
                 plt.close(fig_bar) # Close the figure to free up memory
             
+            # --- Candidate Distribution Summary Table ---
+            st.markdown("##### 📋 Candidate Quality Breakdown")
+            tag_summary = df_results['Tag'].value_counts().reset_index()
+            tag_summary.columns = ['Candidate Tag', 'Count']
+            st.dataframe(tag_summary, use_container_width=True, hide_index=True)
+
+
             # 📋 Top 5 Most Common Skills - Enhanced & Resized
             st.markdown("##### 🧠 Top 5 Most Common Skills")
 
