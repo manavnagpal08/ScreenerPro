@@ -13,7 +13,7 @@ from analytics import analytics_dashboard_page # Import the analytics page funct
 # Removed runpy as we are now directly calling functions
 
 # --- Page Config (Should only be in main.py) ---
-st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide", page_icon="🧠")
+st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide", page_icon="�")
 
 
 # --- Dark Mode Toggle ---
@@ -73,6 +73,38 @@ html, body, [class*="css"] {
 @keyframes slideInLeft {
     0% { transform: translateX(-40px); opacity: 0; }
     100% { transform: translateX(0); opacity: 1; }
+}
+/* New CSS for buttons to look like cards */
+.stButton>button {
+    width: 100%;
+    height: 100%;
+    padding: 2rem;
+    text-align: center;
+    font-weight: 600;
+    border-radius: 16px;
+    background: linear-gradient(145deg, #f1f2f6, #ffffff);
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #333; /* Ensure text color is visible */
+}
+.stButton>button:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.1);
+    background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
+}
+.stButton>button span {
+    font-size: 1.5rem; /* Adjust icon size */
+    margin-bottom: 0.5rem;
+}
+.stButton>button div {
+    font-size: 1rem; /* Adjust text size */
+    font-weight: 600;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -167,12 +199,14 @@ if tab == "🏠 Dashboard":
 
     col4, col5, col6 = st.columns(3)
     col4.markdown(f"""<div class="dashboard-card">📈 <br><b>{avg_score:.1f}%</b><br>Avg Score</div>""", unsafe_allow_html=True)
+    
+    # Modified buttons to use dashboard-card styling
     with col5:
-        if st.button("🧠 Resume Screener", use_container_width=True):
+        if st.button("🧠 <br>Resume Screener", use_container_width=True, help="Go to the Resume Screener page"):
             st.session_state.tab_override = "🧠 Resume Screener"
             st.rerun()
     with col6:
-        if st.button("📤 Email Candidates", use_container_width=True):
+        if st.button("📤 <br>Email Candidates", use_container_width=True, help="Go to the Email Candidates page"):
             st.session_state.tab_override = "📤 Email Candidates"
             st.rerun()
 
@@ -293,3 +327,4 @@ elif tab == "🚪 Logout":
     st.session_state.authenticated = False
     st.success("✅ Logged out.")
     st.stop()
+�
