@@ -124,6 +124,25 @@ html, body, [class*="css"] {
 st.image("logo.png", width=300)
 st.title("🧠 ScreenerPro – AI Hiring Assistant")
 
+# --- About Us Section in Sidebar (Moved to be always visible) ---
+st.sidebar.markdown("---")
+st.sidebar.markdown("### About ScreenerPro")
+st.sidebar.info(
+    "ScreenerPro is an AI-powered hiring assistant designed to streamline your "
+    "recruitment process. It helps you quickly screen resumes, manage job descriptions, "
+    "and analyze candidate data to find the best fit for your roles."
+)
+st.sidebar.markdown("---")
+st.sidebar.markdown("### Connect with Manav Nagpal")
+st.sidebar.markdown(
+    "[LinkedIn Profile](https://www.linkedin.com/in/manav-nagpal-83b935209/) "
+    "&nbsp; 🔗" # Using a link emoji as a simple icon
+)
+st.sidebar.markdown(
+    "[Portfolio Website](https://manavnagpal.netlify.app/) "
+    "&nbsp; 🌐" # Using a globe emoji for portfolio
+)
+
 
 # --- Auth ---
 if not login_section():
@@ -360,22 +379,3 @@ elif tab == "🚪 Logout":
     st.session_state.authenticated = False
     st.success("✅ Logged out.")
     st.stop()
-
-# --- About Us Section in Sidebar ---
-st.sidebar.markdown("---")
-st.sidebar.markdown("### About ScreenerPro")
-st.sidebar.info(
-    "ScreenerPro is an AI-powered hiring assistant designed to streamline your "
-    "recruitment process. It helps you quickly screen resumes, manage job descriptions, "
-    "and analyze candidate data to find the best fit for your roles."
-)
-st.sidebar.markdown("---")
-st.sidebar.markdown("### Connect with Manav Nagpal")
-st.sidebar.markdown(
-    "[LinkedIn Profile](https://www.linkedin.com/in/manav-nagpal-83b935209/) "
-    "&nbsp; 🔗" # Using a link emoji as a simple icon
-)
-st.sidebar.markdown(
-    "[Portfolio Website](https://manavnagpal.netlify.app/) "
-    "&nbsp; 🌐" # Using a globe emoji for portfolio
-)
