@@ -23,164 +23,16 @@ st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wid
 
 
 # --- Dark Mode Toggle ---
+# Note: The dark mode toggle will still exist, but without the CSS,
+# its visual effect on other elements might be limited to Streamlit's defaults.
 dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
 
-# --- Global Fonts & UI Styling (THIS IS THE CORRECT PLACE FOR ALL YOUR CSS) ---
-# This block should be present ONLY in main.py, and not in login.py or other files.
-st.markdown(f"""
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-<style>
-/* Global Styles - apply to both modes unless overridden */
-html, body, [class*="css"] {{
-    font-family: 'Inter', sans-serif;
-    color: {'white' if dark_mode else '#333333'}; /* Main text color */
-}}
+# --- Global Fonts & UI Styling (The entire CSS block is removed as requested) ---
+# All custom CSS related to @keyframes, .dashboard-card, .dashboard-header,
+# .custom-dashboard-button, Streamlit specific overrides, input fields, and buttons
+# has been removed from this file.
+# This means your application will revert to Streamlit's default styling.
 
-.main .block-container {{
-    padding: 2rem;
-    border-radius: 20px;
-    background: {'#1e1e1e' if dark_mode else 'rgba(255, 255, 255, 0.96)'}; /* Container background */
-    box-shadow: 0 12px 30px {'rgba(0,0,0,0.4)' if dark_mode else 'rgba(0,0,0,0.1)'};
-    animation: fadeIn 0.8s ease-in-out;
-}}
-
-@keyframes fadeIn {{
-    0% {{ opacity: 0; transform: translateY(20px); }}
-    100% {{ opacity: 1; transform: translateY(0); }}
-}}
-
-.dashboard-card {{
-    padding: 2rem;
-    text-align: center;
-    font-weight: 600;
-    border-radius: 16px;
-    background: {'#2a2a2a' if dark_mode else 'linear-gradient(145deg, #f1f2f6, #ffffff)'}; /* Card background */
-    border: 1px solid {'#3a3a3a' if dark_mode else '#e0e0e0'};
-    box-shadow: 0 6px 18px {'rgba(0,0,0,0.2)' if dark_mode else 'rgba(0,0,0,0.05)'};
-    transition: transform 0.2s ease, box-shadow 0.3s ease;
-    cursor: pointer;
-    color: {'white' if dark_mode else '#333'}; /* Card text color */
-}}
-
-.dashboard-card:hover {{
-    transform: translateY(-6px);
-    box-shadow: 0 10px 24px {'rgba(0,0,0,0.3)' if dark_mode else 'rgba(0,0,0,0.1)'};
-    background: {'#3a3a3a' if dark_mode else 'linear-gradient(145deg, #e0f7fa, #f1f1f1)'};
-}}
-
-.dashboard-header {{
-    font-size: 2.2rem;
-    font-weight: 700;
-    color: {'#00cec9' if dark_mode else '#222'}; /* Header color, use accent in dark mode */
-    padding-bottom: 0.5rem;
-    border-bottom: 3px solid #00cec9;
-    display: inline-block;
-    margin-bottom: 2rem;
-    animation: slideInLeft 0.8s ease-out;
-}}
-
-@keyframes slideInLeft {{
-    0% {{ transform: translateX(-40px); opacity: 0; }}
-    100% {{ transform: translateX(0); opacity: 1; }}
-}}
-
-/* New CSS for custom buttons to look like cards */
-.custom-dashboard-button {{
-    width: 100%;
-    height: 100%;
-    padding: 2rem;
-    text-align: center;
-    font-weight: 600;
-    border-radius: 16px;
-    background: {'#2a2a2a' if dark_mode else 'linear-gradient(145deg, #f1f2f6, #ffffff)'};
-    border: 1px solid {'#3a3a3a' if dark_mode else '#e0e0e0'};
-    box-shadow: 0 6px 18px {'rgba(0,0,0,0.2)' if dark_mode else 'rgba(0,0,0,0.05)'};
-    transition: transform 0.2s ease, box-shadow 0.3s ease;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    color: {'white' if dark_mode else '#333'}; /* Button text color */
-    min-height: 120px;
-}}
-
-.custom-dashboard-button:hover {{
-    transform: translateY(-6px);
-    box-shadow: 0 10px 24px {'rgba(0,0,0,0.3)' if dark_mode else 'rgba(0,0,0,0.1)'};
-    background: {'#3a3a3a' if dark_mode else 'linear-gradient(145deg, #e0f7fa, #f1f1f1)'};
-}}
-
-.custom-dashboard-button span {{
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
-}}
-
-.custom-dashboard-button div {{
-    font-size: 1rem;
-    font-weight: 600;
-}}
-
-/* Streamlit Specific Overrides for Dark Mode Readability */
-h1, h2, h3, h4, h5, h6, .stMarkdown, .stText, .stCode, .stProgress, .stAlert {{
-    color: {'white' if dark_mode else '#333333'} !important;
-}}
-
-.stAlert {{
-    background-color: {'#333333' if dark_mode else 'inherit'} !important;
-    color: {'white' if dark_mode else 'inherit'} !important;
-    border-color: {'#555555' if dark_mode else 'inherit'} !important;
-}}
-
-/* For sidebar elements */
-.stSidebar {{
-    background-color: {'#1a1a1a' if dark_mode else '#f0f2f6'} !important;
-    color: {'white' if dark_mode else '#333333'} !important;
-}}
-.stSidebar .stRadio div, .stSidebar .stToggle label {{
-    color: {'white' if dark_mode else '#333333'} !important;
-}}
-
-/* Input fields, text areas, number inputs */
-div[data-testid="stTextInput"],
-div[data-testid="stTextArea"] {{ /* stNumberInput line was removed as requested earlier */
-    background-color: {'#2a2a2a' if dark_mode else 'white'};
-    color: {'white' if dark_mode else 'black'};
-    border: 1px solid {'#3a3a3a' if dark_mode else '#ccc'};
-    border-radius: 0.5rem;
-}}
-div[data-testid="stTextInput"] input,
-div[data-testid="stTextArea"] textarea {{ /* stNumberInput line was removed as requested earlier */
-    background-color: {'#2a2a2a' if dark_mode else 'white'} !important;
-    color: {'white' if dark_mode else 'black'} !important;
-}}
-
-/* Buttons */
-.stButton>button {{
-    background-color: {'#007bff' if dark_mode else '#00cec9'} !important;
-    color: white !important;
-    border: none !important;
-    box-shadow: 0 4px 8px {'rgba(0,0,0,0.3)' if dark_mode else 'rgba(0,0,0,0.1)'};
-}}
-.stButton>button:hover {{
-    background-color: {'#0056b3' if dark_mode else '#00a8a3'} !important;
-}}
-
-/* Ensure Streamlit's header, footer, and other generic elements are hidden if they exist */
-header, footer {{ visibility: hidden; display: none !important; }}
-.stApp > header {{ visibility: hidden; }} /* Specific targeting for the default header */
-
-/* Additional specific selectors if needed for hiding Streamlit UI elements: */
-/* div[data-testid="stToolbar"] {{ display: none; }} */
-/* div[data-testid="stDeployButton"] {{ display: none; }} */
-/* div[data-testid="stConnectionStatus"] {{ display: none; }} */
-/* .viewerBadge_container__1QSob {{ display: none; }} */
-/* .viewerBadge_link__1SI37 {{ display: none; }} */
-/* #MainMenu {{ visibility: hidden; }} */
-/* .stApp {{ padding-bottom: 1rem; }} */
-
-</style>
-""", unsafe_allow_html=True)
 
 # Set Matplotlib style for dark mode if active
 if dark_mode:
@@ -225,7 +77,8 @@ if "tab_override" in st.session_state:
 # 🏠 Dashboard Section
 # ======================
 if tab == "🏠 Dashboard":
-    st.markdown('<div class="dashboard-header">📊 Overview Dashboard</div>', unsafe_allow_html=True)
+    # The div for "dashboard-header" will not have custom styling anymore
+    st.markdown('<div>📊 Overview Dashboard</div>', unsafe_allow_html=True) # Removed class="dashboard-header"
 
     # Initialize metrics
     resume_count = 0
@@ -263,7 +116,8 @@ if tab == "🏠 Dashboard":
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.markdown(f"""<div class="dashboard-card">📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True)
+        # The div for "dashboard-card" will not have custom styling anymore
+        st.markdown(f"""<div>📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True) # Removed class="dashboard-card"
         if resume_count > 0:
             with st.expander(f"View {resume_count} Screened Names"):
                 for idx, row in df_results.iterrows():
@@ -274,10 +128,12 @@ if tab == "🏠 Dashboard":
             st.info("Run the screener to see screened resumes.")
 
     with col2:
-        st.markdown(f"""<div class="dashboard-card">📝 <br><b>{jd_count}</b><br>Job Descriptions</div>""", unsafe_allow_html=True)
+        # The div for "dashboard-card" will not have custom styling anymore
+        st.markdown(f"""<div>📝 <br><b>{jd_count}</b><br>Job Descriptions</div>""", unsafe_allow_html=True) # Removed class="dashboard-card"
 
     with col3:
-        st.markdown(f"""<div class="dashboard-card">✅ <br><b>{shortlisted}</b><br>Shortlisted Candidates</div>""", unsafe_allow_html=True)
+        # The div for "dashboard-card" will not have custom styling anymore
+        st.markdown(f"""<div>✅ <br><b>{shortlisted}</b><br>Shortlisted Candidates</div>""", unsafe_allow_html=True) # Removed class="dashboard-card"
         if shortlisted > 0:
             with st.expander(f"View {shortlisted} Shortlisted Names"):
                 for idx, row in shortlisted_df.iterrows():
@@ -288,22 +144,33 @@ if tab == "🏠 Dashboard":
             st.info("Run the screener to see shortlisted candidates.")
 
     col4, col5, col6 = st.columns(3)
-    col4.markdown(f"""<div class="dashboard-card">📈 <br><b>{avg_score:.1f}%</b><br>Avg Score</div>""", unsafe_allow_html=True)
+    # The div for "dashboard-card" will not have custom styling anymore
+    col4.markdown(f"""<div>📈 <br><b>{avg_score:.1f}%</b><br>Avg Score</div>""", unsafe_allow_html=True) # Removed class="dashboard-card"
 
     with col5:
+        # The div for "custom-dashboard-button" will not have custom styling anymore
         st.markdown("""
-        <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '🧠 Resume Screener']}}, '*');">
+        <div>
             <span>🧠</span>
             <div>Resume Screener</div>
         </div>
-        """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True) # Removed class="custom-dashboard-button" and onClick for navigation
+        if st.button("🧠 Resume Screener", key="dashboard_screener_button"):
+            st.session_state.tab_override = '🧠 Resume Screener'
+            st.rerun()
+
     with col6:
+        # The div for "custom-dashboard-button" will not have custom styling anymore
         st.markdown("""
-        <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '📤 Email Candidates']}}, '*');">
+        <div>
             <span>📤</span>
             <div>Email Candidates</div>
         </div>
-        """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True) # Removed class="custom-dashboard-button" and onClick for navigation
+        if st.button("📤 Email Candidates", key="dashboard_email_button"):
+            st.session_state.tab_override = '📤 Email Candidates'
+            st.rerun()
+
 
     # Optional: Dashboard Insights
     if not df_results.empty:
@@ -324,6 +191,7 @@ if tab == "🏠 Dashboard":
                 pie_data = df_results['Tag'].value_counts().reset_index()
                 pie_data.columns = ['Tag', 'Count']
                 fig_pie, ax1 = plt.subplots(figsize=(4.5, 4.5))
+                # Colors will revert to default Matplotlib/Seaborn unless specified manually without CSS
                 if dark_mode:
                     colors = plt.cm.Dark2.colors
                     text_color = 'white'
@@ -351,6 +219,7 @@ if tab == "🏠 Dashboard":
                 else:
                     sns.barplot(x=exp_counts.index, y=exp_counts.values, palette="coolwarm", ax=ax2)
                 
+                # These might need manual color adjustments for dark mode if they don't pick up plt.style.use('dark_background') fully
                 ax2.set_ylabel("Candidates", color='white' if dark_mode else 'black')
                 ax2.set_xlabel("Experience Range", color='white' if dark_mode else 'black')
                 ax2.tick_params(axis='x', labelrotation=0, colors='white' if dark_mode else 'black')
@@ -412,7 +281,8 @@ if tab == "🏠 Dashboard":
 # ⚙️ Admin Tools Section
 # ======================
 elif tab == "⚙️ Admin Tools":
-    st.markdown('<div class="dashboard-header">⚙️ Admin Tools</div>', unsafe_allow_html=True)
+    # The div for "dashboard-header" will not have custom styling anymore
+    st.markdown('<div>⚙️ Admin Tools</div>', unsafe_allow_html=True) # Removed class="dashboard-header"
     if is_admin:
         st.write("Welcome, Administrator! Here you can manage user accounts.")
         st.markdown("---")
