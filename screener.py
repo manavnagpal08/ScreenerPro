@@ -3,668 +3,571 @@ import pdfplumber
 import pandas as pd
 import re
 import os
-import sklearn
 import joblib
-import numpy as np
+import numpy as np # Ensure numpy is imported for np.nan
 from datetime import datetime
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 from sentence_transformers import SentenceTransformer
-import nltk
 import collections
 from sklearn.metrics.pairwise import cosine_similarity
 import urllib.parse # For encoding mailto links
 
-# For Generative AI (Google Gemini Pro) - COMMENTED OUT AS PER USER REQUEST
-# import google.generativeai as genai
+# Import T5 specific libraries
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-# --- Configure Google Gemini API Key --- - COMMENTED OUT AS PER USER REQUEST
-# Store your API key securely in Streamlit Secrets.
-# Create a .streamlit/secrets.toml file in your app's directory:
-# GOOGLE_API_KEY="YOUR_GEMINI_API_KEY"
-# try:
-#     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-# except AttributeError:
-#     st.error("🚨 Google API Key not found in Streamlit Secrets. Please add it to your .streamlit/secrets.toml file.")
-#     st.stop() # Stop the app if API key is missing
-
-# Download NLTK stopwords data if not already downloaded
-try:
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    nltk.download('stopwords')
+# --- Import skills data from a separate file ---
+# Ensure 'skills_data.py' is in the same directory as this script
+from skills_data import ALL_SKILLS_MASTER_SET, SORTED_MASTER_SKILLS, CUSTOM_STOP_WORDS
 
 # --- Load Embedding + ML Model ---
 @st.cache_resource
 def load_ml_model():
+    """Loads the SentenceTransformer model for embeddings and a pre-trained ML screening model."""
     try:
         model = SentenceTransformer("all-MiniLM-L6-v2")
+        # Ensure ml_screening_model.pkl is trained with predict_proba capability (e.g., RandomForestClassifier, XGBClassifier)
+        # NOTE: The training script saves as 'resume_screening_model.pkl'.
+        # You must rename 'resume_screening_model.pkl' to 'ml_screening_model.pkl' in your directory.
         ml_model = joblib.load("ml_screening_model.pkl")
+        
+        # --- IMPORTANT CHECK FOR predict_proba ---
+        if not hasattr(ml_model, 'predict_proba'):
+            st.error(f"❌ Loaded ML model ({type(ml_model)}) does not have 'predict_proba' method. Please ensure 'ml_screening_model.pkl' is a classifier trained to output probabilities (e.g., RandomForestClassifier, XGBClassifier).")
+            return None, None
+        # --- End IMPORTANT CHECK ---
+
         return model, ml_model
     except Exception as e:
-        st.error(f"❌ Error loading models: {e}. Please ensure 'ml_screening_model.pkl' is in the same directory.")
+        st.error(f"❌ Error loading models: {e}. Please ensure 'ml_screening_model.pkl' is in the same directory and network is available for SentenceTransformer.")
         return None, None
 
-model, ml_model = load_ml_model()
-
-# --- Stop Words List (Using NLTK) ---
-NLTK_STOP_WORDS = set(nltk.corpus.stopwords.words('english'))
-CUSTOM_STOP_WORDS = set([
-    "work", "experience", "years", "year", "months", "month", "day", "days", "project", "projects",
-    "team", "teams", "developed", "managed", "led", "created", "implemented", "designed",
-    "responsible", "proficient", "knowledge", "ability", "strong", "proven", "demonstrated",
-    "solution", "solutions", "system", "systems", "platform", "platforms", "framework", "frameworks",
-    "database", "databases", "server", "servers", "cloud", "computing", "machine", "learning",
-    "artificial", "intelligence", "api", "apis", "rest", "graphql", "agile", "scrum", "kanban",
-    "devops", "ci", "cd", "testing", "qa",
-    "security", "network", "networking", "virtualization",
-    "containerization", "docker", "kubernetes", "git", "github", "gitlab", "bitbucket", "jira",
-    "confluence", "slack", "microsoft", "google", "amazon", "azure", "oracle", "sap", "crm", "erp",
-    "salesforce", "servicenow", "tableau", "powerbi", "qlikview", "excel", "word", "powerpoint",
-    "outlook", "visio", "html", "css", "js", "web", "data", "science", "analytics", "engineer",
-    "software", "developer", "analyst", "business", "management", "reporting", "analysis", "tools",
-    "python", "java", "javascript", "c++", "c#", "php", "ruby", "go", "swift", "kotlin", "r",
-    "sql", "nosql", "linux", "unix", "windows", "macos", "ios", "android", "mobile", "desktop",
-    "application", "applications", "frontend", "backend", "fullstack", "ui", "ux", "design",
-    "architecture", "architect", "engineering", "scientist", "specialist", "consultant",
-    "associate", "senior", "junior", "lead", "principal", "director", "manager", "head", "chief",
-    "officer", "president", "vice", "executive", "ceo", "cto", "cfo", "coo", "hr", "human",
-    "resources", "recruitment", "talent", "acquisition", "onboarding", "training", "development",
-    "performance", "compensation", "benefits", "payroll", "compliance", "legal", "finance",
-    "accounting", "auditing", "tax", "budgeting", "forecasting", "investments", "marketing",
-    "sales", "customer", "service", "support", "operations", "supply", "chain", "logistics",
-    "procurement", "manufacturing", "production", "quality", "assurance", "control", "research",
-    "innovation", "product", "program", "portfolio", "governance", "risk", "communication",
-    "presentation", "negotiation", "problem", "solving", "critical", "thinking", "analytical",
-    "creativity", "adaptability", "flexibility", "teamwork", "collaboration", "interpersonal",
-    "organizational", "time", "multitasking", "detail", "oriented", "independent", "proactive",
-    "self", "starter", "results", "driven", "client", "facing", "stakeholder", "engagement",
-    "vendor", "budget", "cost", "reduction", "process", "improvement", "standardization",
-    "optimization", "automation", "digital", "transformation", "change", "methodologies",
-    "industry", "regulations", "regulatory", "documentation", "technical", "writing",
-    "dashboards", "visualizations", "workshops", "feedback", "reviews", "appraisals",
-    "offboarding", "employee", "relations", "diversity", "inclusion", "equity", "belonging",
-    "corporate", "social", "responsibility", "csr", "sustainability", "environmental", "esg",
-    "ethics", "integrity", "professionalism", "confidentiality", "discretion", "accuracy",
-    "precision", "efficiency", "effectiveness", "scalability", "robustness", "reliability",
-    "vulnerability", "assessment", "penetration", "incident", "response", "disaster",
-    "recovery", "continuity", "bcp", "drp", "gdpr", "hipaa", "soc2", "iso", "nist", "pci",
-    "dss", "ccpa", "privacy", "protection", "grc", "cybersecurity", "information", "infosec",
-    "threat", "intelligence", "soc", "event", "siem", "identity", "access", "iam", "privileged",
-    "pam", "multi", "factor", "authentication", "mfa", "single", "sign", "on", "sso",
-    "encryption", "decryption", "firewall", "ids", "ips", "vpn", "endpoint", "antivirus",
-    "malware", "detection", "forensics", "handling", "assessments", "policies", "procedures",
-    "guidelines", "mitre", "att&ck", "modeling", "secure", "lifecycle", "sdlc", "awareness",
-    "phishing", "vishing", "smishing", "ransomware", "spyware", "adware", "rootkits",
-    "botnets", "trojans", "viruses", "worms", "zero", "day", "exploits", "patches", "patching",
-    "updates", "upgrades", "configuration", "ticketing", "crm", "erp", "scm", "hcm", "financial",
-    "accounting", "bi", "warehousing", "etl", "extract", "transform", "load", "lineage",
-    "master", "mdm", "lakes", "marts", "big", "hadoop", "spark", "kafka", "flink", "mongodb",
-    "cassandra", "redis", "elasticsearch", "relational", "mysql", "postgresql", "db2",
-    "teradata", "snowflake", "redshift", "synapse", "bigquery", "aurora", "dynamodb",
-    "documentdb", "cosmosdb", "graph", "neo4j", "graphdb", "timeseries", "influxdb",
-    "timescaledb", "columnar", "vertica", "clickhouse", "vector", "pinecone", "weaviate",
-    "milvus", "qdrant", "chroma", "faiss", "annoy", "hnswlib", "scikit", "learn", "tensorflow",
-    "pytorch", "keras", "xgboost", "lightgbm", "catboost", "statsmodels", "numpy", "pandas",
-    "matplotlib", "seaborn", "plotly", "bokeh", "dash", "flask", "django", "fastapi", "spring",
-    "boot", ".net", "core", "node.js", "express.js", "react", "angular", "vue.js", "svelte",
-    "jquery", "bootstrap", "tailwind", "sass", "less", "webpack", "babel", "npm", "yarn",
-    "ansible", "terraform", "jenkins", "gitlab", "github", "actions", "codebuild", "codepipeline",
-    "codedeploy", "build", "deploy", "run", "lambda", "functions", "serverless", "microservices",
-    "gateway", "mesh", "istio", "linkerd", "grpc", "restful", "soap", "message", "queues",
-    "rabbitmq", "activemq", "bus", "sqs", "sns", "pubsub", "version", "control", "svn",
-    "mercurial", "trello", "asana", "monday.com", "smartsheet", "project", "primavera",
-    "zendesk", "freshdesk", "itil", "cobit", "prince2", "pmp", "master", "owner", "lean",
-    "six", "sigma", "black", "belt", "green", "yellow", "qms", "9001", "27001", "14001",
-    "ohsas", "18001", "sa", "8000", "cmii", "cmi", "cism", "cissp", "ceh", "comptia",
-    "security+", "network+", "a+", "linux+", "ccna", "ccnp", "ccie", "certified", "solutions",
-    "architect", "developer", "sysops", "administrator", "specialty", "professional", "azure",
-    "az-900", "az-104", "az-204", "az-303", "az-304", "az-400", "az-500", "az-700", "az-800",
-    "az-801", "dp-900", "dp-100", "dp-203", "ai-900", "ai-102", "da-100", "pl-900", "pl-100",
-    "pl-200", "pl-300", "pl-400", "pl-500", "ms-900", "ms-100", "ms-101", "ms-203", "ms-500",
-    "ms-700", "ms-720", "ms-740", "ms-600", "sc-900", "sc-200", "sc-300", "sc-400", "md-100",
-    "md-101", "mb-200", "mb-210", "mb-220", "mb-230", "mb-240", "mb-260", "mb-300", "mb-310",
-    "mb-320", "mb-330", "mb-340", "mb-400", "mb-500", "mb-600", "mb-700", "mb-800", "mb-910",
-    "mb-920", "gcp-ace", "gcp-pca", "gcp-pde", "gcp-pse", "gcp-pml", "gcp-psa", "gcp-pcd",
-    "gcp-pcn", "gcp-psd", "gcp-pda", "gcp-pci", "gcp-pws", "gcp-pwa", "gcp-pme", "gcp-pms",
-    "gcp-pmd", "gcp-pma", "gcp-pmc", "gcp-pmg", "cisco", "juniper", "red", "hat", "rhcsa",
-    "rhce", "vmware", "vcpa", "vcpd", "vcpi", "vcpe", "vcpx", "citrix", "cc-v", "cc-p",
-    "cc-e", "cc-m", "cc-s", "cc-x", "palo", "alto", "pcnsa", "pcnse", "fortinet", "fcsa",
-    "fcsp", "fcc", "fcnsp", "fct", "fcp", "fcs", "fce", "fcn", "fcnp", "fcnse"
-])
-STOP_WORDS = NLTK_STOP_WORDS.union(CUSTOM_STOP_WORDS)
-
-# --- Helpers ---
-def clean_text(text):
-    """Cleans text by removing newlines, extra spaces, and non-ASCII characters."""
-    text = re.sub(r'\n', ' ', text)
-    text = re.sub(r'\s+', ' ', text)
-    text = re.sub(r'[^\x00-\x7F]+', ' ', text)
-    return text.strip().lower()
-
-def extract_text_from_pdf(uploaded_file):
-    """Extracts text from an uploaded PDF file."""
+# --- Load T5 Model ---
+@st.cache_resource
+def load_t5_model():
+    """Loads a pre-trained T5 model for resume summarization from Hugging Face Hub."""
+    t5_tokenizer = None
+    t5_model = None
+    T5_REPO_ID = "mnagpal/fine-tuned-t5-resume-screener"
     try:
-        with pdfplumber.open(uploaded_file) as pdf:
-            return ''.join(page.extract_text() or '' for page in pdf.pages)
+        t5_tokenizer = AutoTokenizer.from_pretrained(T5_REPO_ID)
+        t5_model = AutoModelForSeq2SeqLM.from_pretrained(T5_REPO_ID)
+        st.success("T5 Model loaded successfully from Hugging Face Hub!")
     except Exception as e:
-        return f"[ERROR] {str(e)}"
+        st.error(f"Error loading T5 model from Hugging Face Hub: {e}")
+    return t5_tokenizer, t5_model
 
-def extract_years_of_experience(text):
-    """Extracts years of experience from a given text by parsing date ranges or keywords."""
-    text = text.lower()
-    total_months = 0
-    # Corrected regex: changed '[a-2]*' to '[a-z]*'
-    job_date_ranges = re.findall(
-        r'(\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})\s*(?:to|–|-)\s*(present|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4})',
-        text
-    )
+# Load all models
+model, ml_model = load_ml_model()
+t5_tokenizer, t5_model = load_t5_model()
 
-    for start, end in job_date_ranges:
-        try:
-            start_date = datetime.strptime(start.strip(), '%b %Y')
-        except ValueError:
-            try:
-                start_date = datetime.strptime(start.strip(), '%B %Y')
-            except ValueError:
-                continue
+# --- Helper Functions ---
 
-        if end.strip() == 'present':
-            end_date = datetime.now()
-        else:
-            try:
-                end_date = datetime.strptime(end.strip(), '%b %Y')
-            except ValueError:
+def extract_text_from_pdf(pdf_file):
+    """Extracts text from a PDF file."""
+    text = ""
+    try:
+        with pdfplumber.open(pdf_file) as pdf:
+            for page in pdf.pages:
+                text += page.extract_text() + "\n"
+    except Exception as e:
+        st.error(f"Error extracting text from PDF: {e}")
+        return None
+    return text
+
+def clean_text(text):
+    """Cleans text by removing special characters, extra spaces, and converting to lowercase."""
+    if text is None:
+        return ""
+    text = re.sub(r'[^a-zA-Z0-9\s]', '', text) # Remove special characters
+    text = re.sub(r'\s+', ' ', text).strip() # Replace multiple spaces with single space
+    return text.lower() # Convert to lowercase
+
+def extract_skills(text, job_description_skills=None):
+    """
+    Extracts skills from text using a master list and job description skills for prioritization.
+    Prioritizes multi-word skills and uses a custom stop word list.
+    """
+    if text is None:
+        return set()
+
+    extracted = set()
+    text_lower = text.lower()
+
+    # Create a combined set of skills from master list and JD for efficient lookup
+    # Prioritize skills from JD if provided, by adding them to the front of the sorted list
+    search_skills = SORTED_MASTER_SKILLS
+    if job_description_skills:
+        jd_skills_lower = {s.lower() for s in job_description_skills}
+        # Add JD skills to the search list, ensuring they are also in the master set
+        # and sort them by length to prioritize multi-word matches
+        jd_specific_sorted_skills = sorted([s for s in jd_skills_lower if s in ALL_SKILLS_MASTER_SET], key=len, reverse=True)
+        # Combine, ensuring no duplicates and maintaining priority for JD skills
+        search_skills = sorted(list(set(jd_specific_sorted_skills + SORTED_MASTER_SKILLS)), key=len, reverse=True)
+
+
+    # First pass: Look for exact matches of multi-word skills (longest first)
+    # This helps prevent matching "java" if "javascript" is present
+    for skill in search_skills:
+        if len(skill.split()) > 1: # Only consider multi-word skills here
+            if re.search(r'\b' + re.escape(skill) + r'\b', text_lower):
+                extracted.add(skill)
+
+    # Second pass: Look for single-word skills, avoiding those already found as part of multi-word skills
+    # and filtering out common stop words
+    words = set(re.findall(r'\b\w+\b', text_lower))
+    for word in words:
+        if word in ALL_SKILLS_MASTER_SET and word not in CUSTOM_STOP_WORDS:
+            is_part_of_multi_word = False
+            for multi_word_skill in extracted:
+                if len(multi_word_skill.split()) > 1 and word in multi_word_skill.split():
+                    is_part_of_multi_word = True
+                    break
+            if not is_part_of_multi_word:
+                extracted.add(word)
+
+    return extracted
+
+
+def calculate_skill_match(job_skills, resume_skills):
+    """Calculates matched and missing skills."""
+    matched_skills = job_skills.intersection(resume_skills)
+    missing_skills = job_skills.difference(resume_skills)
+    return list(matched_skills), list(missing_skills)
+
+def get_ai_suggestion(resume_text, job_description_text):
+    """Generates an AI suggestion using the loaded T5 model."""
+    if t5_tokenizer is None or t5_model is None:
+        return "AI suggestion model not loaded."
+
+    # Ensure texts are not None before cleaning
+    resume_text = resume_text if resume_text is not None else ""
+    job_description_text = job_description_text if job_description_text is not None else ""
+
+    # Concatenate texts for the model input
+    input_text = f"summarize resume for job description: {job_description_text} \\n resume: {resume_text}"
+
+    # Tokenize and generate
+    inputs = t5_tokenizer.encode(input_text, return_tensors="pt", max_length=1024, truncation=True)
+    summary_ids = t5_model.generate(inputs, max_length=150, min_length=40, length_penalty=2.0, num_beams=4, early_stopping=True)
+    summary = t5_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+    return summary
+
+def get_ai_overall_assessment(resume_text, job_description_text):
+    """Generates an overall AI assessment and recommendation using the loaded T5 model."""
+    if t5_tokenizer is None or t5_model is None:
+        return "AI assessment model not loaded."
+
+    # Ensure texts are not None before cleaning
+    resume_text = resume_text if resume_text is not None else ""
+    job_description_text = job_description_text if job_description_text is not None else ""
+
+    # Concatenate texts for the model input
+    input_text = f"assess resume suitability for job description: {job_description_text} \\n resume: {resume_text}"
+
+    # Tokenize and generate
+    inputs = t5_tokenizer.encode(input_text, return_tensors="pt", max_length=1024, truncation=True)
+    assessment_ids = t5_model.generate(inputs, max_length=200, min_length=50, length_penalty=2.0, num_beams=4, early_stopping=True)
+    assessment = t5_tokenizer.decode(assessment_ids[0], skip_special_tokens=True)
+    return assessment
+
+# --- Experience Extraction (Improved Regex) ---
+def extract_experience(text):
+    """
+    Extracts total years of experience from text using improved regex patterns.
+    Looks for "X years", "X+ years", "X-Y years", "X years of experience", etc.
+    """
+    if text is None:
+        return 0
+
+    text_lower = text.lower()
+    total_experience = 0
+
+    # Pattern 1: "X years" or "X+ years" or "X-Y years" where X, Y are numbers
+    # Prioritize patterns that explicitly mention "years of experience" or similar
+    patterns = [
+        r'(\d+\.?\d*)\s*(?:plus|\+)?\s*years\s+of\s+experience',
+        r'(\d+\.?\d*)\s*-\s*(\d+\.?\d*)\s*years', # e.g., "5-7 years"
+        r'(\d+\.?\d*)\s*(?:to|-)\s*(\d+\.?\d*)\s*yrs', # e.g., "5 to 7 yrs"
+        r'(\d+\.?\d*)\s*(?:plus|\+)?\s*years?', # e.g., "5 years", "5+ years", "5 yrs"
+        r'(\d+\.?\d*)\s*yrs?'
+    ]
+
+    for pattern in patterns:
+        matches = re.findall(pattern, text_lower)
+        for match in matches:
+            if isinstance(match, tuple): # For patterns with groups like "X-Y years"
                 try:
-                    end_date = datetime.strptime(end.strip(), '%B %Y')
+                    # Take the upper bound or average for a range
+                    exp_start = float(match[0])
+                    exp_end = float(match[1]) if len(match) > 1 and match[1] else exp_start
+                    total_experience = max(total_experience, exp_end) # Take the higher end of the range
                 except ValueError:
                     continue
+            else: # For single number patterns
+                try:
+                    total_experience = max(total_experience, float(match))
+                except ValueError:
+                    continue
+    
+    # Heuristic: If "experience" is mentioned multiple times, and a number is near it,
+    # but no clear "X years" pattern, this might catch it.
+    # This is a fallback and can be less accurate.
+    if total_experience == 0:
+        exp_keywords = ["experience", "exp"]
+        for keyword in exp_keywords:
+            # Look for numbers preceding or following the keyword within a small window
+            # e.g., "5 years experience", "experience of 3 years"
+            match = re.search(r'(\d+\.?\d*)\s*(?:year|yr)s?\s+' + re.escape(keyword), text_lower)
+            if match:
+                try:
+                    total_experience = max(total_experience, float(match.group(1)))
+                except ValueError:
+                    pass
+            match = re.search(re.escape(keyword) + r'\s+(?:of\s+)?(\d+\.?\d*)\s*(?:year|yr)s?', text_lower)
+            if match:
+                try:
+                    total_experience = max(total_experience, float(match.group(1)))
+                except ValueError:
+                    pass
 
-        delta_months = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
-        total_months += max(delta_months, 0)
+    return total_experience
 
-    if total_months == 0:
-        match = re.search(r'(\d+(?:\.\d+)?)\s*(\+)?\s*(year|yrs|years)\b', text)
-        if not match:
-            match = re.search(r'experience[^\d]{0,10}(\d+(?:\.\d+)?)', text)
-        if match:
-            return float(match.group(1))
-
-    return round(total_months / 12, 1)
-
-def extract_email(text):
-    """Extracts an email address from the given text."""
-    match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', text)
-    return match.group(0) if match else None
-
-def extract_name(text):
+def generate_skills_wordcloud(text, font_path=None):
     """
-    Attempts to extract a name from the first few lines of the resume text.
-    This is a heuristic and might not be perfect for all resume formats.
+    Generates a word cloud from identified skills in the provided text,
+    using the ALL_SKILLS_MASTER_SET and SORTED_MASTER_SKILLS from skills_data.py.
     """
-    lines = text.strip().split('\n')
-    if not lines:
+    text_lower = text.lower()
+    
+    # Use a Counter to store skill frequencies
+    found_skills_counts = collections.Counter() # Use collections.Counter explicitly
+
+    # Iterate through SORTED_MASTER_SKILLS (longest first for multi-word matching)
+    # This helps ensure that "Machine Learning" is matched before "Learning"
+    temp_text = text_lower # Use a temporary copy to mark found skills
+    
+    for skill in SORTED_MASTER_SKILLS:
+        # Use regex to find whole word matches for the skill
+        # re.escape handles special characters in skill names
+        # \b ensures whole word boundary
+        pattern = r'\b' + re.escape(skill) + r'\b'
+        
+        # Find all occurrences of the skill
+        matches = list(re.finditer(pattern, temp_text))
+        
+        for match in matches:
+            found_skills_counts[skill] += 1
+            # Replace the found skill with spaces to prevent re-matching parts of it
+            # This is crucial for accurate counting, especially with overlapping skills
+            temp_text = temp_text[:match.start()] + ' ' * len(match.group(0)) + temp_text[match.end():]
+
+    # If no skills are found, return None to indicate no word cloud can be generated
+    if not found_skills_counts:
         return None
 
-    potential_name_lines = []
-    for line in lines[:3]:
-        line = line.strip()
-        if not re.search(r'[@\d\.\-]', line) and len(line.split()) <= 4 and (line.isupper() or (line and line[0].isupper() and all(word[0].isupper() or not word.isalpha() for word in line.split()))):
-            potential_name_lines.append(line)
+    # Create a single string where each skill is repeated according to its count
+    # This allows WordCloud to correctly size words based on frequency
+    wordcloud_input_string = " ".join([skill for skill, count in found_skills_counts.items() for _ in range(count)])
 
-    if potential_name_lines:
-        name = max(potential_name_lines, key=len)
-        name = re.sub(r'summary|education|experience|skills|projects|certifications', '', name, flags=re.IGNORECASE).strip()
-        if name:
-            return name.title()
-    return None
+    # Generate word cloud
+    wordcloud = WordCloud(
+        width=800, height=400,
+        background_color='white',
+        min_font_size=10,
+        font_path=font_path, # Pass font_path (can be None)
+        collocations=False # Set to False to avoid combining words that appear together often but aren't specific skills
+    ).generate(wordcloud_input_string)
 
-# --- Generative AI Suggestion Function (MODIFIED TO BE CONCISE AND RULE-BASED) ---
-@st.cache_data(show_spinner="Generating AI Suggestion...")
-def generate_ai_suggestion(candidate_name, score, years_exp, semantic_similarity, jd_text, resume_text):
-    """
-    Generates a concise AI suggestion based on rules.
-    """
-    overall_fit = ""
-    recommendation = ""
-    strengths_summary = []
-    gaps_summary = []
+    return wordcloud
 
-    # Define thresholds and generate suggestions based on score, years_exp, and semantic_similarity
-    # ADJUSTED THRESHOLDS BELOW
-    if score >= 85 and years_exp >= 4 and semantic_similarity >= 0.75: # Adjusted Strong Fit
-        overall_fit = "Strong Fit"
-        recommendation = "Highly Recommended for Interview"
-        strengths_summary.append("Exceptional alignment with job requirements and extensive relevant experience.")
-    elif score >= 65 and years_exp >= 2 and semantic_similarity >= 0.4: # Adjusted Moderate Fit
-        overall_fit = "Moderate Fit"
-        recommendation = "Recommended for Interview"
-        strengths_summary.append("Good alignment with job description keywords and solid experience.")
-        if years_exp < 3:
-            gaps_summary.append(f"Experience ({years_exp:.1f} yrs) slightly below ideal; probe depth.")
-        if semantic_similarity < 0.7:
-            gaps_summary.append("Some conceptual gaps with JD; probe specific skill applications.")
-    else:
-        overall_fit = "Low Fit"
-        recommendation = "Further Review / Likely Decline"
-        if score < 65: # Changed from 75 to 65 to match new Moderate Fit threshold
-            gaps_summary.append(f"Overall score ({score:.2f}%) indicates significant mismatch.")
-        if years_exp < 2:
-            gaps_summary.append(f"Insufficient experience ({years_exp:.1f} yrs).")
-        if semantic_similarity < 0.4: # Changed from 0.6 to 0.4 to match new Moderate Fit threshold
-            gaps_summary.append(f"Low semantic similarity ({semantic_similarity:.2f}) suggests conceptual mismatch.")
-
-    # Construct the concise output
-    summary_text = f"**Overall Fit:** {overall_fit}. "
-    if strengths_summary:
-        summary_text += f"**Strengths:** {'; '.join(strengths_summary)}. "
-    if gaps_summary:
-        summary_text += f"**Gaps:** {'; '.join(gaps_summary)}. "
-    summary_text += f"**Recommendation:** {recommendation}."
-
-    return summary_text
-
-
-def semantic_score(resume_text, jd_text, years_exp):
-    """
-    Calculates a semantic score using an ML model and provides additional details.
-    Falls back to smart_score if the ML model is not loaded or prediction fails.
-    Applies STOP_WORDS filtering for keyword analysis (internally, not for display).
-    """
-    jd_clean = clean_text(jd_text)
-    resume_clean = clean_text(resume_text)
-
-    score = 0.0
-    feedback = "Initial assessment." # This will be overwritten by the generate_ai_suggestion function
-    semantic_similarity = 0.0
-
-    if ml_model is None or model is None:
-        st.warning("ML models not loaded. Providing basic score and generic feedback.")
-        # Simplified fallback for score and feedback
-        resume_words = {word for word in re.findall(r'\b\w+\b', resume_clean) if word not in STOP_WORDS}
-        jd_words = {word for word in re.findall(r'\b\w+\b', jd_clean) if word not in STOP_WORDS}
-        
-        overlap_count = len(resume_words & jd_words)
-        total_jd_words = len(jd_words)
-        
-        basic_score = (overlap_count / total_jd_words) * 70 if total_jd_words > 0 else 0
-        basic_score += min(years_exp * 5, 30) # Add up to 30 for experience
-        score = round(min(basic_score, 100), 2)
-        
-        feedback = "Due to missing ML models, a detailed AI suggestion cannot be provided. Basic score derived from keyword overlap. Manual review is highly recommended."
-        
-        return score, feedback, 0.0 # Return 0 for semantic similarity if ML not available
-
-
-    try:
-        jd_embed = model.encode(jd_clean)
-        resume_embed = model.encode(resume_clean)
-
-        semantic_similarity = cosine_similarity(jd_embed.reshape(1, -1), resume_embed.reshape(1, -1))[0][0]
-        semantic_similarity = float(np.clip(semantic_similarity, 0, 1))
-
-        # Internal calculation for model, not for display
-        resume_words_filtered = {word for word in re.findall(r'\b\w+\b', resume_clean) if word not in STOP_WORDS}
-        jd_words_filtered = {word for word in re.findall(r'\b\w+\b', jd_clean) if word not in STOP_WORDS}
-        keyword_overlap_count = len(resume_words_filtered & jd_words_filtered)
-        
-        years_exp_for_model = float(years_exp) if years_exp is not None else 0.0
-
-        features = np.concatenate([jd_embed, resume_embed, [years_exp_for_model], [keyword_overlap_count]])
-
-        predicted_score = ml_model.predict([features])[0]
-
-        if len(jd_words_filtered) > 0:
-            jd_coverage_percentage = (keyword_overlap_count / len(jd_words_filtered)) * 100
-        else:
-            jd_coverage_percentage = 0.0
-
-        blended_score = (predicted_score * 0.6) + \
-                        (jd_coverage_percentage * 0.1) + \
-                        (semantic_similarity * 100 * 0.3)
-
-        if semantic_similarity > 0.7 and years_exp >= 3:
-            blended_score += 5
-
-        score = float(np.clip(blended_score, 0, 100))
-        
-        # The AI suggestion text will be generated separately for display by generate_ai_suggestion.
-        return round(score, 2), "AI suggestion will be generated...", round(semantic_similarity, 2) # Placeholder feedback
-
-
-    except Exception as e:
-        st.warning(f"Error during semantic scoring, falling back to basic: {e}")
-        # Simplified fallback for score and feedback if ML prediction fails
-        resume_words = {word for word in re.findall(r'\b\w+\b', resume_clean) if word not in STOP_WORDS}
-        jd_words = {word for word in re.findall(r'\b\w+\b', jd_clean) if word not in STOP_WORDS}
-        
-        overlap_count = len(resume_words & jd_words)
-        total_jd_words = len(jd_words)
-        
-        basic_score = (overlap_count / total_jd_words) * 70 if total_jd_words > 0 else 0
-        basic_score += min(years_exp * 5, 30) # Add up to 30 for experience
-        score = round(min(basic_score, 100), 2)
-
-        feedback = "Due to an error in core AI model, a detailed AI suggestion cannot be provided. Basic score derived. Manual review is highly recommended."
-
-        return score, feedback, 0.0 # Return 0 for semantic similarity on fallback
-
-
-# --- Email Generation Function ---
-def create_mailto_link(recipient_email, candidate_name, job_title="Job Opportunity", sender_name="Recruiting Team"):
-    """
-    Generates a mailto: link with pre-filled subject and body for inviting a candidate.
-    """
-    subject = urllib.parse.quote(f"Invitation for Interview - {job_title} - {candidate_name}")
-    body = urllib.parse.quote(f"""Dear {candidate_name},
-
-We were very impressed with your profile and would like to invite you for an interview for the {job_title} position.
-
-Best regards,
-
-The {sender_name}""")
-    return f"mailto:{recipient_email}?subject={subject}&body={body}"
 
 # --- Streamlit UI ---
-st.set_page_config(layout="wide", page_title="ScreenerPro - AI Resume Screener", page_icon="🧠")
-st.title("🧠 ScreenerPro – AI-Powered Resume Screener")
+st.set_page_config(layout="wide", page_title="ScreenerPro - AI Resume Screener")
 
-# --- Job Description and Controls Section ---
-st.markdown("## ⚙️ Define Job Requirements & Screening Criteria")
-col1, col2 = st.columns([2, 1])
+st.title("🚀 ScreenerPro: AI-Powered Resume Screener")
+st.markdown("""
+Welcome to ScreenerPro! Upload a Job Description (JD) and multiple resumes to get AI-driven insights,
+skill matching, and overall suitability assessments for each candidate.
+""")
 
-with col1:
-    jd_text = ""
-    job_roles = {"Upload my own": None}
-    if os.path.exists("data"):
-        for fname in os.listdir("data"):
-            if fname.endswith(".txt"):
-                job_roles[fname.replace(".txt", "").replace("_", " ").title()] = os.path.join("data", fname)
+# --- Main Content Area - Uploads and Settings ---
+st.header("Upload Files")
+job_description_file = st.file_uploader("Upload Job Description (PDF)", type=["pdf"])
+resume_files = st.file_uploader("Upload Resumes (PDFs)", type=["pdf"], accept_multiple_files=True)
 
-    jd_option = st.selectbox("📌 **Select a Pre-Loaded Job Role or Upload Your Own Job Description**", list(job_roles.keys()))
-    if jd_option == "Upload my own":
-        jd_file = st.file_uploader("Upload Job Description (TXT)", type="txt", help="Upload a .txt file containing the job description.")
-        if jd_file:
-            jd_text = jd_file.read().decode("utf-8")
+st.header("Settings")
+# Adjusted tagging thresholds
+tag_threshold_highly_suitable = st.slider("Score Threshold for 'Highly Suitable'", 0.7, 1.0, 0.85, 0.01)
+tag_threshold_suitable = st.slider("Score Threshold for 'Suitable'", 0.5, 0.8, 0.70, 0.01)
+tag_threshold_needs_review = st.slider("Score Threshold for 'Needs Review'", 0.3, 0.6, 0.50, 0.01)
+
+# Ensure thresholds are in logical order
+if tag_threshold_suitable >= tag_threshold_highly_suitable:
+    st.warning(" 'Suitable' threshold should be less than 'Highly Suitable' threshold.")
+    tag_threshold_suitable = tag_threshold_highly_suitable - 0.05
+if tag_threshold_needs_review >= tag_threshold_suitable:
+    st.warning(" 'Needs Review' threshold should be less than 'Suitable' threshold.")
+    tag_threshold_needs_review = tag_threshold_suitable - 0.05
+
+# --- Main Content Area ---
+if job_description_file and resume_files:
+    st.subheader("Processing Files...")
+
+    # Process Job Description
+    job_description_text = extract_text_from_pdf(job_description_file)
+    if job_description_text is None:
+        st.error("Could not process Job Description. Please try another file.")
+        st.stop()
+    cleaned_jd_text = clean_text(job_description_text)
+    jd_skills = extract_skills(cleaned_jd_text)
+
+    # Generate JD embedding
+    jd_embedding = None
+    if model:
+        jd_embedding = model.encode([cleaned_jd_text])
     else:
-        jd_path = job_roles[jd_option]
-        if jd_path and os.path.exists(jd_path):
-            with open(jd_path, "r", encoding="utf-8") as f:
-                jd_text = f.read()
+        st.warning("Sentence Transformer model not loaded. Similarity scores will not be calculated.")
+
+    st.success(f"✅ Job Description processed. Found {len(jd_skills)} key skills.")
+    with st.expander("View Extracted Job Description Skills"):
+        st.write(", ".join(jd_skills) if jd_skills else "No skills extracted from JD.")
+
+    # --- Job Description Skills Word Cloud ---
+    st.markdown("---")
+    st.markdown("## ☁️ Job Description Skills Word Cloud")
+    st.caption("Visualizing the most frequent and important skills identified from the Job Description.")
     
-    if jd_text:
-        with st.expander("📝 View Loaded Job Description"):
-            st.text_area("Job Description Content", jd_text, height=200, disabled=True, label_visibility="collapsed")
-
-with col2:
-    cutoff = st.slider("📈 **Minimum Score Cutoff (%)**", 0, 100, 75, help="Candidates scoring below this percentage will be flagged for closer review or considered less suitable.")
-    min_experience = st.slider("💼 **Minimum Experience Required (Years)**", 0, 15, 2, help="Candidates with less than this experience will be noted.")
-    st.markdown("---")
-    st.info("Once criteria are set, upload resumes below to begin screening.")
-
-resume_files = st.file_uploader("📄 **Upload Resumes (PDF)**", type="pdf", accept_multiple_files=True, help="Upload one or more PDF resumes for screening.")
-
-df = pd.DataFrame()
-
-if jd_text and resume_files:
-    # --- Job Description Keyword Cloud ---
-    st.markdown("---")
-    st.markdown("## ☁️ Job Description Keyword Cloud")
-    st.caption("Visualizing the most frequent and important keywords from the Job Description.")
-    jd_words_for_cloud = " ".join([word for word in re.findall(r'\b\w+\b', clean_text(jd_text)) if word not in STOP_WORDS])
-    if jd_words_for_cloud:
-        wordcloud = WordCloud(width=800, height=400, background_color='white', collocations=False).generate(jd_words_for_cloud)
+    # Call the new skills-based word cloud function for JD
+    jd_wordcloud = generate_skills_wordcloud(job_description_text) # Pass raw text for skill extraction
+    if jd_wordcloud:
         fig, ax = plt.subplots(figsize=(10, 5))
-        ax.imshow(wordcloud, interpolation='bilinear')
+        ax.imshow(jd_wordcloud, interpolation='bilinear')
         ax.axis('off')
         st.pyplot(fig)
         plt.close(fig) # Close the figure to free up memory
     else:
-        st.info("No significant keywords to display for the Job Description. Please ensure your JD has sufficient content.")
+        st.info("No relevant skills from the master list were found in the Job Description to generate a word cloud.")
     st.markdown("---")
 
+
+    # Process Resumes
     results = []
-    resume_text_map = {}
-    progress_bar = st.progress(0)
-    status_text = st.empty()
+    for i, resume_file in enumerate(resume_files):
+        with st.spinner(f"Processing {resume_file.name}..."):
+            resume_text = extract_text_from_pdf(resume_file)
+            if resume_text is None:
+                st.warning(f"Skipping {resume_file.name} due to processing error.")
+                continue
 
-    for i, file in enumerate(resume_files):
-        status_text.text(f"Processing {file.name} ({i+1}/{len(resume_files)})...")
-        progress_bar.progress((i + 1) / len(resume_files))
+            cleaned_resume_text = clean_text(resume_text)
+            resume_skills = extract_skills(cleaned_resume_text, jd_skills)
+            matched_skills, missing_skills = calculate_skill_match(jd_skills, resume_skills)
+            experience = extract_experience(resume_text) # Use raw text for experience extraction
 
-        text = extract_text_from_pdf(file)
-        if text.startswith("[ERROR]"):
-            st.error(f"Failed to process {file.name}: {text.replace('[ERROR] ', '')}")
-            continue
+            # Calculate similarity score
+            similarity_score = 0.0
+            if model and jd_embedding is not None:
+                resume_embedding = model.encode([cleaned_resume_text])
+                similarity_score = cosine_similarity(jd_embedding, resume_embedding)[0][0]
+                # Ensure score is between 0 and 1, sometimes cosine_similarity can slightly exceed 1 due to floating point
+                similarity_score = max(0.0, min(1.0, similarity_score))
 
-        exp = extract_years_of_experience(text)
-        email = extract_email(text)
-        candidate_name = extract_name(text) or file.name.replace('.pdf', '').replace('_', ' ').title()
+            # Predict suitability using ML model
+            ml_prediction_proba = None
+            ml_tag = "N/A"
+            if ml_model and model and jd_embedding is not None:
+                try:
+                    # Original combined embedding from JD and resume text
+                    base_combined_embedding = np.concatenate((jd_embedding[0], resume_embedding[0]))
+                    
+                    # Additional scalar features
+                    additional_features = np.array([
+                        experience,
+                        len(matched_skills),
+                        len(missing_skills),
+                        similarity_score
+                    ])
+                    
+                    # Concatenate all features
+                    # Ensure additional_features are reshaped to (1, N) if they are 1D
+                    # and base_combined_embedding is already (1, M) or can be flattened
+                    # Here, base_combined_embedding is (768,) and additional_features is (4,)
+                    # So, we concatenate them to get (772,) and then reshape to (1, 772)
+                    final_features_for_ml = np.concatenate((base_combined_embedding, additional_features)).reshape(1, -1)
 
-        # Calculate Matched Keywords and Missing Skills
-        resume_clean_for_keywords = clean_text(text)
-        jd_clean_for_keywords = clean_text(jd_text)
+                    # Get prediction probabilities for "suitable" class (assuming 1 is suitable)
+                    # The ML model was trained on job categories, not a binary "suitable" class.
+                    # We need to predict the job category first, then tag based on probability of that category.
+                    predicted_category_ml = ml_model.predict(final_features_for_ml)[0]
+                    
+                    # Get the probability of the predicted category
+                    proba_index = list(ml_model.classes_).index(predicted_category_ml)
+                    ml_prediction_proba = ml_model.predict_proba(final_features_for_ml)[0][proba_index]
+                        
+                    # Tagging logic based on ML prediction probability and experience
+                    if ml_prediction_proba >= tag_threshold_highly_suitable and experience >= 3: # Example: 3+ years for highly suitable
+                        ml_tag = "Highly Suitable"
+                    elif ml_prediction_proba >= tag_threshold_suitable and experience >= 1: # Example: 1+ year for suitable
+                        ml_tag = "Suitable"
+                    elif ml_prediction_proba >= tag_threshold_needs_review:
+                        ml_tag = "Needs Review"
+                    else:
+                        ml_tag = "Not Suitable"
+                except Exception as e:
+                    st.error(f"Error during ML prediction for {resume_file.name}: {e}")
+                    ml_tag = "Error in ML Prediction"
+            else:
+                ml_tag = "ML Model Not Loaded"
 
-        # Filter out stop words for keyword analysis
-        resume_words_set = {word for word in re.findall(r'\b\w+\b', resume_clean_for_keywords) if word not in STOP_WORDS}
-        jd_words_set = {word for word in re.findall(r'\b\w+\b', jd_clean_for_keywords) if word not in STOP_WORDS}
 
-        matched_keywords = list(resume_words_set.intersection(jd_words_set))
-        missing_skills = list(jd_words_set.difference(jd_words_set)) # Corrected: should be jd_words_set.difference(resume_words_set)
+            # Generate AI suggestions and overall assessment
+            ai_suggestion = get_ai_suggestion(resume_text, job_description_text)
+            ai_overall_assessment = get_ai_overall_assessment(resume_text, job_description_text)
 
-        # semantic_score now returns score, placeholder feedback, semantic_similarity
-        score, _, semantic_similarity = semantic_score(text, jd_text, exp)
+            results.append({
+                "Resume Name": resume_file.name,
+                "Experience (Years)": experience,
+                "Similarity Score": similarity_score, # Changed to float directly
+                "ML Prediction Probability": ml_prediction_proba if ml_prediction_proba is not None else np.nan, # Changed to np.nan for ProgressColumn
+                "Tag": ml_tag,
+                "AI Suggestion": ai_suggestion,
+                "Overall Assessment and Recommendation": ai_overall_assessment,
+                "Matched Keywords": ", ".join(matched_skills),
+                "Missing Skills": ", ".join(missing_skills),
+                "Raw Resume Text": resume_text # Keep raw text for full view
+            })
+
+    st.subheader("Screening Results")
+
+    if results:
+        df = pd.DataFrame(results)
         
-        # Generate the detailed AI suggestion using the modified generate_ai_suggestion function
-        detailed_ai_suggestion = generate_ai_suggestion(
-            candidate_name=candidate_name,
-            score=score,
-            years_exp=exp,
-            semantic_similarity=semantic_similarity,
-            jd_text=jd_text,
-            resume_text=text
+        # Add a download button for the results
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Download Results as CSV",
+            data=csv,
+            file_name=f"screener_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
         )
 
-        results.append({
-            "File Name": file.name,
-            "Candidate Name": candidate_name,
-            "Score (%)": score,
-            "Years Experience": exp,
-            "Email": email or "Not Found",
-            "AI Suggestion": detailed_ai_suggestion, # Renamed from "Feedback" to "AI Suggestion"
-            "Matched Keywords": ", ".join(matched_keywords), # Added Matched Keywords
-            "Missing Skills": ", ".join(missing_skills),    # Added Missing Skills
-            "Semantic Similarity": semantic_similarity,
-            "Resume Raw Text": text
-        })
-        resume_text_map[file.name] = text
-    
-    progress_bar.empty()
-    status_text.empty()
-
-
-    df = pd.DataFrame(results).sort_values(by="Score (%)", ascending=False).reset_index(drop=True)
-
-    st.session_state['screening_results'] = results
-    
-    # Save results to CSV for analytics.py to use
-    df.to_csv("results.csv", index=False)
-
-
-    # --- Overall Candidate Comparison Chart ---
-    st.markdown("## 📊 Candidate Score Comparison")
-    st.caption("Visual overview of how each candidate ranks against the job requirements.")
-    if not df.empty:
-        fig, ax = plt.subplots(figsize=(12, 7))
-        # Define colors: Green for top, Yellow for moderate, Red for low
-        colors = ['#4CAF50' if s >= cutoff else '#FFC107' if s >= (cutoff * 0.75) else '#F44336' for s in df['Score (%)']]
-        bars = ax.bar(df['Candidate Name'], df['Score (%)'], color=colors)
-        ax.set_xlabel("Candidate", fontsize=14)
-        ax.set_ylabel("Score (%)", fontsize=14)
-        ax.set_title("Resume Screening Scores Across Candidates", fontsize=16, fontweight='bold')
-        ax.set_ylim(0, 100)
-        plt.xticks(rotation=60, ha='right', fontsize=10)
-        plt.yticks(fontsize=10)
-        for bar in bars:
-            yval = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2, yval + 1, f"{yval:.1f}", ha='center', va='bottom', fontsize=9)
-        plt.tight_layout()
-        st.pyplot(fig)
-        plt.close(fig) # Close the figure to free up memory
-    else:
-        st.info("Upload resumes to see a comparison chart.")
-
-    st.markdown("---")
-
-    # --- TOP CANDIDATE AI RECOMMENDATION (Game Changer Feature) ---
-    st.markdown("## 👑 Top Candidate AI Recommendation")
-    st.caption("A concise, AI-powered assessment for the most suitable candidate.")
-    
-    if not df.empty:
-        top_candidate = df.iloc[0] # Get the top candidate (already sorted by score)
-        st.markdown(f"### **{top_candidate['Candidate Name']}**")
-        st.markdown(f"**Score:** {top_candidate['Score (%)']:.2f}% | **Experience:** {top_candidate['Years Experience']:.1f} years | **Semantic Similarity:** {top_candidate['Semantic Similarity']:.2f}")
-        st.markdown(f"**AI Assessment:** {top_candidate['AI Suggestion']}") # Use the concise AI suggestion
-        
-        # Action button for the top candidate
-        if top_candidate['Email'] != "Not Found":
-            mailto_link_top = create_mailto_link(
-                recipient_email=top_candidate['Email'],
-                candidate_name=top_candidate['Candidate Name'],
-                job_title=jd_option if jd_option != "Upload my own" else "Job Opportunity"
-            )
-            st.markdown(f'<a href="{mailto_link_top}" target="_blank"><button style="background-color:#00cec9;color:white;border:none;padding:10px 20px;text-align:center;text-decoration:none;display:inline-block;font-size:16px;margin:4px 2px;cursor:pointer;border-radius:8px;">📧 Invite Top Candidate for Interview</button></a>', unsafe_allow_html=True)
-        else:
-            st.info(f"Email address not found for {top_candidate['Candidate Name']}. Cannot send automated invitation.")
-        
-        st.markdown("---")
-        st.info("For detailed analytics, matched keywords, and missing skills for ALL candidates, please navigate to the **Analytics Dashboard**.")
-
-    else:
-        st.info("No candidates processed yet to determine the top candidate.")
-
-
-    # === AI Recommendation for Shortlisted Candidates (Streamlined) ===
-    # This section now focuses on a quick summary for *all* shortlisted,
-    # with the top one highlighted above.
-    st.markdown("## 🌟 Shortlisted Candidates Overview")
-    st.caption("Candidates meeting your score and experience criteria.")
-
-    shortlisted_candidates = df[(df['Score (%)'] >= cutoff) & (df['Years Experience'] >= min_experience)]
-
-    if not shortlisted_candidates.empty:
-        st.success(f"**{len(shortlisted_candidates)}** candidate(s) meet your specified criteria (Score ≥ {cutoff}%, Experience ≥ {min_experience} years).")
-        
-        # Display a concise table for shortlisted candidates
-        display_shortlisted_summary_cols = [
-            'Candidate Name',
-            'Score (%)',
-            'Years Experience',
-            'Semantic Similarity',
-            'Email', # Include email here for quick reference
-            'AI Suggestion' # Concise AI suggestion
-        ]
-        
+        # Display results in an interactive table
         st.dataframe(
-            shortlisted_candidates[display_shortlisted_summary_cols],
-            use_container_width=True,
-            hide_index=True,
+            df[[
+                "Resume Name", "Experience (Years)", "Similarity Score", "ML Prediction Probability", "Tag",
+                "AI Suggestion", "Overall Assessment and Recommendation", "Matched Keywords", "Missing Skills"
+            ]],
+            hide_index=True, # Changed from hide_row_index to hide_index
             column_config={
-                "Score (%)": st.column_config.ProgressColumn(
-                    "Score (%)",
-                    help="Matching score against job requirements",
-                    format="%f",
-                    min_value=0,
-                    max_value=100,
+                "Resume Name": st.column_config.Column(
+                    "Resume Name",
+                    help="Name of the uploaded resume file",
+                    width="small"
                 ),
-                "Years Experience": st.column_config.NumberColumn(
-                    "Years Experience",
-                    help="Total years of professional experience",
-                    format="%.1f years",
+                "Experience (Years)": st.column_config.NumberColumn(
+                    "Experience (Years)",
+                    help="Total years of experience extracted from the resume",
+                    format="%d",
+                    width="small"
                 ),
-                "Semantic Similarity": st.column_config.NumberColumn(
-                    "Semantic Similarity",
-                    help="Conceptual similarity between JD and Resume (higher is better)",
+                "Similarity Score": st.column_config.ProgressColumn(
+                    "Similarity Score",
+                    help="Cosine similarity between resume and JD embeddings (0.00 - 1.00)",
                     format="%.2f",
-                    min_value=0,
-                    max_value=1
+                    min_value=0.0,
+                    max_value=1.0,
+                    width="small"
+                ),
+                "ML Prediction Probability": st.column_config.ProgressColumn(
+                    "ML Prediction Probability",
+                    help="Probability of suitability predicted by the ML model (0.00 - 1.00)",
+                    format="%.2f",
+                    min_value=0.0,
+                    max_value=1.0,
+                    width="small"
                 ),
                 "AI Suggestion": st.column_config.Column(
                     "AI Suggestion",
-                    help="AI's concise overall assessment and recommendation"
+                    help="AI-generated summary/suggestion for the resume based on JD",
+                    width="large"
+                ),
+                "Overall Assessment and Recommendation": st.column_config.Column(
+                    "Overall Assessment and Recommendation",
+                    help="AI-generated overall assessment and recommendation",
+                    width="large" # Make it wider to show more text
+                ),
+                "Matched Keywords": st.column_config.Column(
+                    "Matched Keywords",
+                    help="Keywords from JD found in resume",
+                    width="medium"
+                ),
+                "Missing Skills": st.column_config.Column(
+                    "Missing Skills",
+                    help="Keywords from JD not found in resume",
+                    width="medium"
+                ),
+                "Tag": st.column_config.Column(
+                    "Tag",
+                    help="Categorization based on score and experience",
+                    width="small"
                 )
             }
         )
-        st.info("For individual detailed AI assessments and action steps, please refer to the table above or the Analytics Dashboard.")
+
+        st.subheader("Detailed Resume Views")
+        for idx, row in df.iterrows():
+            with st.expander(f"View Details for: {row['Resume Name']}"):
+                st.write(f"**Experience (Years):** {row['Experience (Years)']}")
+                st.write(f"**Similarity Score:** {row['Similarity Score']:.2f}") # Format for display
+                st.write(f"**ML Prediction Probability:** {row['ML Prediction Probability']:.2f}" if not np.isnan(row['ML Prediction Probability']) else "N/A") # Format for display
+                st.write(f"**Tag:** {row['Tag']}")
+                st.write(f"**AI Suggestion:** {row['AI Suggestion']}")
+                st.write(f"**Overall Assessment and Recommendation:** {row['Overall Assessment and Recommendation']}")
+                st.write(f"**Matched Keywords:** {row['Matched Keywords']}")
+                st.write(f"**Missing Skills:** {row['Missing Skills']}")
+                st.markdown("---")
+                st.subheader("Raw Resume Text")
+                st.text_area(f"Full Text of {row['Resume Name']}", row['Raw Resume Text'], height=300)
+
+                # Generate Skills Word Cloud for the resume
+                st.subheader(f"Skills Word Cloud for {row['Resume Name']}")
+                # Call the new skills-based word cloud function for resumes
+                resume_wordcloud = generate_skills_wordcloud(row['Raw Resume Text'])
+                if resume_wordcloud:
+                    fig, ax = plt.subplots(figsize=(10, 5))
+                    ax.imshow(resume_wordcloud, interpolation='bilinear')
+                    ax.axis('off')
+                    st.pyplot(fig)
+                    plt.close(fig) # Close the figure to free up memory
+                else:
+                    st.info("No relevant skills from the master list were found in this resume to generate a word cloud.")
+
+                # Option to send email (mailto link)
+                st.subheader("Candidate Actions")
+                candidate_name = os.path.splitext(row['Resume Name'])[0] # Simple extraction
+                email_subject = urllib.parse.quote(f"Regarding your application for [Job Title] - {candidate_name}")
+                email_body = urllib.parse.quote(f"Dear {candidate_name},\n\nThank you for your application for the [Job Title] position. We have reviewed your resume and would like to provide some feedback.\n\n[Insert AI Suggestion/Assessment here, or custom message]\n\nBest regards,\n[Your Name/Company]")
+                
+                st.markdown(f"**Contact {candidate_name}:** [Send Email](mailto:?subject={email_subject}&body={email_body})")
+                
+                # Placeholder for "Move to Next Stage" button
+                st.button(f"Move {candidate_name} to Next Stage", key=f"next_stage_{idx}")
 
     else:
-        st.warning("No candidates met the defined screening criteria (score cutoff and minimum experience). You might consider adjusting the sliders or reviewing the uploaded resumes/JD.")
-
-    st.markdown("---")
-
-    # Add a 'Tag' column for quick categorization
-    df['Tag'] = df.apply(lambda row: "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3 else (
-        "✅ Good Fit" if row['Score (%)'] >= 75 else "⚠️ Needs Review"), axis=1)
-
-    st.markdown("## 📋 Comprehensive Candidate Results Table")
-    st.caption("Full details for all processed resumes. **For deep dive analytics and keyword breakdowns, refer to the Analytics Dashboard.**")
-    
-    # Define columns to display in the comprehensive table
-    comprehensive_cols = [
-        'Candidate Name',
-        'Score (%)',
-        'Years Experience',
-        'Semantic Similarity',
-        'Tag', # Keep the custom tag
-        'Email',
-        'AI Suggestion', # This will still contain the full AI suggestion text but is in a table, not per-candidate verbose display
-        'Matched Keywords',
-        'Missing Skills',
-        # 'Resume Raw Text' # Removed from default display to keep table manageable, can be viewed in Analytics
-    ]
-    
-    # Ensure all columns exist before trying to display them
-    final_display_cols = [col for col in comprehensive_cols if col in df.columns]
-
-    st.dataframe(
-        df[final_display_cols],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Score (%)": st.column_config.ProgressColumn(
-                "Score (%)",
-                help="Matching score against job requirements",
-                format="%f",
-                min_value=0,
-                max_value=100,
-            ),
-            "Years Experience": st.column_config.NumberColumn(
-                "Years Experience",
-                help="Total years of professional experience",
-                format="%.1f years",
-            ),
-            "Semantic Similarity": st.column_config.NumberColumn(
-                "Semantic Similarity",
-                help="Conceptual similarity between JD and Resume (higher is better)",
-                format="%.2f",
-                min_value=0,
-                max_value=1
-            ),
-            "AI Suggestion": st.column_config.Column(
-                "AI Suggestion",
-                help="AI's overall assessment and recommendation"
-            ),
-            "Matched Keywords": st.column_config.Column(
-                "Matched Keywords",
-                help="Keywords found in both JD and Resume"
-            ),
-            "Missing Skills": st.column_config.Column(
-                "Missing Skills",
-                help="Key skills from JD not found in Resume"
-            ),
-        }
-    )
-
-    st.info("Remember to check the Analytics Dashboard for in-depth visualizations of skill overlaps, gaps, and other metrics!")
+        st.info("No resumes were successfully processed or no results to display.")
 else:
-    st.info("Please upload a Job Description and at least one Resume to begin the screening process.")
+    st.info("Upload a Job Description and Resumes to begin screening.")
+
+# --- About Section (Moved back to sidebar) ---
+st.sidebar.title("About ScreenerPro")
+st.sidebar.info(
+    "ScreenerPro is an AI-powered application designed to streamline the resume screening "
+    "process. It leverages a custom-trained Machine Learning model, a Sentence Transformer for "
+    "semantic understanding, and a fine-tuned T5 model for insightful AI suggestions and summarization.\n\n"
+    "Upload job descriptions and resumes, and let AI assist you in identifying the best-fit candidates!"
+)
+st.sidebar.markdown("---")
+st.sidebar.markdown(
+    "Developed by [Manav Nagpal](https://www.linkedin.com/in/manav-nagpal-b03a743b/)"
+)
