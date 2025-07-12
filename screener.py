@@ -579,215 +579,275 @@ Best regards,
 The {sender_name}""")
     return f"mailto:{recipient_email}?subject={subject}&body={body}"
 
-# --- Streamlit UI ---
-st.set_page_config(layout="wide", page_title="ScreenerPro - AI Resume Screener", page_icon="🧠")
-st.title("🧠 ScreenerPro – AI-Powered Resume Screener")
+# --- Function to encapsulate the Resume Screener logic ---
+def resume_screener_page():
+    # st.set_page_config(layout="wide", page_title="ScreenerPro - AI Resume Screener", page_icon="🧠") # Removed: should be in main.py
+    st.title("🧠 ScreenerPro – AI-Powered Resume Screener")
 
-# --- Job Description and Controls Section ---
-st.markdown("## ⚙️ Define Job Requirements & Screening Criteria")
-col1, col2 = st.columns([2, 1])
+    # --- Job Description and Controls Section ---
+    st.markdown("## ⚙️ Define Job Requirements & Screening Criteria")
+    col1, col2 = st.columns([2, 1])
 
-with col1:
-    jd_text = ""
-    job_roles = {"Upload my own": None}
-    if os.path.exists("data"):
-        for fname in os.listdir("data"):
-            if fname.endswith(".txt"):
-                job_roles[fname.replace(".txt", "").replace("_", " ").title()] = os.path.join("data", fname)
+    with col1:
+        jd_text = ""
+        job_roles = {"Upload my own": None}
+        if os.path.exists("data"):
+            for fname in os.listdir("data"):
+                if fname.endswith(".txt"):
+                    job_roles[fname.replace(".txt", "").replace("_", " ").title()] = os.path.join("data", fname)
 
-    jd_option = st.selectbox("📌 **Select a Pre-Loaded Job Role or Upload Your Own Job Description**", list(job_roles.keys()))
-    if jd_option == "Upload my own":
-        jd_file = st.file_uploader("Upload Job Description (TXT)", type="txt", help="Upload a .txt file containing the job description.")
-        if jd_file:
-            jd_text = jd_file.read().decode("utf-8")
-    else:
-        jd_path = job_roles[jd_option]
-        if jd_path and os.path.exists(jd_path):
-            with open(jd_path, "r", encoding="utf-8") as f:
-                jd_text = f.read()
-    
-    if jd_text:
-        with st.expander("📝 View Loaded Job Description"):
-            st.text_area("Job Description Content", jd_text, height=200, disabled=True, label_visibility="collapsed")
-
-with col2:
-    # Store cutoff and min_experience in session state
-    cutoff = st.slider("📈 **Minimum Score Cutoff (%)**", 0, 100, 75, help="Candidates scoring below this percentage will be flagged for closer review or considered less suitable.")
-    st.session_state['screening_cutoff_score'] = cutoff # Store in session state
-
-    min_experience = st.slider("💼 **Minimum Experience Required (Years)**", 0, 15, 2, help="Candidates with less than this experience will be noted.")
-    st.session_state['screening_min_experience'] = min_experience # Store in session state
-
-    st.markdown("---")
-    st.info("Once criteria are set, upload resumes below to begin screening.")
-
-resume_files = st.file_uploader("📄 **Upload Resumes (PDF)**", type="pdf", accept_multiple_files=True, help="Upload one or more PDF resumes for screening.")
-
-df = pd.DataFrame()
-
-if jd_text and resume_files:
-    # --- Job Description Keyword Cloud ---
-    st.markdown("---")
-    st.markdown("## ☁️ Job Description Keyword Cloud")
-    st.caption("Visualizing the most frequent and important keywords from the Job Description.")
-    
-    # Use the new extract_relevant_keywords function for the word cloud
-    # Pass MASTER_SKILLS directly as the filter_set
-    jd_words_for_cloud_set = extract_relevant_keywords(jd_text, MASTER_SKILLS)
-
-    jd_words_for_cloud = " ".join(list(jd_words_for_cloud_set))
-
-    if jd_words_for_cloud:
-        wordcloud = WordCloud(width=800, height=400, background_color='white', collocations=False).generate(jd_words_for_cloud)
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.imshow(wordcloud, interpolation='bilinear')
-        ax.axis('off')
-        st.pyplot(fig)
-        plt.close(fig) # Close the figure to free up memory
-    else:
-        st.info("No significant keywords to display for the Job Description. Please ensure your JD has sufficient content or adjust your MASTER_SKILLS list.")
-    st.markdown("---")
-
-    results = []
-    resume_text_map = {}
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-
-    for i, file in enumerate(resume_files):
-        status_text.text(f"Processing {file.name} ({i+1}/{len(resume_files)})...")
-        progress_bar.progress((i + 1) / len(resume_files))
-
-        text = extract_text_from_pdf(file)
-        if text.startswith("[ERROR]"):
-            st.error(f"Failed to process {file.name}: {text.replace('[ERROR] ', '')}")
-            continue
-
-        exp = extract_years_of_experience(text)
-        email = extract_email(text)
-        candidate_name = extract_name(text) or file.name.replace('.pdf', '').replace('_', ' ').title()
-
-        # Calculate Matched Keywords and Missing Skills using the new function
-        resume_words_set = extract_relevant_keywords(text, MASTER_SKILLS)
-        jd_words_set = extract_relevant_keywords(jd_text, MASTER_SKILLS)
-
-        matched_keywords = list(resume_words_set.intersection(jd_words_set))
-        missing_skills = list(jd_words_set.difference(resume_words_set)) 
-
-        # semantic_score now returns score, placeholder feedback, semantic_similarity
-        score, _, semantic_similarity = semantic_score(text, jd_text, exp)
-        
-        # Generate the detailed AI suggestion using the modified generate_ai_suggestion function
-        detailed_ai_suggestion = generate_ai_suggestion(
-            candidate_name=candidate_name,
-            score=score,
-            years_exp=exp,
-            semantic_similarity=semantic_similarity,
-            jd_text=jd_text,
-            resume_text=text
-        )
-
-        results.append({
-            "File Name": file.name,
-            "Candidate Name": candidate_name,
-            "Score (%)": score,
-            "Years Experience": exp,
-            "Email": email or "Not Found",
-            "AI Suggestion": detailed_ai_suggestion, # Renamed from "Feedback" to "AI Suggestion"
-            "Matched Keywords": ", ".join(matched_keywords), # Added Matched Keywords
-            "Missing Skills": ", ".join(missing_skills),    # Added Missing Skills
-            "Semantic Similarity": semantic_similarity,
-            "Resume Raw Text": text
-        })
-        resume_text_map[file.name] = text
-    
-    progress_bar.empty()
-    status_text.empty()
-
-
-    df = pd.DataFrame(results).sort_values(by="Score (%)", ascending=False).reset_index(drop=True)
-
-    st.session_state['screening_results'] = results
-    
-    # Save results to CSV for analytics.py to use
-    df.to_csv("results.csv", index=False)
-
-
-    # --- Overall Candidate Comparison Chart ---
-    st.markdown("## 📊 Candidate Score Comparison")
-    st.caption("Visual overview of how each candidate ranks against the job requirements.")
-    if not df.empty:
-        fig, ax = plt.subplots(figsize=(12, 7))
-        # Define colors: Green for top, Yellow for moderate, Red for low
-        colors = ['#4CAF50' if s >= cutoff else '#FFC107' if s >= (cutoff * 0.75) else '#F44346' for s in df['Score (%)']]
-        bars = ax.bar(df['Candidate Name'], df['Score (%)'], color=colors)
-        ax.set_xlabel("Candidate", fontsize=14)
-        ax.set_ylabel("Score (%)", fontsize=14)
-        ax.set_title("Resume Screening Scores Across Candidates", fontsize=16, fontweight='bold')
-        ax.set_ylim(0, 100)
-        plt.xticks(rotation=60, ha='right', fontsize=10)
-        plt.yticks(fontsize=10)
-        for bar in bars:
-            yval = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2, yval + 1, f"{yval:.1f}", ha='center', va='bottom', fontsize=9)
-        plt.tight_layout()
-        st.pyplot(fig)
-        plt.close(fig) # Close the figure to free up memory
-    else:
-        st.info("Upload resumes to see a comparison chart.")
-
-    st.markdown("---")
-
-    # --- TOP CANDIDATE AI RECOMMENDATION (Game Changer Feature) ---
-    st.markdown("## 👑 Top Candidate AI Recommendation")
-    st.caption("A concise, AI-powered assessment for the most suitable candidate.")
-    
-    if not df.empty:
-        top_candidate = df.iloc[0] # Get the top candidate (already sorted by score)
-        st.markdown(f"### **{top_candidate['Candidate Name']}**")
-        st.markdown(f"**Score:** {top_candidate['Score (%)']:.2f}% | **Experience:** {top_candidate['Years Experience']:.1f} years | **Semantic Similarity:** {top_candidate['Semantic Similarity']:.2f}")
-        st.markdown(f"**AI Assessment:** {top_candidate['AI Suggestion']}") # Use the concise AI suggestion
-        
-        # Action button for the top candidate
-        if top_candidate['Email'] != "Not Found":
-            mailto_link_top = create_mailto_link(
-                recipient_email=top_candidate['Email'],
-                candidate_name=top_candidate['Candidate Name'],
-                job_title=jd_option if jd_option != "Upload my own" else "Job Opportunity"
-            )
-            st.markdown(f'<a href="{mailto_link_top}" target="_blank"><button style="background-color:#00cec9;color:white;border:none;padding:10px 20px;text-align:center;text-decoration:none;display:inline-block;font-size:16px;margin:4px 2px;cursor:pointer;border-radius:8px;">📧 Invite Top Candidate for Interview</button></a>', unsafe_allow_html=True)
+        jd_option = st.selectbox("📌 **Select a Pre-Loaded Job Role or Upload Your Own Job Description**", list(job_roles.keys()))
+        if jd_option == "Upload my own":
+            jd_file = st.file_uploader("Upload Job Description (TXT)", type="txt", help="Upload a .txt file containing the job description.")
+            if jd_file:
+                jd_text = jd_file.read().decode("utf-8")
         else:
-            st.info(f"Email address not found for {top_candidate['Candidate Name']}. Cannot send automated invitation.")
+            jd_path = job_roles[jd_option]
+            if jd_path and os.path.exists(jd_path):
+                with open(jd_path, "r", encoding="utf-8") as f:
+                    jd_text = f.read()
         
+        if jd_text:
+            with st.expander("📝 View Loaded Job Description"):
+                st.text_area("Job Description Content", jd_text, height=200, disabled=True, label_visibility="collapsed")
+
+    with col2:
+        # Store cutoff and min_experience in session state
+        cutoff = st.slider("📈 **Minimum Score Cutoff (%)**", 0, 100, 75, help="Candidates scoring below this percentage will be flagged for closer review or considered less suitable.")
+        st.session_state['screening_cutoff_score'] = cutoff # Store in session state
+
+        min_experience = st.slider("💼 **Minimum Experience Required (Years)**", 0, 15, 2, help="Candidates with less than this experience will be noted.")
+        st.session_state['screening_min_experience'] = min_experience # Store in session state
+
         st.markdown("---")
-        st.info("For detailed analytics, matched keywords, and missing skills for ALL candidates, please navigate to the **Analytics Dashboard**.")
+        st.info("Once criteria are set, upload resumes below to begin screening.")
 
-    else:
-        st.info("No candidates processed yet to determine the top candidate.")
+    resume_files = st.file_uploader("📄 **Upload Resumes (PDF)**", type="pdf", accept_multiple_files=True, help="Upload one or more PDF resumes for screening.")
 
+    df = pd.DataFrame()
 
-    # === AI Recommendation for Shortlisted Candidates (Streamlined) ===
-    # This section now focuses on a quick summary for *all* shortlisted,
-    # with the top one highlighted above.
-    st.markdown("## 🌟 Shortlisted Candidates Overview")
-    st.caption("Candidates meeting your score and experience criteria.")
-
-    shortlisted_candidates = df[(df['Score (%)'] >= cutoff) & (df['Years Experience'] >= min_experience)]
-
-    if not shortlisted_candidates.empty:
-        st.success(f"**{len(shortlisted_candidates)}** candidate(s) meet your specified criteria (Score ≥ {cutoff}%, Experience ≥ {min_experience} years).")
+    if jd_text and resume_files:
+        # --- Job Description Keyword Cloud ---
+        st.markdown("---")
+        st.markdown("## ☁️ Job Description Keyword Cloud")
+        st.caption("Visualizing the most frequent and important keywords from the Job Description.")
         
-        # Display a concise table for shortlisted candidates
-        display_shortlisted_summary_cols = [
+        # Use the new extract_relevant_keywords function for the word cloud
+        # Pass MASTER_SKILLS directly as the filter_set
+        jd_words_for_cloud_set = extract_relevant_keywords(jd_text, MASTER_SKILLS)
+
+        jd_words_for_cloud = " ".join(list(jd_words_for_cloud_set))
+
+        if jd_words_for_cloud:
+            wordcloud = WordCloud(width=800, height=400, background_color='white', collocations=False).generate(jd_words_for_cloud)
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.imshow(wordcloud, interpolation='bilinear')
+            ax.axis('off')
+            st.pyplot(fig)
+            plt.close(fig) # Close the figure to free up memory
+        else:
+            st.info("No significant keywords to display for the Job Description. Please ensure your JD has sufficient content or adjust your MASTER_SKILLS list.")
+        st.markdown("---")
+
+        results = []
+        resume_text_map = {}
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+
+        for i, file in enumerate(resume_files):
+            status_text.text(f"Processing {file.name} ({i+1}/{len(resume_files)})...")
+            progress_bar.progress((i + 1) / len(resume_files))
+
+            text = extract_text_from_pdf(file)
+            if text.startswith("[ERROR]"):
+                st.error(f"Failed to process {file.name}: {text.replace('[ERROR] ', '')}")
+                continue
+
+            exp = extract_years_of_experience(text)
+            email = extract_email(text)
+            candidate_name = extract_name(text) or file.name.replace('.pdf', '').replace('_', ' ').title()
+
+            # Calculate Matched Keywords and Missing Skills using the new function
+            resume_words_set = extract_relevant_keywords(text, MASTER_SKILLS)
+            jd_words_set = extract_relevant_keywords(jd_text, MASTER_SKILLS)
+
+            matched_keywords = list(resume_words_set.intersection(jd_words_set))
+            missing_skills = list(jd_words_set.difference(resume_words_set)) 
+
+            # semantic_score now returns score, placeholder feedback, semantic_similarity
+            score, _, semantic_similarity = semantic_score(text, jd_text, exp)
+            
+            # Generate the detailed AI suggestion using the modified generate_ai_suggestion function
+            detailed_ai_suggestion = generate_ai_suggestion(
+                candidate_name=candidate_name,
+                score=score,
+                years_exp=exp,
+                semantic_similarity=semantic_similarity,
+                jd_text=jd_text,
+                resume_text=text
+            )
+
+            results.append({
+                "File Name": file.name,
+                "Candidate Name": candidate_name,
+                "Score (%)": score,
+                "Years Experience": exp,
+                "Email": email or "Not Found",
+                "AI Suggestion": detailed_ai_suggestion, # Renamed from "Feedback" to "AI Suggestion"
+                "Matched Keywords": ", ".join(matched_keywords), # Added Matched Keywords
+                "Missing Skills": ", ".join(missing_skills),    # Added Missing Skills
+                "Semantic Similarity": semantic_similarity,
+                "Resume Raw Text": text
+            })
+            resume_text_map[file.name] = text
+        
+        progress_bar.empty()
+        status_text.empty()
+
+
+        df = pd.DataFrame(results).sort_values(by="Score (%)", ascending=False).reset_index(drop=True)
+
+        st.session_state['screening_results'] = results
+        
+        # Removed: df.to_csv("results.csv", index=False) - No longer saving to CSV
+
+        # --- Overall Candidate Comparison Chart ---
+        st.markdown("## 📊 Candidate Score Comparison")
+        st.caption("Visual overview of how each candidate ranks against the job requirements.")
+        if not df.empty:
+            fig, ax = plt.subplots(figsize=(12, 7))
+            # Define colors: Green for top, Yellow for moderate, Red for low
+            colors = ['#4CAF50' if s >= cutoff else '#FFC107' if s >= (cutoff * 0.75) else '#F44346' for s in df['Score (%)']]
+            bars = ax.bar(df['Candidate Name'], df['Score (%)'], color=colors)
+            ax.set_xlabel("Candidate", fontsize=14)
+            ax.set_ylabel("Score (%)", fontsize=14)
+            ax.set_title("Resume Screening Scores Across Candidates", fontsize=16, fontweight='bold')
+            ax.set_ylim(0, 100)
+            plt.xticks(rotation=60, ha='right', fontsize=10)
+            plt.yticks(fontsize=10)
+            for bar in bars:
+                yval = bar.get_height()
+                ax.text(bar.get_x() + bar.get_width()/2, yval + 1, f"{yval:.1f}", ha='center', va='bottom', fontsize=9)
+            plt.tight_layout()
+            st.pyplot(fig)
+            plt.close(fig) # Close the figure to free up memory
+        else:
+            st.info("Upload resumes to see a comparison chart.")
+
+        st.markdown("---")
+
+        # --- TOP CANDIDATE AI RECOMMENDATION (Game Changer Feature) ---
+        st.markdown("## 👑 Top Candidate AI Recommendation")
+        st.caption("A concise, AI-powered assessment for the most suitable candidate.")
+        
+        if not df.empty:
+            top_candidate = df.iloc[0] # Get the top candidate (already sorted by score)
+            st.markdown(f"### **{top_candidate['Candidate Name']}**")
+            st.markdown(f"**Score:** {top_candidate['Score (%)']:.2f}% | **Experience:** {top_candidate['Years Experience']:.1f} years | **Semantic Similarity:** {top_candidate['Semantic Similarity']:.2f}")
+            st.markdown(f"**AI Assessment:** {top_candidate['AI Suggestion']}") # Use the concise AI suggestion
+            
+            # Action button for the top candidate
+            if top_candidate['Email'] != "Not Found":
+                mailto_link_top = create_mailto_link(
+                    recipient_email=top_candidate['Email'],
+                    candidate_name=top_candidate['Candidate Name'],
+                    job_title=jd_option if jd_option != "Upload my own" else "Job Opportunity"
+                )
+                st.markdown(f'<a href="{mailto_link_top}" target="_blank"><button style="background-color:#00cec9;color:white;border:none;padding:10px 20px;text-align:center;text-decoration:none;display:inline-block;font-size:16px;margin:4px 2px;cursor:pointer;border-radius:8px;">📧 Invite Top Candidate for Interview</button></a>', unsafe_allow_html=True)
+            else:
+                st.info(f"Email address not found for {top_candidate['Candidate Name']}. Cannot send automated invitation.")
+            
+            st.markdown("---")
+            st.info("For detailed analytics, matched keywords, and missing skills for ALL candidates, please navigate to the **Analytics Dashboard**.")
+
+        else:
+            st.info("No candidates processed yet to determine the top candidate.")
+
+
+        # === AI Recommendation for Shortlisted Candidates (Streamlined) ===
+        # This section now focuses on a quick summary for *all* shortlisted,
+        # with the top one highlighted above.
+        st.markdown("## 🌟 Shortlisted Candidates Overview")
+        st.caption("Candidates meeting your score and experience criteria.")
+
+        shortlisted_candidates = df[(df['Score (%)'] >= cutoff) & (df['Years Experience'] >= min_experience)]
+
+        if not shortlisted_candidates.empty:
+            st.success(f"**{len(shortlisted_candidates)}** candidate(s) meet your specified criteria (Score ≥ {cutoff}%, Experience ≥ {min_experience} years).")
+            
+            # Display a concise table for shortlisted candidates
+            display_shortlisted_summary_cols = [
+                'Candidate Name',
+                'Score (%)',
+                'Years Experience',
+                'Semantic Similarity',
+                'Email', # Include email here for quick reference
+                'AI Suggestion' # Concise AI suggestion
+            ]
+            
+            st.dataframe(
+                shortlisted_candidates[display_shortlisted_summary_cols],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Score (%)": st.column_config.ProgressColumn(
+                        "Score (%)",
+                        help="Matching score against job requirements",
+                        format="%f",
+                        min_value=0,
+                        max_value=100,
+                    ),
+                    "Years Experience": st.column_config.NumberColumn(
+                        "Years Experience",
+                        help="Total years of professional experience",
+                        format="%.1f years",
+                    ),
+                    "Semantic Similarity": st.column_config.NumberColumn(
+                        "Semantic Similarity",
+                        help="Conceptual similarity between JD and Resume (higher is better)",
+                        format="%.2f",
+                        min_value=0,
+                        max_value=1
+                    ),
+                    "AI Suggestion": st.column_config.Column(
+                        "AI Suggestion",
+                        help="AI's concise overall assessment and recommendation"
+                    )
+                }
+            )
+            st.info("For individual detailed AI assessments and action steps, please refer to the table above or the Analytics Dashboard.")
+
+        else:
+            st.warning("No candidates met the defined screening criteria (score cutoff and minimum experience). You might consider adjusting the sliders or reviewing the uploaded resumes/JD.")
+
+        st.markdown("---")
+
+        # Add a 'Tag' column for quick categorization
+        df['Tag'] = df.apply(lambda row: "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3 else (
+            "✅ Good Fit" if row['Score (%)'] >= 75 else "⚠️ Needs Review"), axis=1)
+
+        st.markdown("## 📋 Comprehensive Candidate Results Table")
+        st.caption("Full details for all processed resumes. **For deep dive analytics and keyword breakdowns, refer to the Analytics Dashboard.**")
+        
+        # Define columns to display in the comprehensive table
+        comprehensive_cols = [
             'Candidate Name',
             'Score (%)',
             'Years Experience',
             'Semantic Similarity',
-            'Email', # Include email here for quick reference
-            'AI Suggestion' # Concise AI suggestion
+            'Tag', # Keep the custom tag
+            'Email',
+            'AI Suggestion', # This will still contain the full AI suggestion text but is in a table, not per-candidate verbose display
+            'Matched Keywords',
+            'Missing Skills',
+            # 'Resume Raw Text' # Removed from default display to keep table manageable, can be viewed in Analytics
         ]
         
+        # Ensure all columns exist before trying to display them
+        final_display_cols = [col for col in comprehensive_cols if col in df.columns]
+
         st.dataframe(
-            shortlisted_candidates[display_shortlisted_summary_cols],
+            df[final_display_cols],
             use_container_width=True,
             hide_index=True,
             column_config={
@@ -812,80 +872,20 @@ if jd_text and resume_files:
                 ),
                 "AI Suggestion": st.column_config.Column(
                     "AI Suggestion",
-                    help="AI's concise overall assessment and recommendation"
-                )
+                    help="AI's overall assessment and recommendation"
+                ),
+                "Matched Keywords": st.column_config.Column(
+                    "Matched Keywords",
+                    help="Keywords found in both JD and Resume"
+                ),
+                "Missing Skills": st.column_config.Column(
+                    "Missing Skills",
+                    help="Key skills from JD not found in Resume"
+                ),
             }
         )
-        st.info("For individual detailed AI assessments and action steps, please refer to the table above or the Analytics Dashboard.")
 
+        st.info("Remember to check the Analytics Dashboard for in-depth visualizations of skill overlaps, gaps, and other metrics!")
     else:
-        st.warning("No candidates met the defined screening criteria (score cutoff and minimum experience). You might consider adjusting the sliders or reviewing the uploaded resumes/JD.")
+        st.info("Please upload a Job Description and at least one Resume to begin the screening process.")
 
-    st.markdown("---")
-
-    # Add a 'Tag' column for quick categorization
-    df['Tag'] = df.apply(lambda row: "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3 else (
-        "✅ Good Fit" if row['Score (%)'] >= 75 else "⚠️ Needs Review"), axis=1)
-
-    st.markdown("## 📋 Comprehensive Candidate Results Table")
-    st.caption("Full details for all processed resumes. **For deep dive analytics and keyword breakdowns, refer to the Analytics Dashboard.**")
-    
-    # Define columns to display in the comprehensive table
-    comprehensive_cols = [
-        'Candidate Name',
-        'Score (%)',
-        'Years Experience',
-        'Semantic Similarity',
-        'Tag', # Keep the custom tag
-        'Email',
-        'AI Suggestion', # This will still contain the full AI suggestion text but is in a table, not per-candidate verbose display
-        'Matched Keywords',
-        'Missing Skills',
-        # 'Resume Raw Text' # Removed from default display to keep table manageable, can be viewed in Analytics
-    ]
-    
-    # Ensure all columns exist before trying to display them
-    final_display_cols = [col for col in comprehensive_cols if col in df.columns]
-
-    st.dataframe(
-        df[final_display_cols],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Score (%)": st.column_config.ProgressColumn(
-                "Score (%)",
-                help="Matching score against job requirements",
-                format="%f",
-                min_value=0,
-                max_value=100,
-            ),
-            "Years Experience": st.column_config.NumberColumn(
-                "Years Experience",
-                help="Total years of professional experience",
-                format="%.1f years",
-            ),
-            "Semantic Similarity": st.column_config.NumberColumn(
-                "Semantic Similarity",
-                help="Conceptual similarity between JD and Resume (higher is better)",
-                format="%.2f",
-                min_value=0,
-                max_value=1
-            ),
-            "AI Suggestion": st.column_config.Column(
-                "AI Suggestion",
-                help="AI's overall assessment and recommendation"
-            ),
-            "Matched Keywords": st.column_config.Column(
-                "Matched Keywords",
-                help="Keywords found in both JD and Resume"
-            ),
-            "Missing Skills": st.column_config.Column(
-                "Missing Skills",
-                help="Key skills from JD not found in Resume"
-            ),
-        }
-    )
-
-    st.info("Remember to check the Analytics Dashboard for in-depth visualizations of skill overlaps, gaps, and other metrics!")
-else:
-    st.info("Please upload a Job Description and at least one Resume to begin the screening process.")
