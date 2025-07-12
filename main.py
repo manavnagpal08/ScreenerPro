@@ -27,11 +27,90 @@ st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wid
 # its visual effect on other elements might be limited to Streamlit's defaults.
 dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
 
-# --- Global Fonts & UI Styling (The entire CSS block is removed as requested) ---
-# All custom CSS related to @keyframes, .dashboard-card, .dashboard-header,
-# .custom-dashboard-button, Streamlit specific overrides, input fields, and buttons
-# has been removed from this file.
-# This means your application will revert to Streamlit's default styling.
+# --- Global Fonts & UI Styling ---
+# This CSS block is now implemented as requested.
+st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+.main .block-container {
+    padding: 2rem;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+    animation: fadeIn 0.8s ease-in-out;
+}
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+.dashboard-card {
+    padding: 2rem;
+    text-align: center;
+    font-weight: 600;
+    border-radius: 16px;
+    background: linear-gradient(145deg, #f1f2f6, #ffffff);
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+}
+.dashboard-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.1);
+    background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
+}
+.dashboard-header {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #222;
+    padding-bottom: 0.5rem;
+    border-bottom: 3px solid #00cec9;
+    display: inline-block;
+    margin-bottom: 2rem;
+    animation: slideInLeft 0.8s ease-out;
+}
+@keyframes slideInLeft {
+    0% { transform: translateX(-40px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+/* New CSS for custom buttons to look like cards */
+.custom-dashboard-button {
+    width: 100%;
+    height: 100%; /* Ensure it takes full height of its column */
+    padding: 2rem;
+    text-align: center;
+    font-weight: 600;
+    border-radius: 16px;
+    background: linear-gradient(145deg, #f1f2f6, #ffffff);
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column; /* Stack icon and text vertically */
+    justify-content: center;
+    align-items: center;
+    color: #333; /* Ensure text color is visible */
+    min-height: 120px; /* Ensure a consistent height for the buttons */
+}
+.custom-dashboard-button:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.1);
+    background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
+}
+.custom-dashboard-button span { /* For the icon */
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+.custom-dashboard-button div { /* For the text */
+    font-size: 1rem;
+    font-weight: 600;
+}
+</style>
+""", unsafe_allow_html=True)
 
 
 # Set Matplotlib style for dark mode if active
@@ -77,8 +156,8 @@ if "tab_override" in st.session_state:
 # 🏠 Dashboard Section
 # ======================
 if tab == "🏠 Dashboard":
-    # The div for "dashboard-header" will not have custom styling anymore
-    st.markdown('<div>📊 Overview Dashboard</div>', unsafe_allow_html=True) # Removed class="dashboard-header"
+    # The div for "dashboard-header" will now have custom styling
+    st.markdown('<div class="dashboard-header">📊 Overview Dashboard</div>', unsafe_allow_html=True) 
 
     # Initialize metrics
     resume_count = 0
@@ -116,8 +195,8 @@ if tab == "🏠 Dashboard":
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        # The div for "dashboard-card" will not have custom styling anymore
-        st.markdown(f"""<div>📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True) # Removed class="dashboard-card"
+        # The div for "dashboard-card" will now have custom styling
+        st.markdown(f"""<div class="dashboard-card">📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True) 
         if resume_count > 0:
             with st.expander(f"View {resume_count} Screened Names"):
                 for idx, row in df_results.iterrows():
@@ -128,12 +207,12 @@ if tab == "🏠 Dashboard":
             st.info("Run the screener to see screened resumes.")
 
     with col2:
-        # The div for "dashboard-card" will not have custom styling anymore
-        st.markdown(f"""<div>📝 <br><b>{jd_count}</b><br>Job Descriptions</div>""", unsafe_allow_html=True) # Removed class="dashboard-card"
+        # The div for "dashboard-card" will now have custom styling
+        st.markdown(f"""<div class="dashboard-card">📝 <br><b>{jd_count}</b><br>Job Descriptions</div>""", unsafe_allow_html=True) 
 
     with col3:
-        # The div for "dashboard-card" will not have custom styling anymore
-        st.markdown(f"""<div>✅ <br><b>{shortlisted}</b><br>Shortlisted Candidates</div>""", unsafe_allow_html=True) # Removed class="dashboard-card"
+        # The div for "dashboard-card" will now have custom styling
+        st.markdown(f"""<div class="dashboard-card">✅ <br><b>{shortlisted}</b><br>Shortlisted Candidates</div>""", unsafe_allow_html=True) 
         if shortlisted > 0:
             with st.expander(f"View {shortlisted} Shortlisted Names"):
                 for idx, row in shortlisted_df.iterrows():
@@ -144,29 +223,29 @@ if tab == "🏠 Dashboard":
             st.info("Run the screener to see shortlisted candidates.")
 
     col4, col5, col6 = st.columns(3)
-    # The div for "dashboard-card" will not have custom styling anymore
-    col4.markdown(f"""<div>📈 <br><b>{avg_score:.1f}%</b><br>Avg Score</div>""", unsafe_allow_html=True) # Removed class="dashboard-card"
+    # The div for "dashboard-card" will now have custom styling
+    col4.markdown(f"""<div class="dashboard-card">📈 <br><b>{avg_score:.1f}%</b><br>Avg Score</div>""", unsafe_allow_html=True) 
 
     with col5:
-        # The div for "custom-dashboard-button" will not have custom styling anymore
+        # The div for "custom-dashboard-button" will now have custom styling
         st.markdown("""
-        <div>
+        <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '🧠 Resume Screener']}}, '*');">
             <span>🧠</span>
             <div>Resume Screener</div>
         </div>
-        """, unsafe_allow_html=True) # Removed class="custom-dashboard-button" and onClick for navigation
+        """, unsafe_allow_html=True) 
         if st.button("🧠 Resume Screener", key="dashboard_screener_button"):
             st.session_state.tab_override = '🧠 Resume Screener'
             st.rerun()
 
     with col6:
-        # The div for "custom-dashboard-button" will not have custom styling anymore
+        # The div for "custom-dashboard-button" will now have custom styling
         st.markdown("""
-        <div>
+        <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '📤 Email Candidates']}}, '*');">
             <span>📤</span>
             <div>Email Candidates</div>
         </div>
-        """, unsafe_allow_html=True) # Removed class="custom-dashboard-button" and onClick for navigation
+        """, unsafe_allow_html=True) 
         if st.button("📤 Email Candidates", key="dashboard_email_button"):
             st.session_state.tab_override = '📤 Email Candidates'
             st.rerun()
@@ -281,8 +360,8 @@ if tab == "🏠 Dashboard":
 # ⚙️ Admin Tools Section
 # ======================
 elif tab == "⚙️ Admin Tools":
-    # The div for "dashboard-header" will not have custom styling anymore
-    st.markdown('<div>⚙️ Admin Tools</div>', unsafe_allow_html=True) # Removed class="dashboard-header"
+    # The div for "dashboard-header" will now have custom styling
+    st.markdown('<div class="dashboard-header">⚙️ Admin Tools</div>', unsafe_allow_html=True) 
     if is_admin:
         st.write("Welcome, Administrator! Here you can manage user accounts.")
         st.markdown("---")
