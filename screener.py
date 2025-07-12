@@ -580,8 +580,8 @@ The {sender_name}""")
 
 # --- Function to encapsulate the Resume Screener logic ---
 def resume_screener_page():
-    # st.set_page_config(layout="wide", page_title="ScreenerPro - AI Resume Screener", page_icon="🧠") # Removed: should be in main.py
-    st.title("🧠 ScreenerPro – AI-Powered Resume Screener")
+    # Removed: st.set_page_config(layout="wide", page_title="ScreenerPro - AI Resume Screener", page_icon="🧠")
+    st.title("🧠 ScreenerPro – AI-Powered Resume Screener") # Kept title inside function as it's page-specific
 
     # --- Job Description and Controls Section ---
     st.markdown("## ⚙️ Define Job Requirements & Screening Criteria")
@@ -708,7 +708,8 @@ def resume_screener_page():
 
         st.session_state['screening_results'] = results
         
-        # Removed: df.to_csv("results.csv", index=False) - No longer saving to CSV
+        # Save results to CSV for analytics.py to use (re-added as analytics.py was updated to use it)
+        df.to_csv("results.csv", index=False)
 
 
         # --- Overall Candidate Comparison Chart ---
@@ -886,4 +887,3 @@ def resume_screener_page():
     st.info("Remember to check the Analytics Dashboard for in-depth visualizations of skill overlaps, gaps, and other metrics!")
 else:
     st.info("Please upload a Job Description and at least one Resume to begin the screening process.")
-
