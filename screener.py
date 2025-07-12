@@ -313,27 +313,43 @@ def clean_text(text):
     text = re.sub(r'[^\x00-\x7F]+', ' ', text)
     return text.strip().lower()
 
-def extract_relevant_keywords(text, master_skills_set):
+def extract_relevant_keywords(text, filter_set):
     """
-    Extracts relevant keywords from text, prioritizing multi-word skills from master_skills_set.
+    Extracts relevant keywords from text, prioritizing multi-word skills from filter_set.
+    If filter_set is empty, it falls back to filtering out general STOP_WORDS.
     """
     cleaned_text = clean_text(text)
     extracted_keywords = set()
 
-    # First, extract all individual words
-    individual_words = set(re.findall(r'\b\w+\b', cleaned_text))
-    extracted_keywords.update(individual_words)
+    if filter_set: # If a specific filter_set (like MASTER_SKILLS) is provided
+        # Sort skills by length descending to match longer phrases first
+        sorted_filter_skills = sorted(list(filter_set), key=len, reverse=True)
+        
+        temp_text = cleaned_text # Use a temporary text to remove matched phrases
 
-    # Then, look for multi-word skills from the master list
-    # Sort master skills by length descending to match longer phrases first
-    sorted_master_skills = sorted(list(master_skills_set), key=len, reverse=True)
+        for skill_phrase in sorted_filter_skills:
+            # Create a regex pattern to match the whole skill phrase
+            # \b ensures whole word match, re.escape handles special characters in skill names
+            pattern = r'\b' + re.escape(skill_phrase.lower()) + r'\b'
+            
+            # Find all occurrences of the skill phrase
+            matches = re.findall(pattern, temp_text)
+            if matches:
+                extracted_keywords.add(skill_phrase.lower()) # Add the original skill (lowercase)
+                # Replace the found skill with placeholders to avoid re-matching parts of it
+                temp_text = re.sub(pattern, " ", temp_text)
+        
+        # After extracting phrases, now extract individual words that are in the filter_set
+        # and haven't been part of a multi-word skill already extracted.
+        # This ensures single-word skills from MASTER_SKILLS are also captured.
+        individual_words_remaining = set(re.findall(r'\b\w+\b', temp_text))
+        for word in individual_words_remaining:
+            if word in filter_set:
+                extracted_keywords.add(word)
 
-    for skill in sorted_master_skills:
-        # Create a regex pattern to match the whole skill phrase
-        # \b ensures whole word match, re.escape handles special characters in skill names
-        pattern = r'\b' + re.escape(skill.lower()) + r'\b'
-        if re.search(pattern, cleaned_text):
-            extracted_keywords.add(skill.lower()) # Add the original skill (lowercase)
+    else: # Fallback: if no specific filter_set (MASTER_SKILLS is empty), use the default STOP_WORDS logic
+        all_words = set(re.findall(r'\b\w+\b', cleaned_text))
+        extracted_keywords = {word for word in all_words if word not in STOP_WORDS}
 
     return extracted_keywords
 
@@ -611,11 +627,8 @@ if jd_text and resume_files:
     st.caption("Visualizing the most frequent and important keywords from the Job Description.")
     
     # Use the new extract_relevant_keywords function for the word cloud
-    if MASTER_SKILLS:
-        jd_words_for_cloud_set = extract_relevant_keywords(jd_text, MASTER_SKILLS)
-    else:
-        # Fallback to filtering out general stop words if MASTER_SKILLS is empty
-        jd_words_for_cloud_set = {word for word in re.findall(r'\b\w+\b', clean_text(jd_text)) if word not in STOP_WORDS}
+    # Pass MASTER_SKILLS directly as the filter_set
+    jd_words_for_cloud_set = extract_relevant_keywords(jd_text, MASTER_SKILLS)
 
     jd_words_for_cloud = " ".join(list(jd_words_for_cloud_set))
 
