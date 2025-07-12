@@ -14,6 +14,7 @@ import nltk
 import collections
 from sklearn.metrics.pairwise import cosine_similarity
 import urllib.parse # For encoding mailto links
+import json # Import json for notes persistence
 
 # For Generative AI (Google Gemini Pro) - COMMENTED OUT AS PER USER REQUEST
 # import google.generativeai as genai
@@ -131,178 +132,6 @@ CUSTOM_STOP_WORDS = set([
     "rhce", "vmware", "vcpa", "vcpd", "vcpi", "vcpe", "vcpx", "citrix", "cc-v", "cc-p",
     "cc-e", "cc-m", "cc-s", "cc-x", "palo", "alto", "pcnsa", "pcnse", "fortinet", "fcsa",
     "fcsp", "fcc", "fcnsp", "fct", "fcp", "fcs", "fce", "fcn", "fcnp", "fcnse"
-])
-STOP_WORDS = NLTK_STOP_WORDS.union(CUSTOM_STOP_WORDS)
-
-# --- MASTER SKILLS LIST ---
-# Paste your comprehensive list of skills here.
-# These skills will be used to filter words for the word cloud and
-# to identify 'Matched Keywords' and 'Missing Skills'.
-# Keep this set empty if you want the system to use its default stop word filtering.
-MASTER_SKILLS = set([
-        # Product & Project Management
-    "Product Strategy", "Roadmap Development", "Agile Methodologies", "Scrum", "Kanban", "Jira", "Trello",
-    "Feature Prioritization", "OKRs", "KPIs", "Stakeholder Management", "A/B Testing", "User Stories", "Epics",
-    "Product Lifecycle", "Sprint Planning", "Project Charter", "Gantt Charts", "MVP", "Backlog Grooming",
-    "Risk Management", "Change Management", "Program Management", "Portfolio Management", "PMP", "CSM",
-
-    # Software Development & Engineering
-    "Python", "Java", "JavaScript", "C++", "C#", "Go", "Ruby", "PHP", "Swift", "Kotlin", "TypeScript",
-    "HTML5", "CSS3", "React", "Angular", "Vue.js", "Node.js", "Django", "Flask", "Spring Boot", "Express.js",
-    "Git", "GitHub", "GitLab", "Bitbucket", "REST APIs", "GraphQL", "Microservices", "System Design",
-    "Unit Testing", "Integration Testing", "End-to-End Testing", "Test Automation", "CI/CD", "Docker", "Kubernetes",
-    "Serverless", "AWS Lambda", "Azure Functions", "Google Cloud Functions", "WebSockets", "Kafka", "RabbitMQ",
-    "Redis", "SQL", "NoSQL", "PostgreSQL", "MySQL", "MongoDB", "Cassandra", "Elasticsearch", "Neo4j",
-    "Data Structures", "Algorithms", "Object-Oriented Programming", "Functional Programming", "Bash Scripting",
-    "Shell Scripting", "DevOps", "DevSecOps", "SRE", "CloudFormation", "Terraform", "Ansible", "Puppet", "Chef",
-    "Jenkins", "CircleCI", "GitHub Actions", "Azure DevOps", "Jira", "Confluence", "Swagger", "OpenAPI",
-
-    # Data Science & AI/ML
-    "Machine Learning", "Deep Learning", "Natural Language Processing", "Computer Vision", "Reinforcement Learning",
-    "Scikit-learn", "TensorFlow", "PyTorch", "Keras", "XGBoost", "LightGBM", "Data Cleaning", "Feature Engineering",
-    "Model Evaluation", "Statistical Modeling", "Time Series Analysis", "Predictive Modeling", "Clustering",
-    "Classification", "Regression", "Neural Networks", "Convolutional Networks", "Recurrent Networks",
-    "Transformers", "LLMs", "Prompt Engineering", "Generative AI", "MLOps", "Data Munging", "A/B Testing",
-    "Experiment Design", "Hypothesis Testing", "Bayesian Statistics", "Causal Inference", "Graph Neural Networks",
-
-    # Data Analytics & BI
-    "SQL", "Python (Pandas, NumPy)", "R", "Excel (Advanced)", "Tableau", "Power BI", "Looker", "Qlik Sense",
-    "Google Data Studio", "Dax", "M Query", "ETL", "ELT", "Data Warehousing", "Data Lake", "Data Modeling",
-    "Business Intelligence", "Data Visualization", "Dashboarding", "Report Generation", "Google Analytics",
-    "BigQuery", "Snowflake", "Redshift", "Data Governance", "Data Quality", "Statistical Analysis",
-    "Requirements Gathering", "Data Storytelling",
-
-    # Cloud & Infrastructure
-    "AWS", "Azure", "Google Cloud Platform", "GCP", "Cloud Architecture", "Hybrid Cloud", "Multi-Cloud",
-    "Virtualization", "VMware", "Hyper-V", "Linux Administration", "Windows Server", "Networking", "TCP/IP",
-    "DNS", "VPN", "Firewalls", "Load Balancing", "CDN", "Monitoring", "Logging", "Alerting", "Prometheus",
-    "Grafana", "Splunk", "ELK Stack", "Cloud Security", "IAM", "VPC", "Storage (S3, Blob, GCS)", "Databases (RDS, Azure SQL)",
-    "Container Orchestration", "Infrastructure as Code", "IaC",
-
-    # UI/UX & Design
-    "Figma", "Adobe XD", "Sketch", "Photoshop", "Illustrator", "InDesign", "User Research", "Usability Testing",
-    "Wireframing", "Prototyping", "UI Design", "UX Design", "Interaction Design", "Information Architecture",
-    "Design Systems", "Accessibility", "Responsive Design", "User Flows", "Journey Mapping", "Design Thinking",
-    "Visual Design", "Motion Graphics",
-
-    # Marketing & Sales
-    "Digital Marketing", "SEO", "SEM", "Content Marketing", "Email Marketing", "Social Media Marketing",
-    "Google Ads", "Facebook Ads", "LinkedIn Ads", "Marketing Automation", "HubSpot", "Salesforce Marketing Cloud",
-    "CRM", "Lead Generation", "Sales Strategy", "Negotiation", "Account Management", "Market Research",
-    "Campaign Management", "Conversion Rate Optimization", "CRO", "Brand Management", "Public Relations",
-    "Copywriting", "Content Creation", "Analytics (Google Analytics, SEMrush, Ahrefs)",
-
-    # Finance & Accounting
-    "Financial Modeling", "Valuation", "Financial Reporting", "GAAP", "IFRS", "Budgeting", "Forecasting",
-    "Variance Analysis", "Auditing", "Taxation", "Accounts Payable", "Accounts Receivable", "Payroll",
-    "QuickBooks", "SAP FICO", "Oracle Financials", "Cost Accounting", "Management Accounting", "Treasury Management",
-    "Investment Analysis", "Risk Analysis", "Compliance (SOX, AML)",
-
-    # Human Resources (HR)
-    "Talent Acquisition", "Recruitment", "Onboarding", "Employee Relations", "HRIS (Workday, SuccessFactors)",
-    "Compensation & Benefits", "Performance Management", "Workforce Planning", "HR Policies", "Labor Law",
-    "Training & Development", "Diversity & Inclusion", "Conflict Resolution", "Employee Engagement",
-
-    # Customer Service & Support
-    "Customer Relationship Management", "CRM", "Zendesk", "ServiceNow", "Intercom", "Live Chat", "Ticketing Systems",
-    "Issue Resolution", "Technical Support", "Customer Success", "Client Retention", "Communication Skills",
-
-    # General Business & Soft Skills (often paired with technical skills)
-    "Strategic Planning", "Business Development", "Vendor Management", "Process Improvement", "Operations Management",
-    "Project Coordination", "Public Speaking", "Presentation Skills", "Cross-functional Collaboration",
-    "Problem Solving", "Critical Thinking", "Analytical Skills", "Adaptability", "Time Management",
-    "Organizational Skills", "Attention to Detail", "Leadership", "Mentorship", "Team Leadership",
-    "Decision Making", "Negotiation", "Client Management", "Stakeholder Communication", "Active Listening",
-    "Creativity", "Innovation", "Research", "Data Analysis", "Report Writing", "Documentation",
-    "Microsoft Office Suite", "Google Workspace", "Slack", "Zoom", "Confluence", "SharePoint",
-    "Cybersecurity", "Information Security", "Risk Assessment", "Compliance", "GDPR", "HIPAA", "ISO 27001",
-    "Penetration Testing", "Vulnerability Management", "Incident Response", "Security Audits", "Forensics",
-    "Threat Intelligence", "SIEM", "Firewall Management", "Endpoint Security", "Identity and Access Management",
-    "IAM", "Cryptography", "Network Security", "Application Security", "Cloud Security",
-
-    # Specific Certifications/Tools often treated as skills
-    "PMP", "CSM", "AWS Certified", "Azure Certified", "GCP Certified", "CCNA", "CISSP", "CISM", "CompTIA Security+",
-    "ITIL", "Lean Six Sigma", "CFA", "CPA", "SHRM-CP", "PHR", "CEH", "OSCP", "Splunk", "ServiceNow", "Salesforce",
-    "Workday", "SAP", "Oracle", "Microsoft Dynamics", "NetSuite", "Adobe Creative Suite", "Canva", "Mailchimp",
-    "Hootsuite", "Buffer", "SEMrush", "Ahrefs", "Moz", "Screaming Frog", "JMeter", "Postman", "SoapUI",
-    "Git", "SVN", "Perforce", "Confluence", "Jira", "Asana", "Trello", "Monday.com", "Miro", "Lucidchart",
-    "Visio", "MS Project", "Primavera", "AutoCAD", "SolidWorks", "MATLAB", "LabVIEW", "Simulink", "ANSYS",
-    "CATIA", "NX", "Revit", "ArcGIS", "QGIS", "OpenCV", "NLTK", "SpaCy", "Gensim", "Hugging Face Transformers",
-    "Docker Compose", "Helm", "Ansible Tower", "SaltStack", "Chef InSpec", "Terraform Cloud", "Vault",
-    "Consul", "Nomad", "Prometheus", "Grafana", "Alertmanager", "Loki", "Tempo", "Jaeger", "Zipkin",
-    "Fluentd", "Logstash", "Kibana", "Grafana Loki", "Datadog", "New Relic", "AppDynamics", "Dynatrace",
-    "Nagios", "Zabbix", "Icinga", "PRTG", "SolarWinds", "Wireshark", "Nmap", "Metasploit", "Burp Suite",
-    "OWASP ZAP", "Nessus", "Qualys", "Rapid7", "Tenable", "CrowdStrike", "SentinelOne", "Palo Alto Networks",
-    "Fortinet", "Cisco Umbrella", "Okta", "Auth0", "Keycloak", "Ping Identity", "Active Directory",
-    "LDAP", "OAuth", "JWT", "OpenID Connect", "SAML", "MFA", "SSO", "PKI", "TLS/SSL", "VPN", "IDS/IPS",
-    "DLP", "CASB", "SOAR", "XDR", "EDR", "MDR", "GRC", "GDPR Compliance", "HIPAA Compliance", "PCI DSS Compliance",
-    "ISO 27001 Compliance", "NIST Framework", "COBIT", "ITIL Framework", "Scrum Master", "Product Owner",
-    "Agile Coach", "Release Management", "Change Control", "Configuration Management", "Asset Management",
-    "Service Desk", "Incident Management", "Problem Management", "Change Management", "Release Management",
-    "Service Level Agreements", "SLAs", "Operational Level Agreements", "OLAs", "Underpinning Contracts", "UCs",
-    "Knowledge Management", "Continual Service Improvement", "CSI", "Service Catalog", "Service Portfolio",
-    "Relationship Management", "Supplier Management", "Financial Management for IT Services",
-    "Demand Management", "Capacity Management", "Availability Management", "Information Security Management",
-    "Supplier Relationship Management", "Contract Management", "Procurement Management", "Quality Management",
-    "Test Management", "Defect Management", "Requirements Management", "Scope Management", "Time Management",
-    "Cost Management", "Quality Management", "Resource Management", "Communications Management",
-    "Risk Management", "Procurement Management", "Stakeholder Management", "Integration Management",
-    "Project Charter", "Project Plan", "Work Breakdown Structure", "WBS", "Gantt Chart", "Critical Path Method",
-    "CPM", "Earned Value Management", "EVM", "PERT", "CPM", "Crashing", "Fast Tracking", "Resource Leveling",
-    "Resource Smoothing", "Agile Planning", "Scrum Planning", "Kanban Planning", "Sprint Backlog",
-    "Product Backlog", "User Story Mapping", "Relative Sizing", "Planning Poker", "Velocity", "Burndown Chart",
-    "Burnup Chart", "Cumulative Flow Diagram", "CFD", "Value Stream Mapping", "VSM", "Lean Principles",
-    "Six Sigma", "Kaizen", "Kanban", "Total Quality Management", "TQM", "Statistical Process Control", "SPC",
-    "Control Charts", "Pareto Analysis", "Fishbone Diagram", "5 Whys", "FMEA", "Root Cause Analysis", "RCA",
-    "Corrective Actions", "Preventive Actions", "CAPA", "Non-conformance Management", "Audit Management",
-    "Document Control", "Record Keeping", "Training Management", "Calibration Management", "Supplier Quality Management",
-    "Customer Satisfaction Measurement", "Net Promoter Score", "NPS", "Customer Effort Score", "CES",
-    "Customer Satisfaction Score", "CSAT", "Voice of Customer", "VOC", "Complaint Handling", "Warranty Management",
-    "Returns Management", "Service Contracts", "Service Agreements", "Maintenance Management", "Field Service Management",
-    "Asset Management", "Enterprise Asset Management", "EAM", "Computerized Maintenance Management System", "CMMS",
-    "Geographic Information Systems", "GIS", "GPS", "Remote Sensing", "Image Processing", "CAD", "CAM", "CAE",
-    "FEA", "CFD", "PLM", "PDM", "ERP", "CRM", "SCM", "HRIS", "BI", "Analytics", "Data Science", "Machine Learning",
-    "Deep Learning", "NLP", "Computer Vision", "AI", "Robotics", "Automation", "IoT", "Blockchain", "Cybersecurity",
-    "Cloud Computing", "Big Data", "Data Warehousing", "ETL", "Data Modeling", "Data Governance", "Data Quality",
-    "Data Migration", "Data Integration", "Data Virtualization", "Data Lakehouse", "Data Mesh", "Data Fabric",
-    "Data Catalog", "Data Lineage", "Metadata Management", "Master Data Management", "MDM",
-    "Customer Data Platform", "CDP", "Digital Twin", "Augmented Reality", "AR", "Virtual Reality", "VR",
-    "Mixed Reality", "MR", "Extended Reality", "XR", "Game Development", "Unity", "Unreal Engine", "C# (Unity)",
-    "C++ (Unreal Engine)", "Game Design", "Level Design", "Character Design", "Environment Design",
-    "Animation (Game)", "Rigging", "Texturing", "Shading", "Lighting", "Rendering", "Game Physics",
-    "Game AI", "Multiplayer Networking", "Game Monetization", "Game Analytics", "Playtesting",
-    "Game Publishing", "Streaming (Gaming)", "Community Management (Gaming)",
-    "Game Art", "Game Audio", "Sound Design (Game)", "Music Composition (Game)", "Voice Acting (Game)",
-    "Narrative Design", "Storytelling (Game)", "Dialogue Writing", "World Building", "Lore Creation",
-    "Game Scripting", "Modding", "Game Engine Development", "Graphics Programming", "Physics Programming",
-    "AI Programming (Game)", "Network Programming (Game)", "Tools Programming (Game)", "UI Programming (Game)",
-    "Shader Development", "VFX (Game)", "Technical Art", "Technical Animation", "Technical Design",
-    "Build Engineering (Game)", "Release Engineering (Game)", "Live Operations (Game)", "Game Balancing",
-    "Economy Design (Game)", "Progression Systems (Game)", "Retention Strategies (Game)", "Monetization Strategies (Game)",
-    "User Acquisition (Game)", "Marketing (Game)", "PR (Game)", "Community Management (Game)",
-    "Customer Support (Game)", "Localization (Game)", "Quality Assurance (Game)", "Game Testing",
-    "Compliance (Game)", "Legal (Game)", "Finance (Game)", "HR (Game)", "Business Development (Game)",
-    "Partnerships (Game)", "Licensing (Game)", "Brand Management (Game)", "IP Management (Game)",
-    "Esports Event Management", "Esports Team Management", "Esports Coaching", "Esports Broadcasting",
-    "Esports Sponsorship", "Esports Marketing", "Esports Analytics", "Esports Operations",
-    "Esports Content Creation", "Esports Journalism", "Esports Law", "Esports Finance", "Esports HR",
-    "Esports Business Development", "Esports Partnerships", "Esports Licensing", "Esports Brand Management",
-    "Esports IP Management", "Esports Event Planning", "Esports Production", "Esports Broadcasting",
-    "Esports Commentating", "Esports Analysis", "Esports Coaching", "Esports Training", "Esports Recruitment",
-    "Esports Scouting", "Esports Player Management", "Esports Team Management", "Esports Organization Management",
-    "Esports League Management", "Esports Tournament Management", "Esports Venue Management Software",
-    "Esports Sponsorship Management Software", "Esports Marketing Automation Software",
-    "Esports Content Management Systems", "Esports Social Media Management Tools",
-    "Esports PR Tools", "Esports Brand Monitoring Tools", "Esports Community Management Software",
-    "Esports Fan Engagement Platforms", "Esports Merchandise Management Software",
-    "Esports Ticketing Platforms", "Esports Hospitality Management Software",
-    "Esports Logistics Management Software", "Esports Security Management Software",
-    "Esports Legal Management Software", "Esports Finance Management Software",
-    "Esports HR Management Software", "Esports Business Operations Software",
-    "Esports Data Analytics Software", "Esports Performance Analysis Software",
-    "Esports Coaching Software", "Esports Training Platforms", "Esports Scouting Tools",
-    "Esports Player Databases", "Esports Team Databases", "Esports Organization Databases",
-    "Esports League Databases"
 ])
 STOP_WORDS = NLTK_STOP_WORDS.union(CUSTOM_STOP_WORDS)
 
@@ -649,7 +478,7 @@ def generate_detailed_hr_assessment(candidate_name, score, years_exp, semantic_s
     # Tier 3: Promising Candidate
     elif score >= 60 and years_exp >= 1 and semantic_similarity >= 0.35:
         overall_assessment_title = "Promising Candidate: Requires Focused Review on Specific Gaps"
-        assessment_parts.append(f"**{candidate_name}** is a **promising candidate** with a score of {score:.2f}% and {years_exp:.1f} years of experience. While demonstrating a foundational understanding (semantic similarity: {semantic_similarity:.2f}), there are areas that warrant deeper investigation to ensure a complete fit.")
+        assessment_parts.append(f"**{candidate_name}** is a **promising candidate** with a score of {score:.2f}% and {years_exp:.1f} years of experience (semantic similarity: {semantic_similarity:.2f}). While demonstrating a foundational understanding (semantic similarity: {semantic_similarity:.2f}), there are areas that warrant deeper investigation to ensure a complete fit.")
         
         gaps = []
         if score < 70:
@@ -780,6 +609,25 @@ Best regards,
 The {sender_name}""")
     return f"mailto:{recipient_email}?subject={subject}&body={body}"
 
+# --- Notes Persistence Functions ---
+NOTES_FILE = "notes.json"
+
+def load_candidate_notes():
+    """Loads candidate notes from notes.json."""
+    if os.path.exists(NOTES_FILE):
+        with open(NOTES_FILE, "r", encoding="utf-8") as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                st.error("Error reading notes.json. File might be corrupted. Starting with empty notes.")
+                return {}
+    return {}
+
+def save_candidate_notes(notes_data):
+    """Saves candidate notes to notes.json."""
+    with open(NOTES_FILE, "w", encoding="utf-8") as f:
+        json.dump(notes_data, f, indent=2)
+
 # --- Function to encapsulate the Resume Screener logic ---
 def resume_screener_page():
     # st.set_page_config(layout="wide", page_title="ScreenerPro - AI Resume Screener", page_icon="🧠") # Removed: should be in main.py
@@ -902,8 +750,8 @@ def resume_screener_page():
                 "Score (%)": score,
                 "Years Experience": exp,
                 "Email": email or "Not Found",
-                "AI Suggestion": concise_ai_suggestion, # This is the concise one for the table
-                "Detailed HR Assessment": detailed_hr_assessment, # Store the detailed one for top candidate
+                "AI Suggestion (Concise)": concise_ai_suggestion, # This is the concise one for the table
+                "AI Suggestion (Detailed)": detailed_hr_assessment, # Store the detailed one for top candidate
                 "Matched Keywords": ", ".join(matched_keywords), # Added Matched Keywords
                 "Missing Skills": ", ".join(missing_skills),    # Added Missing Skills
                 "Semantic Similarity": semantic_similarity,
@@ -957,7 +805,7 @@ def resume_screener_page():
             st.markdown(f"### **{top_candidate['Candidate Name']}**")
             st.markdown(f"**Score:** {top_candidate['Score (%)']:.2f}% | **Experience:** {top_candidate['Years Experience']:.1f} years | **Semantic Similarity:** {top_candidate['Semantic Similarity']:.2f}")
             st.markdown(f"**AI Assessment:**")
-            st.markdown(top_candidate['Detailed HR Assessment']) # Display the detailed HR assessment here
+            st.markdown(top_candidate['AI Suggestion (Detailed)']) # Display the detailed HR assessment here
             
             # Action button for the top candidate
             if top_candidate['Email'] != "Not Found":
@@ -995,7 +843,7 @@ def resume_screener_page():
                 'Years Experience',
                 'Semantic Similarity',
                 'Email', # Include email here for quick reference
-                'AI Suggestion' # This is the concise AI suggestion
+                'AI Suggestion (Concise)' # This is the concise AI suggestion
             ]
             
             st.dataframe(
@@ -1022,7 +870,7 @@ def resume_screener_page():
                         min_value=0,
                         max_value=1
                     ),
-                    "AI Suggestion": st.column_config.Column(
+                    "AI Suggestion (Concise)": st.column_config.Column(
                         "AI Suggestion",
                         help="AI's concise overall assessment and recommendation"
                     )
@@ -1033,75 +881,54 @@ def resume_screener_page():
         else:
             st.warning("No candidates met the defined screening criteria (score cutoff and minimum experience). You might consider adjusting the sliders or reviewing the uploaded resumes/JD.")
 
-        st.markdown("---")
+    st.markdown("---")
 
-        # Add a 'Tag' column for quick categorization
-        df['Tag'] = df.apply(lambda row: 
-            "👑 Exceptional Match" if row['Score (%)'] >= 90 and row['Years Experience'] >= 5 and row['Semantic Similarity'] >= 0.85 else (
-            "🔥 Strong Candidate" if row['Score (%)'] >= 80 and row['Years Experience'] >= 3 and row['Semantic Similarity'] >= 0.7 else (
-            "✨ Promising Fit" if row['Score (%)'] >= 60 and row['Years Experience'] >= 1 else (
-            "⚠️ Needs Review" if row['Score (%)'] >= 40 else 
-            "❌ Limited Match"))), axis=1)
+    # Add a 'Tag' column for quick categorization
+    df['Tag'] = df.apply(lambda row: 
+        "👑 Exceptional Match" if row['Score (%)'] >= 90 and row['Years Experience'] >= 5 and row['Semantic Similarity'] >= 0.85 else (
+        "🔥 Strong Candidate" if row['Score (%)'] >= 80 and row['Years Experience'] >= 3 and row['Semantic Similarity'] >= 0.7 else (
+        "✨ Promising Fit" if row['Score (%)'] >= 60 and row['Years Experience'] >= 1 else (
+        "⚠️ Needs Review" if row['Score (%)'] >= 40 else 
+        "❌ Limited Match"))), axis=1)
 
-        st.markdown("## 📋 Comprehensive Candidate Results Table")
-        st.caption("Full details for all processed resumes. **For deep dive analytics and keyword breakdowns, refer to the Analytics Dashboard.**")
-        
-        # Define columns to display in the comprehensive table
-        comprehensive_cols = [
-            'Candidate Name',
-            'Score (%)',
-            'Years Experience',
-            'Semantic Similarity',
-            'Tag', # Keep the custom tag
-            'Email',
-            'AI Suggestion', # This will still contain the concise AI suggestion text
-            'Matched Keywords',
-            'Missing Skills',
-            # 'Resume Raw Text' # Removed from default display to keep table manageable, can be viewed in Analytics
-        ]
-        
-        # Ensure all columns exist before trying to display them
-        final_display_cols = [col for col in comprehensive_cols if col in df.columns]
+    st.markdown("## 📋 Comprehensive Candidate Results Table")
+    st.caption("Full details for all processed resumes, with integrated notes functionality.")
+    
+    # Iterate through the DataFrame to display each candidate with an expander for notes
+    candidate_notes = load_candidate_notes() # Load notes at the beginning of this section
 
-        st.dataframe(
-            df[final_display_cols],
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Score (%)": st.column_config.ProgressColumn(
-                    "Score (%)",
-                    help="Matching score against job requirements",
-                    format="%f",
-                    min_value=0,
-                    max_value=100,
-                ),
-                "Years Experience": st.column_config.NumberColumn(
-                    "Years Experience",
-                    help="Total years of professional experience",
-                    format="%.1f years",
-                ),
-                "Semantic Similarity": st.column_config.NumberColumn(
-                    "Semantic Similarity",
-                    help="Conceptual similarity between JD and Resume (higher is better)",
-                    format="%.2f",
-                    min_value=0,
-                    max_value=1
-                ),
-                "AI Suggestion": st.column_config.Column(
-                    "AI Suggestion",
-                    help="AI's concise overall assessment and recommendation"
-                ),
-                "Matched Keywords": st.column_config.Column(
-                    "Matched Keywords",
-                    help="Keywords found in both JD and Resume"
-                ),
-                "Missing Skills": st.column_config.Column(
-                    "Missing Skills",
-                    help="Key skills from JD not found in Resume"
-                ),
-            }
-        )
+    for index, row in df.iterrows():
+        candidate_name = row['Candidate Name']
+        current_note = candidate_notes.get(candidate_name, "")
 
-        st.info("Remember to check the Analytics Dashboard for in-depth visualizations of skill overlaps, gaps, and other metrics!")
-    else:
-        st.info("Please upload a Job Description and at least one Resume to begin the screening process.")
+        st.markdown(f"**{index + 1}. {candidate_name}**")
+        st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;**Score:** {row['Score (%)']:.2f}% | **Experience:** {row['Years Experience']:.1f} yrs | **Semantic Similarity:** {row['Semantic Similarity']:.2f} | **Tag:** {row['Tag']}")
+        st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;**Email:** {row['Email']}")
+        st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;**AI Suggestion:** {row['AI Suggestion (Concise)']}") # Display the concise AI suggestion
+        st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;**Matched Keywords:** {row['Matched Keywords']}")
+        st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;**Missing Skills:** {row['Missing Skills']}")
+
+        with st.expander(f"Add/View Notes for {candidate_name}", expanded=False):
+            note_content = st.text_area(
+                "Notes:",
+                value=current_note,
+                height=100,
+                key=f"screener_note_textarea_{candidate_name}"
+            )
+            col_note_save, col_note_delete = st.columns(2)
+            if col_note_save.button(f"Save Note", key=f"screener_save_note_{candidate_name}"):
+                candidate_notes[candidate_name] = note_content
+                save_candidate_notes(candidate_notes)
+                st.success(f"Notes for {candidate_name} saved!")
+                st.rerun() # Rerun to refresh the notes display
+            if col_note_delete.button(f"Delete Note", key=f"screener_delete_note_{candidate_name}"):
+                if candidate_name in candidate_notes:
+                    del candidate_notes[candidate_name]
+                    save_candidate_notes(candidate_notes)
+                    st.warning(f"Notes for {candidate_name} deleted.")
+                    st.rerun() # Rerun to refresh the notes display
+        st.markdown("---") # Separator for each candidate
+
+    st.info("Remember to check the Analytics Dashboard for in-depth visualizations of skill overlaps, gaps, and other metrics!")
+else:
+    st.info("Please upload a Job Description and at least one Resume to begin the screening process.")
