@@ -165,18 +165,6 @@ div[data-testid="stTextArea"] textarea {{ /* REMOVED div[data-testid="stNumberIn
     background-color: {'#0056b3' if dark_mode else '#00a8a3'} !important;
 }}
 
-/* Ensure Streamlit's header, footer, and other generic elements are hidden if they exist */
-header, footer {{ visibility: hidden; display: none !important; }}
-.stApp > header {{ visibility: hidden; }} /* Specific targeting for the default header */
-
-/* Additional specific selectors if needed for hiding Streamlit UI elements: */
-/* div[data-testid="stToolbar"] {{ display: none; }} */
-/* div[data-testid="stDeployButton"] {{ display: none; }} */
-/* div[data-testid="stConnectionStatus"] {{ display: none; }} */
-/* .viewerBadge_container__1QSob {{ display: none; }} */
-/* .viewerBadge_link__1SI37 {{ display: none; }} */
-/* #MainMenu {{ visibility: hidden; }} */
-/* .stApp {{ padding-bottom: 1rem; }} */
 
 </style>
 """, unsafe_allow_html=True)
