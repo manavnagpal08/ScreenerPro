@@ -173,11 +173,6 @@ div[data-testid="stNumberInput"] input {{
 
 
 
-<style>
-.st-emotion-cache-30do4w ekuhni81
-{
-    visibility: hidden;
-}
 </style>
 
 """, unsafe_allow_html=True)
