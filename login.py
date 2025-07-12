@@ -1,7 +1,7 @@
 import streamlit as st
 import json
-import bcrypt # For secure password hashing
-import os # <--- ADD THIS LINE
+import bcrypt
+import os
 
 # File to store user credentials
 USER_DB_FILE = "users.json"
@@ -29,6 +29,7 @@ def check_password(password, hashed_password):
 
 def register_section():
     st.subheader("📝 New User Registration")
+    # Ensure clear_on_submit=True is set for automatic clearing
     with st.form("registration_form", clear_on_submit=True):
         new_username = st.text_input("Choose Username (Email address recommended)", key="new_username_reg")
         new_password = st.text_input("Choose Password", type="password", key="new_password_reg")
@@ -48,10 +49,11 @@ def register_section():
                     users[new_username] = hash_password(new_password)
                     save_users(users)
                     st.success("✅ Registration successful! You can now log in.")
-                    # Optionally clear inputs after successful registration
-                    st.session_state["new_username_reg"] = ""
-                    st.session_state["new_password_reg"] = ""
-                    st.session_state["confirm_password_reg"] = ""
+                    # REMOVED: No need to manually clear session_state for inputs
+                    # when clear_on_submit=True is used on the form itself.
+                    # st.session_state["new_username_reg"] = ""
+                    # st.session_state["new_password_reg"] = ""
+                    # st.session_state["confirm_password_reg"] = ""
 
 def login_section():
     """Handles user login and registration."""
@@ -66,6 +68,7 @@ def login_section():
 
     with login_tab:
         st.subheader("🔐 HR Login")
+        # Keep clear_on_submit=False for login to allow remembering username/password
         with st.form("login_form", clear_on_submit=False):
             username = st.text_input("Username", key="username_login")
             password = st.text_input("Password", type="password", key="password_login")
