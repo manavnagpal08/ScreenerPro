@@ -137,7 +137,19 @@ if tab == "🏠 Dashboard":
 
 
     col1, col2, col3 = st.columns(3)
-    col1.markdown(f"""<div class="dashboard-card">📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True)
+    
+    with col1:
+        # Make the "Resumes Screened" card interactive
+        st.markdown(f"""<div class="dashboard-card">📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True)
+        if resume_count > 0:
+            with st.expander(f"View {resume_count} Screened Names"):
+                for idx, row in df_results.iterrows():
+                    st.markdown(f"- **{row['Candidate Name']}** (Score: {row['Score (%)']:.1f}%)")
+        elif 'screening_results' in st.session_state and st.session_state['screening_results']:
+            st.info("No resumes have been screened yet.")
+        else:
+            st.info("Run the screener to see screened resumes.")
+
     col2.markdown(f"""<div class="dashboard-card">📝 <br><b>{jd_count}</b><br>Job Descriptions</div>""", unsafe_allow_html=True)
     
     with col3:
