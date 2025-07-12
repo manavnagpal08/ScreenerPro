@@ -22,6 +22,23 @@ from analytics import analytics_dashboard_page # Import the analytics page funct
 # from notes import candidate_notes_page # Renamed from notes.py to candidate_notes_page.py for clarity if it's a dedicated page
 
 
+# Inject custom CSS to hide GitHub "Fork" button
+hide_fork_button = """
+    <style>
+        /* Hide any anchor links that contain github.com */
+        a[href*="github.com"] {
+            display: none !important;
+        }
+
+        /* Hide possible streamlit menu button in top-right if needed */
+        .st-emotion-cache-1r4qj8v {
+            display: none !important;
+        }
+    </style>
+"""
+st.markdown(hide_fork_button, unsafe_allow_html=True)
+
+
 # --- Page Config (Should only be in main.py) ---
 st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide", page_icon="🧠")
 
