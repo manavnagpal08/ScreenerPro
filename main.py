@@ -9,17 +9,8 @@ import json
 # Import the page functions from their respective files
 from login import login_section
 from email_sender import send_email_to_candidate
-from screener import resume_screener_page # Import the screener page function
-from analytics import analytics_dashboard_page # Import the analytics page function
-
-# Assuming other pages also have functions to encapsulate their logic:
-# You will need to ensure that manage_jds.py, search.py, and notes.py
-# define their main logic within functions (e.g., manage_jds_page(), search_page(), candidate_notes_page())
-# and that these functions are imported here.
-# For example:
-# from manage_jds import manage_jds_page
-# from search import search_resumes_page
-# from notes import candidate_notes_page # Renamed from notes.py to candidate_notes_page.py for clarity if it's a dedicated page
+from screener import resume_screener_page
+from analytics import analytics_dashboard_page
 
 
 # --- Page Config (Should only be in main.py) ---
@@ -36,7 +27,7 @@ if dark_mode:
     </style>
     """, unsafe_allow_html=True)
 
-# --- Global Fonts & UI Styling ---
+# --- Global Fonts & UI Styling & Hiding Specific Streamlit UI Elements ---
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -117,8 +108,66 @@ html, body, [class*="css"] {
     font-size: 1rem;
     font-weight: 600;
 }
+
+/* --- Start of Hiding Streamlit UI elements CSS --- */
+
+/* Target the main header bar where the deploy/fork elements are */
+header[data-testid="stHeader"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Target the toolbar that often contains the deploy/fork buttons */
+div[data-testid="stToolbar"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Target the "Deploy" button specifically (which often includes the Fork icon) */
+.stDeployButton {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Fallback/additional selectors that might still catch the deploy/fork badge */
+.viewerBadge_container__1QSob,
+.styles_viewerBadge__1yB5_,
+.viewerBadge_link__1S137,
+.viewerBadge_text__1JaDK,
+#GithubIcon,
+.css-1jc7ptx, .e1ewe7hr3, .e1ewe7hr1 {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Hide the hamburger menu (if it's not needed) */
+#MainMenu {
+    visibility: hidden;
+    display: none !important;
+}
+
+/* Hide the Streamlit footer and the "Hosted with Streamlit" badge */
+footer {
+    visibility: hidden;
+    display: none !important;
+}
+
+/* This specifically targets the "Hosted with Streamlit" badge */
+div[data-testid="stConnectionStatus"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+/* Fallback for the badge if data-testid changes or isn't present */
+.st-emotion-cache-ch5fef { /* This class is often associated with the badge - inspect if it changes */
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* --- End of Hiding Streamlit UI elements CSS --- */
+
 </style>
 """, unsafe_allow_html=True)
+
 
 # --- Branding ---
 st.image("logo.png", width=300)
@@ -158,30 +207,27 @@ if tab == "🏠 Dashboard":
     if 'screening_results' in st.session_state and st.session_state['screening_results']:
         try:
             df_results = pd.DataFrame(st.session_state['screening_results'])
-            resume_count = df_results["File Name"].nunique() # Count unique resumes screened
+            resume_count = df_results["File Name"].nunique()
             
-            # Retrieve cutoff values from session state, with defaults
-            # These keys must match what's stored in screener.py
-            cutoff_score = st.session_state.get('screening_cutoff_score', 75) # Default to 75 if not set
-            min_exp_required = st.session_state.get('screening_min_experience', 2) # Default to 2 if not set
+            cutoff_score = st.session_state.get('screening_cutoff_score', 75)
+            min_exp_required = st.session_state.get('screening_min_experience', 2)
 
             shortlisted_df = df_results[(df_results["Score (%)"] >= cutoff_score) & 
-                                     (df_results["Years Experience"] >= min_exp_required)]
+                                        (df_results["Years Experience"] >= min_exp_required)]
             shortlisted = shortlisted_df.shape[0]
             avg_score = df_results["Score (%)"].mean()
         except Exception as e:
             st.error(f"Error processing screening results from session state: {e}")
-            df_results = pd.DataFrame() # Reset df_results if error occurs
-            shortlisted_df = pd.DataFrame() # Ensure this is also reset
+            df_results = pd.DataFrame()
+            shortlisted_df = pd.DataFrame()
     else:
         st.info("No screening results available in this session yet. Please run the Resume Screener.")
-        shortlisted_df = pd.DataFrame() # Ensure this is initialized even if no results
+        shortlisted_df = pd.DataFrame()
 
 
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        # Make the "Resumes Screened" card interactive
         st.markdown(f"""<div class="dashboard-card">📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True)
         if resume_count > 0:
             with st.expander(f"View {resume_count} Screened Names"):
@@ -195,7 +241,6 @@ if tab == "🏠 Dashboard":
     col2.markdown(f"""<div class="dashboard-card">📝 <br><b>{jd_count}</b><br>Job Descriptions</div>""", unsafe_allow_html=True)
     
     with col3:
-        # Make the "Shortlisted Candidates" card interactive
         st.markdown(f"""<div class="dashboard-card">✅ <br><b>{shortlisted}</b><br>Shortlisted Candidates</div>""", unsafe_allow_html=True)
         if shortlisted > 0:
             with st.expander(f"View {shortlisted} Shortlisted Names"):
@@ -210,7 +255,6 @@ if tab == "🏠 Dashboard":
     col4, col5, col6 = st.columns(3)
     col4.markdown(f"""<div class="dashboard-card">📈 <br><b>{avg_score:.1f}%</b><br>Avg Score</div>""", unsafe_allow_html=True)
     
-    # Modified buttons to use custom HTML with dashboard-card styling
     with col5:
         st.markdown("""
         <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '🧠 Resume Screener']}}, '*');">
@@ -226,10 +270,8 @@ if tab == "🏠 Dashboard":
         </div>
         """, unsafe_allow_html=True)
 
-    # Optional: Dashboard Insights
-    if not df_results.empty: # Use df_results loaded from session state
+    if not df_results.empty:
         try:
-            # Updated Tagging logic from screener.py
             df_results['Tag'] = df_results.apply(lambda row: 
                 "👑 Exceptional Match" if row['Score (%)'] >= 90 and row['Years Experience'] >= 5 and row['Semantic Similarity'] >= 0.85 else (
                 "🔥 Strong Candidate" if row['Score (%)'] >= 80 and row['Years Experience'] >= 3 and row['Semantic Similarity'] >= 0.7 else (
@@ -249,7 +291,7 @@ if tab == "🏠 Dashboard":
                 ax1.pie(pie_data['Count'], labels=pie_data['Tag'], autopct='%1.1f%%', startangle=90, textprops={'fontsize': 10})
                 ax1.axis('equal')
                 st.pyplot(fig_pie)
-                plt.close(fig_pie) # Close the figure to free up memory
+                plt.close(fig_pie)
 
             with col_g2:
                 st.markdown("##### 📊 Experience Distribution")
@@ -263,22 +305,19 @@ if tab == "🏠 Dashboard":
                 ax2.set_xlabel("Experience Range")
                 ax2.tick_params(axis='x', labelrotation=0)
                 st.pyplot(fig_bar)
-                plt.close(fig_bar) # Close the figure to free up memory
+                plt.close(fig_bar)
             
-            # --- Candidate Distribution Summary Table ---
             st.markdown("##### 📋 Candidate Quality Breakdown")
             tag_summary = df_results['Tag'].value_counts().reset_index()
             tag_summary.columns = ['Candidate Tag', 'Count']
             st.dataframe(tag_summary, use_container_width=True, hide_index=True)
 
 
-            # 📋 Top 5 Most Common Skills - Enhanced & Resized
             st.markdown("##### 🧠 Top 5 Most Common Skills")
 
-            if 'Matched Keywords' in df_results.columns: # Use df_results
+            if 'Matched Keywords' in df_results.columns:
                 all_skills = []
-                for skills in df_results['Matched Keywords'].dropna(): # Use df_results
-                    # The Matched Keywords are already comma-separated and cleaned by screener.py
+                for skills in df_results['Matched Keywords'].dropna():
                     all_skills.extend([s.strip().lower() for s in skills.split(",") if s.strip()])
 
                 skill_counts = pd.Series(all_skills).value_counts().head(5)
@@ -300,58 +339,38 @@ if tab == "🏠 Dashboard":
 
                     fig_skills.tight_layout()
                     st.pyplot(fig_skills)
-                    plt.close(fig_skills) # Close the figure to free up memory
+                    plt.close(fig_skills)
                 else:
                     st.info("No skill data available in results for the Top 5 Skills chart.")
 
             else:
                 st.info("No 'Matched Keywords' column found in results for skill analysis.")
 
-        except Exception as e: # Catch specific exceptions or log for debugging
+        except Exception as e:
             st.warning(f"⚠️ Could not render insights due to data error: {e}")
 
 # ======================
 # Page Routing via function calls
 # ======================
 elif tab == "🧠 Resume Screener":
-    resume_screener_page() # Call the function from screener.py
+    resume_screener_page()
 
 elif tab == "📁 Manage JDs":
-    # Ensure manage_jds.py exists in the same directory and its logic is not in a function
-    # If you have a function like 'manage_jds_page' in manage_jds.py, import and call it:
-    # from manage_jds import manage_jds_page
-    # manage_jds_page()
-    # Otherwise, if it's a script meant to be executed directly:
     with open("manage_jds.py", encoding="utf-8") as f:
         exec(f.read())
 
 elif tab == "📊 Screening Analytics":
-    analytics_dashboard_page() # Call the function from analytics.py
+    analytics_dashboard_page()
 
 elif tab == "📤 Email Candidates":
-    # Ensure email_page.py exists in the same directory and its logic is not in a function
-    # If you have a function like 'email_candidates_page' in email_page.py, import and call it:
-    # from email_page import email_candidates_page
-    # email_candidates_page()
-    # Otherwise, if it's a script meant to be executed directly:
     with open("email_page.py", encoding="utf-8") as f:
         exec(f.read())
 
 elif tab == "🔍 Search Resumes":
-    # Ensure search.py exists in the same directory and its logic is not in a function
-    # If you have a function like 'search_resumes_page' in search.py, import and call it:
-    # from search import search_resumes_page
-    # search_resumes_page()
-    # Otherwise, if it's a script meant to be executed directly:
     with open("search.py", encoding="utf-8") as f:
         exec(f.read())
 
 elif tab == "📝 Candidate Notes":
-    # Ensure notes.py exists in the same directory and its logic is not in a function
-    # If you have a function like 'candidate_notes_page' in notes.py, import and call it:
-    # from notes import candidate_notes_page
-    # candidate_notes_page()
-    # Otherwise, if it's a script meant to be executed directly:
     with open("notes.py", encoding="utf-8") as f:
         exec(f.read())
 
@@ -372,9 +391,9 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("### Connect with Manav Nagpal")
 st.sidebar.markdown(
     "[LinkedIn Profile](https://www.linkedin.com/in/manav-nagpal-83b935209/) "
-    "&nbsp; 🔗" # Using a link emoji as a simple icon
+    "&nbsp; 🔗"
 )
 st.sidebar.markdown(
     "[Portfolio Website](https://manavnagpal.netlify.app/) "
-    "&nbsp; 🌐" # Using a globe emoji for portfolio
+    "&nbsp; 🌐"
 )
