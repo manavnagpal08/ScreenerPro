@@ -1,152 +1,136 @@
-# 📤 Email Candidates Page UI Enhancer
+# email_page.py
+
 import streamlit as st
 import pandas as pd
-from email_sender import send_email_to_candidate # Assuming this function is defined elsewhere
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import json # Assuming you might use this for templates or config
+import os # For checking if files exist
 
-# --- Style Enhancements ---
-st.markdown("""
-<style>
-.email-box {
-    padding: 2rem;
-    background: #f9f9fb;
-    border-radius: 20px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.07);
-    animation: fadeInUp 0.7s ease;
-    margin-top: 1.5rem;
-}
-.email-entry {
-    margin-bottom: 1.2rem;
-    padding: 1rem;
-    background: white;
-    border-radius: 12px;
-    border-left: 4px solid #00cec9;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.05);
-}
-@keyframes fadeInUp {
-    0% { opacity: 0; transform: translateY(20px); }
-    100% { opacity: 1; transform: translateY(0); }
-}
-</style>
-""", unsafe_allow_html=True)
+def send_email_to_candidate():
+    st.markdown("## 📤 Email Candidates")
+    st.info("Prepare and send emails to shortlisted candidates based on screening results.")
 
-st.subheader("📧 Send Email to Shortlisted Candidates")
+    # Check if screening results are available in session state
+    if 'screening_results' not in st.session_state or not st.session_state['screening_results']:
+        st.warning("No screening results found. Please run the '🧠 Resume Screener' first to get candidates to email.")
+        return # Exit the function if no results
 
-# Retrieve cutoff values from session state, with defaults
-cutoff_score = st.session_state.get('screening_cutoff_score', 75) # Default to 75 if not set
-min_exp_required = st.session_state.get('screening_min_experience', 2) # Default to 2 if not set
+    try:
+        df_results = pd.DataFrame(st.session_state['screening_results'])
 
-try:
-    # Attempt to load from session state first, then from CSV if not found
-    if 'screening_results' in st.session_state and st.session_state['screening_results']:
-        df = pd.DataFrame(st.session_state['screening_results'])
-    else:
-        df = pd.read_csv("results.csv") # Fallback to CSV if session state is empty
-except FileNotFoundError:
-    st.warning("⚠️ No screening results found. Please run the **Resume Screener** first to generate candidate data.")
-    st.stop()
-except Exception as e:
-    st.error(f"❌ Error loading screening results: {e}. Please ensure data is available.")
-    st.stop()
+        # Ensure required columns exist before proceeding
+        required_columns = ['Candidate Name', 'Email', 'Score (%)', 'Years Experience', 'AI Suggestion']
+        missing_columns = [col for col in required_columns if col not in df_results.columns]
 
-# Filter shortlisted candidates using the cutoff values from session state
-shortlisted = df[(df["Score (%)"] >= cutoff_score) & (df["Years Experience"] >= min_exp_required)]
+        if missing_columns:
+            st.error(f"Missing essential data columns in screening results: {', '.join(missing_columns)}. "
+                     "Please ensure the 'Resume Screener' generated these columns.")
+            # Display available columns for debugging
+            st.write(f"Available columns: {list(df_results.columns)}")
+            return
 
-if not shortlisted.empty:
-    st.success(f"✅ {len(shortlisted)} candidates shortlisted based on your criteria (Score ≥ {cutoff_score}%, Experience ≥ {min_exp_required} yrs).")
-    
-    # Display a more informative dataframe for shortlisted candidates
-    st.dataframe(
-        shortlisted[["Candidate Name", "Score (%)", "Years Experience", "AI Suggestion"]],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Score (%)": st.column_config.ProgressColumn(
-                "Score (%)",
-                help="Matching score against job requirements",
-                format="%f",
-                min_value=0,
-                max_value=100,
-            ),
-            "Years Experience": st.column_config.NumberColumn(
-                "Years Experience",
-                help="Total years of professional experience",
-                format="%.1f years",
-            ),
-            "AI Suggestion": st.column_config.Column(
-                "AI Suggestion",
-                help="AI's concise overall assessment and recommendation"
-            )
-        }
-    )
+        # Filtering for shortlisted candidates based on criteria (can be adjusted)
+        # It's better to get the cutoff values from session_state if they are stored there by screener.py
+        cutoff_score = st.session_state.get('screening_cutoff_score', 75)
+        min_exp_required = st.session_state.get('screening_min_experience', 2)
 
-    st.markdown("<div class='email-box'>", unsafe_allow_html=True)
+        shortlisted_candidates = df_results[
+            (df_results["Score (%)"] >= cutoff_score) &
+            (df_results["Years Experience"] >= min_exp_required)
+        ].copy() # Use .copy() to avoid SettingWithCopyWarning
 
-    st.markdown("### ✉️ Assign Emails")
-    email_map = {}
-    for i, row in shortlisted.iterrows():
-        candidate_name = row["Candidate Name"]
-        # Use existing email if found, otherwise default to empty
-        default_email = row.get("Email", "") if row.get("Email") != "Not Found" else ""
-        email_input = st.text_input(f"📧 Email for **{candidate_name}**", value=default_email, key=f"email_{i}")
-        email_map[candidate_name] = email_input # Map by candidate name for clarity
+        if shortlisted_candidates.empty:
+            st.warning(f"No candidates meet the current shortlisting criteria (Score >= {cutoff_score}%, Experience >= {min_exp_required} years). Adjust criteria in Screener or review results.")
+            st.dataframe(df_results[['Candidate Name', 'Score (%)', 'Years Experience', 'AI Suggestion']], use_container_width=True)
+            return
 
-    st.markdown("### 📝 Customize Email Template")
-    subject = st.text_input("Subject", value="🎉 Invitation for Interview - ScreenerPro")
-    body_template = st.text_area("Body", height=250, value="""
-Hi {{candidate_name}},
+        st.success(f"Found {len(shortlisted_candidates)} shortlisted candidates.")
+        st.dataframe(shortlisted_candidates[['Candidate Name', 'Email', 'Score (%)', 'AI Suggestion']], use_container_width=True)
 
-Congratulations! 🎉
+        st.markdown("### 📧 Email Configuration")
+        sender_email = st.text_input("Your Email (Sender)", key="sender_email")
+        sender_password = st.text_input("Your Email Password (App Password)", type="password", key="sender_password")
+        smtp_server = st.text_input("SMTP Server", "smtp.gmail.com", key="smtp_server")
+        smtp_port = st.number_input("SMTP Port", 587, key="smtp_port")
 
-We were very impressed with your profile and would like to invite you for an interview for the position.
+        st.markdown("### ✍️ Email Content")
+        email_subject = st.text_input("Email Subject", "Job Application Update - Your Application to [Job Title]")
+        default_body = """
+        Dear {candidate_name},
 
-Based on our AI screening, your resume showed:
-✅ Score: {{score}}%
-💬 AI Assessment: {{ai_suggestion}}
+        Thank you for your application for the position of [Job Title] at [Company Name].
 
-We'll be in touch with next steps shortly.
+        We have reviewed your resume and would like to provide an update. Based on our initial assessment, your profile showed a score of {score_percent:.1f}% and {years_experience:.1f} years of experience.
 
-Warm regards,  
-The HR Team
-""")
+        Our AI's suggestion for your profile: {ai_suggestion}
 
-    if st.button("📤 Send All Emails"):
-        sent_count = 0
-        failed_count = 0
-        for _, row in shortlisted.iterrows():
-            candidate_name = row["Candidate Name"]
-            score = row["Score (%)"]
-            ai_suggestion = row["AI Suggestion"] # Use the new column name
-            recipient = email_map.get(candidate_name)
+        We will be in touch shortly regarding the next steps in our hiring process.
 
-            if recipient and "@" in recipient:
-                # Replace placeholders in the email body
-                message = body_template.replace("{{candidate_name}}", candidate_name)\
-                                       .replace("{{score}}", str(score))\
-                                       .replace("{{ai_suggestion}}", ai_suggestion) # Use new placeholder
-                
-                try:
-                    send_email_to_candidate(
-                        name=candidate_name,
-                        score=score,
-                        ai_suggestion=ai_suggestion, # Pass the new argument
-                        recipient=recipient,
-                        subject=subject,
-                        message=message
-                    )
-                    sent_count += 1
-                except Exception as e:
-                    st.error(f"Failed to send email to {candidate_name} ({recipient}): {e}")
-                    failed_count += 1
-            else:
-                st.warning(f"Skipping email for {candidate_name}: No valid email address provided.")
-                failed_count += 1
-        
-        if sent_count > 0:
-            st.success(f"✅ Successfully sent {sent_count} email(s).")
-        if failed_count > 0:
-            st.warning(f"⚠️ Failed to send {failed_count} email(s). Check console for details.")
+        Best regards,
 
-    st.markdown("</div>", unsafe_allow_html=True)
+        The [Company Name] Hiring Team
+        """
+        email_body = st.text_area("Email Body (use {candidate_name}, {score_percent}, {years_experience}, {ai_suggestion})", default_body, height=300)
 
-else:
-    st.warning(f"⚠️ No candidates met the defined shortlisting criteria (score ≥ {cutoff_score}% and experience ≥ {min_exp_required} yrs). Please adjust criteria in the **Resume Screener** tab or upload more resumes.")
+        if st.button("🚀 Send Emails to Shortlisted Candidates"):
+            if not sender_email or not sender_password:
+                st.error("Please enter your sender email and password.")
+                return
+
+            try:
+                with smtplib.SMTP(smtp_server, smtp_port) as server:
+                    server.starttls() # Secure the connection
+                    server.login(sender_email, sender_password)
+
+                    for index, row in shortlisted_candidates.iterrows():
+                        candidate_name = row['Candidate Name']
+                        candidate_email = row['Email']
+                        score_percent = row['Score (%)']
+                        years_experience = row['Years Experience']
+                        ai_suggestion = row['AI Suggestion']
+
+                        # Format the email body with actual candidate data
+                        formatted_body = email_body.format(
+                            candidate_name=candidate_name,
+                            score_percent=score_percent,
+                            years_experience=years_experience,
+                            ai_suggestion=ai_suggestion
+                        )
+
+                        msg = MIMEMultipart()
+                        msg['From'] = sender_email
+                        msg['To'] = candidate_email
+                        msg['Subject'] = email_subject
+                        msg.attach(MIMEText(formatted_body, 'plain'))
+
+                        server.send_message(msg)
+                        st.success(f"Email sent to {candidate_name} ({candidate_email})")
+                        
+                        # Add sent email to session state for tracking
+                        if 'sent_emails_log' not in st.session_state:
+                            st.session_state['sent_emails_log'] = []
+                        st.session_state['sent_emails_log'].append({
+                            "timestamp": pd.Timestamp.now().isoformat(),
+                            "candidate_name": candidate_name,
+                            "candidate_email": candidate_email,
+                            "subject": email_subject,
+                            "body_snippet": formatted_body[:100] + "..." # Log a snippet
+                        })
+
+                st.success("All emails sent successfully!")
+            except smtplib.SMTPAuthenticationError:
+                st.error("Email sending failed: Invalid email or app password. For Gmail, you might need to use an App Password.")
+            except smtplib.SMTPConnectError:
+                st.error(f"Email sending failed: Could not connect to SMTP server {smtp_server}:{smtp_port}. Check server address and port.")
+            except Exception as e:
+                st.error(f"An unexpected error occurred during email sending: {e}")
+
+    except Exception as e:
+        st.error(f"An error occurred while preparing candidate data: {e}")
+
+
+# This ensures the function is called when email_page.py is executed (via exec() or direct import)
+if __name__ == "__main__":
+    send_email_to_candidate()
