@@ -123,20 +123,35 @@ if tab == "🏠 Dashboard":
             cutoff_score = st.session_state.get('screening_cutoff_score', 75) # Default to 75 if not set
             min_exp_required = st.session_state.get('screening_min_experience', 2) # Default to 2 if not set
 
-            shortlisted = df_results[(df_results["Score (%)"] >= cutoff_score) & 
-                                     (df_results["Years Experience"] >= min_exp_required)].shape[0]
+            shortlisted_df = df_results[(df_results["Score (%)"] >= cutoff_score) & 
+                                     (df_results["Years Experience"] >= min_exp_required)]
+            shortlisted = shortlisted_df.shape[0]
             avg_score = df_results["Score (%)"].mean()
         except Exception as e:
             st.error(f"Error processing screening results from session state: {e}")
             df_results = pd.DataFrame() # Reset df_results if error occurs
+            shortlisted_df = pd.DataFrame() # Ensure this is also reset
     else:
         st.info("No screening results available in this session yet. Please run the Resume Screener.")
+        shortlisted_df = pd.DataFrame() # Ensure this is initialized even if no results
 
 
     col1, col2, col3 = st.columns(3)
     col1.markdown(f"""<div class="dashboard-card">📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True)
     col2.markdown(f"""<div class="dashboard-card">📝 <br><b>{jd_count}</b><br>Job Descriptions</div>""", unsafe_allow_html=True)
-    col3.markdown(f"""<div class="dashboard-card">✅ <br><b>{shortlisted}</b><br>Shortlisted Candidates</div>""", unsafe_allow_html=True)
+    
+    with col3:
+        # Make the "Shortlisted Candidates" card interactive
+        st.markdown(f"""<div class="dashboard-card">✅ <br><b>{shortlisted}</b><br>Shortlisted Candidates</div>""", unsafe_allow_html=True)
+        if shortlisted > 0:
+            with st.expander(f"View {shortlisted} Shortlisted Names"):
+                for idx, row in shortlisted_df.iterrows():
+                    st.markdown(f"- **{row['Candidate Name']}** (Score: {row['Score (%)']:.1f}%, Exp: {row['Years Experience']:.1f} yrs)")
+        elif 'screening_results' in st.session_state and st.session_state['screening_results']:
+            st.info("No candidates met the current shortlisting criteria.")
+        else:
+            st.info("Run the screener to see shortlisted candidates.")
+
 
     col4, col5, col6 = st.columns(3)
     col4.markdown(f"""<div class="dashboard-card">📈 <br><b>{avg_score:.1f}%</b><br>Avg Score</div>""", unsafe_allow_html=True)
@@ -152,10 +167,13 @@ if tab == "🏠 Dashboard":
     # Optional: Dashboard Insights
     if not df_results.empty: # Use df_results loaded from session state
         try:
-            df_results['Tag'] = df_results.apply(lambda row:
-                "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3
-                else "✅ Good Fit" if row['Score (%)'] >= 75
-                else "⚠️ Needs Review", axis=1)
+            # Updated Tagging logic from screener.py
+            df_results['Tag'] = df_results.apply(lambda row: 
+                "👑 Exceptional Match" if row['Score (%)'] >= 90 and row['Years Experience'] >= 5 and row['Semantic Similarity'] >= 0.85 else (
+                "🔥 Strong Candidate" if row['Score (%)'] >= 80 and row['Years Experience'] >= 3 and row['Semantic Similarity'] >= 0.7 else (
+                "✨ Promising Fit" if row['Score (%)'] >= 60 and row['Years Experience'] >= 1 else (
+                "⚠️ Needs Review" if row['Score (%)'] >= 40 else 
+                "❌ Limited Match"))), axis=1)
 
             st.markdown("### 📊 Dashboard Insights")
 
