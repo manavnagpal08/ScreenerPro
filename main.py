@@ -109,7 +109,7 @@ html, body, [class*="css"] {
     font-weight: 600;
 }
 
-/* --- IMPORTANT: CSS to hide ONLY the GitHub button and associated top-right elements --- */
+/* --- Start of GitHub button and badge hiding CSS --- */
 
 /* Target the main toolbar where the deploy/fork elements are */
 div[data-testid="stToolbar"] {
@@ -140,10 +140,7 @@ div[data-testid="stConnectionStatus"] {
     visibility: hidden !important;
 }
 
-/* If the ellipsis (three dots) is still visible and you want to hide it,
-   it's often part of the main menu. Hiding #MainMenu will hide it,
-   but it will also hide the "About" and "Settings" options.
-   Use with caution if you need those. */
+/* Hide the hamburger menu (if it's not needed - this includes the ellipsis icon) */
 #MainMenu {
     visibility: hidden;
     display: none !important;
