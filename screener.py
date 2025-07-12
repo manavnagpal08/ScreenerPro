@@ -611,8 +611,13 @@ with col1:
             st.text_area("Job Description Content", jd_text, height=200, disabled=True, label_visibility="collapsed")
 
 with col2:
+    # Store cutoff and min_experience in session state
     cutoff = st.slider("📈 **Minimum Score Cutoff (%)**", 0, 100, 75, help="Candidates scoring below this percentage will be flagged for closer review or considered less suitable.")
+    st.session_state['screening_cutoff_score'] = cutoff # Store in session state
+
     min_experience = st.slider("💼 **Minimum Experience Required (Years)**", 0, 15, 2, help="Candidates with less than this experience will be noted.")
+    st.session_state['screening_min_experience'] = min_experience # Store in session state
+
     st.markdown("---")
     st.info("Once criteria are set, upload resumes below to begin screening.")
 
