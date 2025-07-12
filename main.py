@@ -22,9 +22,6 @@ from analytics import analytics_dashboard_page # Import the analytics page funct
 # from notes import candidate_notes_page # Renamed from notes.py to candidate_notes_page.py for clarity if it's a dedicated page
 
 
-
-
-
 # --- Page Config (Should only be in main.py) ---
 st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide", page_icon="🧠")
 
@@ -120,6 +117,10 @@ html, body, [class*="css"] {
     font-size: 1rem;
     font-weight: 600;
 }
+/* CSS to hide the GitHub ribbon (fork me on GitHub button) */
+.css-1jc7ptx, .e1ewe7hr3, .e1ewe7hr1 {
+    display: none !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -169,7 +170,7 @@ if tab == "🏠 Dashboard":
             min_exp_required = st.session_state.get('screening_min_experience', 2) # Default to 2 if not set
 
             shortlisted_df = df_results[(df_results["Score (%)"] >= cutoff_score) & 
-                                     (df_results["Years Experience"] >= min_exp_required)]
+                                        (df_results["Years Experience"] >= min_exp_required)]
             shortlisted = shortlisted_df.shape[0]
             avg_score = df_results["Score (%)"].mean()
         except Exception as e:
