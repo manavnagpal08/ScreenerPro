@@ -19,6 +19,9 @@ st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wid
 
 # --- Dark Mode Toggle ---
 dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
+# Determine the current background color based on dark mode state
+# This variable will be used in the injected CSS
+current_bg_color = "#FFFFFF" # Default light mode background
 if dark_mode:
     st.markdown("""
     <style>
@@ -26,9 +29,12 @@ if dark_mode:
     .block-container { background-color: #1e1e1e !important; }
     </style>
     """, unsafe_allow_html=True)
+    current_bg_color = "#121212" # Dark mode background
 
 # --- Global Fonts & UI Styling & Specific Streamlit UI Element Hiding ---
-st.markdown("""
+# Note: I'm embedding the current_bg_color into the CSS string directly.
+# This makes the CSS dynamic based on your dark mode toggle.
+st.markdown(f"""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
 html, body, [class*="css"] {
@@ -109,50 +115,69 @@ html, body, [class*="css"] {
     font-weight: 600;
 }
 
-/* --- Start of GitHub button and badge hiding CSS --- */
+/* --- Start of "invisibilize" CSS --- */
 
-/* Target the main toolbar where the deploy/fork elements are */
-div[data-testid="stToolbar"] {
-    display: none !important;
-    visibility: hidden !important;
+/* Target the main header bar and make its background transparent */
+/* This is crucial for the top-right elements (Fork, Share) to blend in */
+header[data-testid="stHeader"] {
+    background-color: transparent !important;
+    color: {current_bg_color} !important; /* Try to make text/icons blend */
 }
 
-/* Target the "Deploy" button specifically (which often includes the Fork icon) */
+/* Target the toolbar/buttons within the header and try to blend them */
+div[data-testid="stToolbar"],
 .stDeployButton {
-    display: none !important;
-    visibility: hidden !important;
+    background-color: transparent !important;
+    color: {current_bg_color} !important; /* Make icons/text blend */
+    border: none !important; /* Remove any borders */
 }
 
-/* Specific selector for the Streamlit's connection status/badge (often "Hosted with Streamlit") */
-div[data-testid="stConnectionStatus"] {
-    display: none !important;
-    visibility: hidden !important;
-}
-
-/* Fallback/additional selectors if the above don't fully work for your Streamlit version */
+/* Specific selectors for the icons and text inside the toolbar/buttons */
 .viewerBadge_container__1QSob,
 .styles_viewerBadge__1yB5_,
 .viewerBadge_link__1S137,
 .viewerBadge_text__1JaDK,
 #GithubIcon,
 .css-1jc7ptx, .e1ewe7hr3, .e1ewe7hr1 {
-    display: none !important;
-    visibility: hidden !important;
+    color: {current_bg_color} !important; /* Make icons/text blend */
+    background-color: transparent !important; /* Ensure background is clear */
+    /* If still visible, try to shrink or move off-screen as a last resort */
+    /* width: 0 !important; height: 0 !important; overflow: hidden !important; */
+    /* font-size: 0 !important; */
 }
 
-/* Hide the hamburger menu (if it's not needed - this includes the ellipsis icon) */
+/* Hide the hamburger menu (if it's not needed, but can hide useful debug options) */
 #MainMenu {
     visibility: hidden;
     display: none !important;
 }
 
-/* Ensure the Streamlit footer is hidden */
-footer {
-    visibility: hidden;
-    display: none !important;
+/* "Hosted with Streamlit" badge at the bottom */
+div[data-testid="stConnectionStatus"] {
+    background-color: {current_bg_color} !important; /* Match app background */
+    color: {current_bg_color} !important; /* Make text blend */
+    border: none !important; /* Remove any border */
+    box-shadow: none !important; /* Remove any shadow */
+    /* Potentially make it smaller or move it if still visible */
+    /* transform: scale(0.1); opacity: 0; */
 }
 
-/* --- End of GitHub button and badge hiding CSS --- */
+/* Fallback for the badge if data-testid changes or isn't present */
+.st-emotion-cache-ch5fef { /* This class is often associated with the badge - inspect if it changes */
+    background-color: {current_bg_color} !important;
+    color: {current_bg_color} !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Ensure the Streamlit footer itself also blends if it contains the badge */
+footer {
+    background-color: {current_bg_color} !important;
+    color: {current_bg_color} !important;
+    border: none !important;
+}
+
+/* --- End of "invisibilize" CSS --- */
 
 </style>
 """, unsafe_allow_html=True)
@@ -355,9 +380,6 @@ elif tab == "🧠 Resume Screener":
     resume_screener_page()
 
 elif tab == "📁 Manage JDs":
-    # As per previous conversations, assuming manage_jds.py, email_page.py, search.py, notes.py
-    # are separate files and their logic is intended to be executed directly via exec()
-    # If they contain functions, import and call them as: from manage_jds import manage_jds_page; manage_jds_page()
     with open("manage_jds.py", encoding="utf-8") as f:
         exec(f.read())
 
