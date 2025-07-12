@@ -12,4 +12,4 @@ NLTK
 firebase-admin
 simplejson
 plotly
-docx2txt
+
