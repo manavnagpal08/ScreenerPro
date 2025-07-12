@@ -5,7 +5,7 @@ import os
 
 # File to store user credentials
 USER_DB_FILE = "users.json"
-ADMIN_USERNAME = "admin@screenerpro" # Define your admin username here
+ADMIN_USERNAME = "admin@forscreenerpro" # Define your admin username here
 
 def load_users():
     """Loads user data from the JSON file."""
