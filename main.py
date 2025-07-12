@@ -25,7 +25,7 @@ st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wid
 # --- Dark Mode Toggle ---
 dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
 
-# --- Global Fonts & UI Styling (Re-integrated custom CSS) ---
+# --- Global Fonts & UI Styling (THIS IS THE CORRECT PLACE FOR ALL YOUR CSS) ---
 st.markdown(f"""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -142,14 +142,14 @@ h1, h2, h3, h4, h5, h6, .stMarkdown, .stText, .stCode, .stProgress, .stAlert {{
 
 /* Input fields, text areas, number inputs */
 div[data-testid="stTextInput"],
-div[data-testid="stTextArea"] {{
+div[data-testid="stTextArea"] {{ /* REMOVED div[data-testid="stNumberInput"] from here as requested earlier */
     background-color: {'#2a2a2a' if dark_mode else 'white'};
     color: {'white' if dark_mode else 'black'};
     border: 1px solid {'#3a3a3a' if dark_mode else '#ccc'};
     border-radius: 0.5rem;
 }}
 div[data-testid="stTextInput"] input,
-div[data-testid="stTextArea"] textarea {{
+div[data-testid="stTextArea"] textarea {{ /* REMOVED div[data-testid="stNumberInput"] from here as requested earlier */
     background-color: {'#2a2a2a' if dark_mode else 'white'} !important;
     color: {'white' if dark_mode else 'black'} !important;
 }}
