@@ -9,8 +9,9 @@ import json
 # Import the page functions from their respective files
 from login import login_section
 from email_sender import send_email_to_candidate
-from screener import resume_screener_page
-from analytics import analytics_dashboard_page
+from screener import resume_screener_page # Import the screener page function
+from analytics import analytics_dashboard_page # Import the analytics page function
+
 
 # --- Page Config (Should only be in main.py) ---
 st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide", page_icon="🧠")
@@ -26,7 +27,7 @@ if dark_mode:
     </style>
     """, unsafe_allow_html=True)
 
-# --- Global Fonts & UI Styling & Hiding Specific Streamlit UI Elements ---
+# --- Global Fonts & UI Styling & Specific Streamlit UI Element Hiding ---
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -108,19 +109,27 @@ html, body, [class*="css"] {
     font-weight: 600;
 }
 
-/* --- CSS to hide the "Fork" button and its surrounding elements --- */
-header[data-testid="stHeader"] {
-    display: none !important;
-    visibility: hidden !important;
-}
+/* --- IMPORTANT: CSS to hide ONLY the GitHub button and associated top-right elements --- */
+
+/* Target the main toolbar where the deploy/fork elements are */
 div[data-testid="stToolbar"] {
     display: none !important;
     visibility: hidden !important;
 }
+
+/* Target the "Deploy" button specifically (which often includes the Fork icon) */
 .stDeployButton {
     display: none !important;
     visibility: hidden !important;
 }
+
+/* Specific selector for the Streamlit's connection status/badge (often "Hosted with Streamlit") */
+div[data-testid="stConnectionStatus"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Fallback/additional selectors if the above don't fully work for your Streamlit version */
 .viewerBadge_container__1QSob,
 .styles_viewerBadge__1yB5_,
 .viewerBadge_link__1S137,
@@ -130,20 +139,23 @@ div[data-testid="stToolbar"] {
     display: none !important;
     visibility: hidden !important;
 }
+
+/* If the ellipsis (three dots) is still visible and you want to hide it,
+   it's often part of the main menu. Hiding #MainMenu will hide it,
+   but it will also hide the "About" and "Settings" options.
+   Use with caution if you need those. */
 #MainMenu {
     visibility: hidden;
     display: none !important;
 }
+
+/* Ensure the Streamlit footer is hidden */
 footer {
     visibility: hidden;
     display: none !important;
 }
-/* If a generic <header> or <footer> element exists from Streamlit, hide it */
-header, footer {
-    visibility: hidden;
-    display: none !important;
-}
-/* --- End of hiding CSS --- */
+
+/* --- End of GitHub button and badge hiding CSS --- */
 
 </style>
 """, unsafe_allow_html=True)
@@ -346,6 +358,9 @@ elif tab == "🧠 Resume Screener":
     resume_screener_page()
 
 elif tab == "📁 Manage JDs":
+    # As per previous conversations, assuming manage_jds.py, email_page.py, search.py, notes.py
+    # are separate files and their logic is intended to be executed directly via exec()
+    # If they contain functions, import and call them as: from manage_jds import manage_jds_page; manage_jds_page()
     with open("manage_jds.py", encoding="utf-8") as f:
         exec(f.read())
 
@@ -381,9 +396,9 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("### Connect with Manav Nagpal")
 st.sidebar.markdown(
     "[LinkedIn Profile](https://www.linkedin.com/in/manav-nagpal-83b935209/) "
-    "&nbsp; 🔗"
+    "&nbsp; 🔗" # Using a link emoji as a simple icon
 )
 st.sidebar.markdown(
     "[Portfolio Website](https://manavnagpal.netlify.app/) "
-    "&nbsp; 🌐"
+    "&nbsp; 🌐" # Using a globe emoji for portfolio
 )
