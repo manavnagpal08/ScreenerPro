@@ -172,53 +172,7 @@ div[data-testid="stNumberInput"] input {{
 }}
 
 
-/* --- Start of Hiding Streamlit UI elements CSS --- */
 
-/* Hide the MainMenu (ellipsis icon) */
-#MainMenu {{
-    visibility: hidden;
-    display: none !important; /* Use display: none for complete removal from layout */
-}}
-
-/* Hide the entire top toolbar (Share, Fork, etc.) - this should hide the GitHub button too */
-div[data-testid="stToolbar"] {{
-    display: none !important;
-    visibility: hidden !important;
-}}
-
-/* Hide the "Hosted with Streamlit" badge at the bottom */
-div[data-testid="stConnectionStatus"] {{
-    display: none !important;
-    visibility: hidden !important;
-}}
-
-/* Other common elements to hide for a cleaner look */
-footer {{visibility: hidden; display: none !important;}}
-header {{visibility: hidden; display: none !important;}}
-.stDeployButton {{display: none !important; visibility: hidden !important;}}
-
-/* These selectors target the badge and possibly the GitHub icon more directly if they are not part of stToolbar */
-/* Note: Dynamic class names like st-emotion-cache-... are prone to breaking. */
-/* The data-testid selector for stToolbar is generally more stable. */
-/* These are included for completeness but data-testid should be primary. */
-.viewerBadge_container__1QSob,
-.styles_viewerBadge__1yB5_,
-.viewerBadge_link__1S137,
-.viewerBadge_text__1JaDK,
-#GithubIcon,
-.css-1jc7ptx, .e1ewe7hr3, .e1ewe7hr1 {{
-    display: none !important;
-    visibility: hidden !important;
-}}
-
-</style>
-""", unsafe_allow_html=True)
-
-# Set Matplotlib style for dark mode if active
-if dark_mode:
-    plt.style.use('dark_background')
-else:
-    plt.style.use('default') # Or 'seaborn-v0_8' or any other light theme you prefer
 
 
 # --- Branding ---
