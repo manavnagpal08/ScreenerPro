@@ -174,7 +174,7 @@ div[data-testid="stNumberInput"] input {{
 
 
 <style>
-.st-emotion-cache-1j22a0y e4x2yc34
+.st-emotion-cache-30do4w ekuhni81
 {
     visibility: hidden;
 }
