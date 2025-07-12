@@ -28,119 +28,204 @@ st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wid
 
 # --- Dark Mode Toggle ---
 dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
-if dark_mode:
-    st.markdown("""
-    <style>
-    body { background-color: #121212 !important; color: white !important; }
-    .block-container { background-color: #1e1e1e !important; }
-    /* Dark mode specific styles for cards */
-    .dashboard-card, .custom-dashboard-button {
-        background: linear-gradient(145deg, #2a2a2a, #3a3a3a) !important; /* Darker gradient */
-        border: 1px solid #444 !important;
-        color: white !important; /* Ensure text is white */
-    }
-    .dashboard-card:hover, .custom-dashboard-button:hover {
-        transform: translateY(-6px);
-        box-shadow: 0 10px 24px rgba(0,0,0,0.3) !important; /* Darker shadow */
-        background: linear-gradient(145deg, #3a3a3a, #4a4a4a) !important;
-    }
-    .dashboard-header {
-        color: #00cec9 !important; /* Keep a bright accent for header */
-        border-bottom: 3px solid #00cec9 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    # Set Matplotlib style for dark mode if active
-    plt.style.use('dark_background')
-else:
-    # Reset Matplotlib style to default/light if dark mode is off
-    plt.style.use('default') # Or 'seaborn-v0_8' or any other light theme you prefer
 
-
-# --- Global Fonts & UI Styling ---
-st.markdown("""
+# --- Global Fonts & UI Styling & Hiding Specific Streamlit UI Elements ---
+# This entire markdown block will contain both global styles, dynamic dark mode styles,
+# and the rules for hiding Streamlit UI elements.
+st.markdown(f"""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
-html, body, [class*="css"] {
+/* Global Styles - apply to both modes unless overridden */
+html, body, [class*="css"] {{
     font-family: 'Inter', sans-serif;
-}
-.main .block-container {
+    color: {'white' if dark_mode else '#333333'}; /* Main text color */
+}}
+
+.main .block-container {{
     padding: 2rem;
     border-radius: 20px;
-    background: rgba(255, 255, 255, 0.96); /* Light mode default */
-    box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+    background: {'#1e1e1e' if dark_mode else 'rgba(255, 255, 255, 0.96)'}; /* Container background */
+    box-shadow: 0 12px 30px {'rgba(0,0,0,0.4)' if dark_mode else 'rgba(0,0,0,0.1)'};
     animation: fadeIn 0.8s ease-in-out;
-}
-@keyframes fadeIn {
-    0% { opacity: 0; transform: translateY(20px); }
-    100% { opacity: 1; transform: translateY(0); }
-}
-/* Default light mode styles for cards and buttons */
-.dashboard-card {
+}}
+
+@keyframes fadeIn {{
+    0% {{ opacity: 0; transform: translateY(20px); }}
+    100% {{ opacity: 1; transform: translateY(0); }}
+}}
+
+.dashboard-card {{
     padding: 2rem;
     text-align: center;
     font-weight: 600;
     border-radius: 16px;
-    background: linear-gradient(145deg, #f1f2f6, #ffffff);
-    border: 1px solid #e0e0e0;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+    background: {'#2a2a2a' if dark_mode else 'linear-gradient(145deg, #f1f2f6, #ffffff)'}; /* Card background */
+    border: 1px solid {'#3a3a3a' if dark_mode else '#e0e0e0'};
+    box-shadow: 0 6px 18px {'rgba(0,0,0,0.2)' if dark_mode else 'rgba(0,0,0,0.05)'};
     transition: transform 0.2s ease, box-shadow 0.3s ease;
     cursor: pointer;
-}
-.dashboard-card:hover {
+    color: {'white' if dark_mode else '#333'}; /* Card text color */
+}}
+
+.dashboard-card:hover {{
     transform: translateY(-6px);
-    box-shadow: 0 10px 24px rgba(0,0,0,0.1);
-    background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
-}
-.dashboard-header {
+    box-shadow: 0 10px 24px {'rgba(0,0,0,0.3)' if dark_mode else 'rgba(0,0,0,0.1)'};
+    background: {'#3a3a3a' if dark_mode else 'linear-gradient(145deg, #e0f7fa, #f1f1f1)'};
+}}
+
+.dashboard-header {{
     font-size: 2.2rem;
     font-weight: 700;
-    color: #222; /* Light mode default */
+    color: {'#00cec9' if dark_mode else '#222'}; /* Header color, use accent in dark mode */
     padding-bottom: 0.5rem;
     border-bottom: 3px solid #00cec9;
     display: inline-block;
     margin-bottom: 2rem;
     animation: slideInLeft 0.8s ease-out;
-}
-@keyframes slideInLeft {
-    0% { transform: translateX(-40px); opacity: 0; }
-    100% { transform: translateX(0); opacity: 1; }
-}
-/* New CSS for custom buttons to look like cards */
-.custom-dashboard-button {
+}}
+
+@keyframes slideInLeft {{
+    0% {{ transform: translateX(-40px); opacity: 0; }}
+    100% {{ transform: translateX(0); opacity: 1; }}
+}}
+
+.custom-dashboard-button {{
     width: 100%;
-    height: 100%; /* Ensure it takes full height of its column */
+    height: 100%;
     padding: 2rem;
     text-align: center;
     font-weight: 600;
     border-radius: 16px;
-    background: linear-gradient(145deg, #f1f2f6, #ffffff);
-    border: 1px solid #e0e0e0;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+    background: {'#2a2a2a' if dark_mode else 'linear-gradient(145deg, #f1f2f6, #ffffff)'};
+    border: 1px solid {'#3a3a3a' if dark_mode else '#e0e0e0'};
+    box-shadow: 0 6px 18px {'rgba(0,0,0,0.2)' if dark_mode else 'rgba(0,0,0,0.05)'};
     transition: transform 0.2s ease, box-shadow 0.3s ease;
     cursor: pointer;
     display: flex;
-    flex-direction: column; /* Stack icon and text vertically */
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    color: #333; /* Ensure text color is visible */
-    min-height: 120px; /* Ensure a consistent height for the buttons */
-}
-.custom-dashboard-button:hover {
+    color: {'white' if dark_mode else '#333'}; /* Button text color */
+    min-height: 120px;
+}}
+
+.custom-dashboard-button:hover {{
     transform: translateY(-6px);
-    box_shadow: 0 10px 24px rgba(0,0,0,0.1);
-    background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
-}
-.custom-dashboard-button span { /* For the icon */
+    box-shadow: 0 10px 24px {'rgba(0,0,0,0.3)' if dark_mode else 'rgba(0,0,0,0.1)'};
+    background: {'#3a3a3a' if dark_mode else 'linear-gradient(145deg, #e0f7fa, #f1f1f1)'};
+}}
+
+.custom-dashboard-button span {{
     font-size: 1.5rem;
     margin-bottom: 0.5rem;
-}
-.custom-dashboard-button div { /* For the text */
+}}
+
+.custom-dashboard-button div {{
     font-size: 1rem;
     font-weight: 600;
-}
+}}
+
+/* Streamlit Specific Overrides for Dark Mode Readability */
+h1, h2, h3, h4, h5, h6, .stMarkdown, .stText, .stCode, .stProgress, .stAlert {{
+    color: {'white' if dark_mode else '#333333'} !important;
+}}
+
+.stAlert {{
+    background-color: {'#333333' if dark_mode else 'inherit'} !important;
+    color: {'white' if dark_mode else 'inherit'} !important;
+    border-color: {'#555555' if dark_mode else 'inherit'} !important;
+}}
+
+/* For sidebar elements */
+.stSidebar {{
+    background-color: {'#1a1a1a' if dark_mode else '#f0f2f6'} !important;
+    color: {'white' if dark_mode else '#333333'} !important;
+}}
+.stSidebar .stRadio div, .stSidebar .stToggle label {{
+    color: {'white' if dark_mode else '#333333'} !important;
+}}
+
+/* Input fields, text areas, number inputs */
+div[data-testid="stTextInput"],
+div[data-testid="stTextArea"],
+div[data-testid="stNumberInput"] {{
+    background-color: {'#2a2a2a' if dark_mode else 'white'};
+    color: {'white' if dark_mode else 'black'};
+    border: 1px solid {'#3a3a3a' if dark_mode else '#ccc'};
+    border-radius: 0.5rem;
+}}
+div[data-testid="stTextInput"] input,
+div[data-testid="stTextArea"] textarea,
+div[data-testid="stNumberInput"] input {{
+    background-color: {'#2a2a2a' if dark_mode else 'white'} !important;
+    color: {'white' if dark_mode else 'black'} !important;
+}}
+
+/* Buttons */
+.stButton>button {{
+    background-color: {'#007bff' if dark_mode else '#00cec9'} !important;
+    color: white !important;
+    border: none !important;
+    box-shadow: 0 4px 8px {'rgba(0,0,0,0.3)' if dark_mode else 'rgba(0,0,0,0.1)'};
+}}
+.stButton>button:hover {{
+    background-color: {'#0056b3' if dark_mode else '#00a8a3'} !important;
+}}
+
+
+/* --- Start of Hiding Streamlit UI elements CSS --- */
+
+/* Your provided hide_st_style rules */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+
+/* More specific and robust hiding rules (from previous suggestions) */
+header[data-testid="stHeader"] {{
+    display: none !important;
+    visibility: hidden !important;
+}}
+
+div[data-testid="stToolbar"] {{
+    display: none !important;
+    visibility: hidden !important;
+}}
+
+.stDeployButton {{
+    display: none !important;
+    visibility: hidden !important;
+}}
+
+.viewerBadge_container__1QSob,
+.styles_viewerBadge__1yB5_,
+.viewerBadge_link__1S137,
+.viewerBadge_text__1JaDK,
+#GithubIcon,
+.css-1jc7ptx, .e1ewe7hr3, .e1ewe7hr1 {{
+    display: none !important;
+    visibility: hidden !important;
+}}
+
+div[data-testid="stConnectionStatus"] {{
+    display: none !important;
+    visibility: hidden !important;
+}}
+.st-emotion-cache-ch5fef {{
+    display: none !important;
+    visibility: hidden !important;
+}}
+
+/* --- End of Hiding Streamlit UI elements CSS --- */
+
 </style>
 """, unsafe_allow_html=True)
+
+# Set Matplotlib style for dark mode if active
+if dark_mode:
+    plt.style.use('dark_background')
+else:
+    plt.style.use('default') # Or 'seaborn-v0_8' or any other light theme you prefer
+
 
 # --- Branding ---
 # Assuming 'logo.png' exists in the same directory
@@ -237,7 +322,6 @@ if tab == "🏠 Dashboard":
     col4, col5, col6 = st.columns(3)
     col4.markdown(f"""<div class="dashboard-card">📈 <br><b>{avg_score:.1f}%</b><br>Avg Score</div>""", unsafe_allow_html=True)
     
-    # Modified buttons to use custom HTML with dashboard-card styling
     with col5:
         # This JavaScript snippet will set the session state and trigger a rerun
         # Streamlit will then switch the tab based on the 'tab_override'
