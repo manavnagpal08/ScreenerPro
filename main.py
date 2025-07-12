@@ -17,9 +17,9 @@ from analytics import analytics_dashboard_page # Import the analytics page funct
 # define their main logic within functions (e.g., manage_jds_page(), search_page(), candidate_notes_page())
 # and that these functions are imported here.
 # For example:
-from manage_jds import manage_jds_page
-from search import search_resumes_page
-from notes import candidate_notes_page # Renamed from notes.py to candidate_notes_page.py for clarity if it's a dedicated page
+# from manage_jds import manage_jds_page
+# from search import search_resumes_page
+# from notes import candidate_notes_page # Renamed from notes.py to candidate_notes_page.py for clarity if it's a dedicated page
 
 
 # --- Page Config (Should only be in main.py) ---
@@ -67,7 +67,7 @@ html, body, [class*="css"] {
 }
 .dashboard-card:hover {
     transform: translateY(-6px);
-    box_shadow: 0 10px 24px rgba(0,0,0,0.1);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.1);
     background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
 }
 .dashboard-header {
@@ -167,7 +167,7 @@ if tab == "🏠 Dashboard":
             min_exp_required = st.session_state.get('screening_min_experience', 2) # Default to 2 if not set
 
             shortlisted_df = df_results[(df_results["Score (%)"] >= cutoff_score) & 
-                                       (df_results["Years Experience"] >= min_exp_required)]
+                                     (df_results["Years Experience"] >= min_exp_required)]
             shortlisted = shortlisted_df.shape[0]
             avg_score = df_results["Score (%)"].mean()
         except Exception as e:
@@ -318,19 +318,43 @@ elif tab == "🧠 Resume Screener":
     resume_screener_page() # Call the function from screener.py
 
 elif tab == "📁 Manage JDs":
-    manage_jds_page() # Call the function from manage_jds.py
+    # Ensure manage_jds.py exists in the same directory and its logic is not in a function
+    # If you have a function like 'manage_jds_page' in manage_jds.py, import and call it:
+    # from manage_jds import manage_jds_page
+    # manage_jds_page()
+    # Otherwise, if it's a script meant to be executed directly:
+    with open("manage_jds.py", encoding="utf-8") as f:
+        exec(f.read())
 
 elif tab == "📊 Screening Analytics":
     analytics_dashboard_page() # Call the function from analytics.py
 
 elif tab == "📤 Email Candidates":
-    send_email_to_candidate() # Call the function from email_sender.py
+    # Ensure email_page.py exists in the same directory and its logic is not in a function
+    # If you have a function like 'email_candidates_page' in email_page.py, import and call it:
+    # from email_page import email_candidates_page
+    # email_candidates_page()
+    # Otherwise, if it's a script meant to be executed directly:
+    with open("email_page.py", encoding="utf-8") as f:
+        exec(f.read())
 
 elif tab == "🔍 Search Resumes":
-    search_resumes_page() # Call the function from search.py
+    # Ensure search.py exists in the same directory and its logic is not in a function
+    # If you have a function like 'search_resumes_page' in search.py, import and call it:
+    # from search import search_resumes_page
+    # search_resumes_page()
+    # Otherwise, if it's a script meant to be executed directly:
+    with open("search.py", encoding="utf-8") as f:
+        exec(f.read())
 
 elif tab == "📝 Candidate Notes":
-    candidate_notes_page() # Call the function from notes.py
+    # Ensure notes.py exists in the same directory and its logic is not in a function
+    # If you have a function like 'candidate_notes_page' in notes.py, import and call it:
+    # from notes import candidate_notes_page
+    # candidate_notes_page()
+    # Otherwise, if it's a script meant to be executed directly:
+    with open("notes.py", encoding="utf-8") as f:
+        exec(f.read())
 
 elif tab == "🚪 Logout":
     st.session_state.authenticated = False
@@ -346,7 +370,7 @@ st.sidebar.info(
     "and analyze candidate data to find the best fit for your roles."
 )
 st.sidebar.markdown("---")
-st.sidebar.markdown("### Connect with Me (Manav Nagpal)")
+st.sidebar.markdown("### Connect with Manav Nagpal")
 st.sidebar.markdown(
     "[LinkedIn Profile](https://www.linkedin.com/in/manav-nagpal-83b935209/) "
     "&nbsp; 🔗" # Using a link emoji as a simple icon
