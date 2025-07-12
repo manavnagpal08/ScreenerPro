@@ -118,7 +118,7 @@ with filter_cols[2]:
         "Set Shortlisting Cutoff Score (%)",
         min_value=0,
         max_value=100,
-        value=80,
+        value=80, # Default value for this analytics-specific slider
         step=1,
         key="shortlist_filter"
     )
@@ -212,8 +212,7 @@ with tab3:
             color_discrete_sequence=px.colors.qualitative.Pastel
         )
         st.plotly_chart(fig_pie, use_container_width=True)
-        # Plotly figures are automatically closed by Streamlit
-
+        # Plotly figures are automatically closed by Streamlit, so no plt.close() needed.
     else:
         st.info("Not enough data to generate Shortlist Breakdown.")
 
@@ -231,7 +230,7 @@ with tab4:
         color_discrete_map={f"Yes (Score >= {shortlist_threshold}%)": "green", "No": "red"}
     )
     st.plotly_chart(fig_scatter, use_container_width=True)
-    # Plotly figures are automatically closed by Streamlit
+    # Plotly figures are automatically closed by Streamlit, so no plt.close() needed.
 
 
 with tab5:
@@ -263,9 +262,9 @@ with tab5:
                 for s in str(row).split(',') if s.strip()
             ])
             if not all_missing.empty:
-                top_missing = all_missing.value_counts().head(10)
-                sns.set_style("whitegrid")
+                sns.set_style("whitegrid") # Apply style before creating figure
                 fig_ms, ax_ms = plt.subplots(figsize=(8, 4))
+                top_missing = all_missing.value_counts().head(10)
                 sns.barplot(x=top_missing.values, y=top_missing.index, ax=ax_ms, palette="coolwarm")
                 ax_ms.set_xlabel("Count")
                 ax_ms.set_ylabel("Missing Skill")
