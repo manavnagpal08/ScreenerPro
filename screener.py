@@ -135,13 +135,11 @@ CUSTOM_STOP_WORDS = set([
 ])
 STOP_WORDS = NLTK_STOP_WORDS.union(CUSTOM_STOP_WORDS)
 
-# --- MASTER SKILLS LIST ---
-# Paste your comprehensive list of skills here.
-# These skills will be used to filter words for the word cloud and
-# to identify 'Matched Keywords' and 'Missing Skills'.
-# Keep this set empty if you want the system to use its default stop word filtering.
+# --- MASTER_SKILLS List (Comprehensive and Cleaned) ---
+# This list is used to identify relevant keywords and skills from resumes and JDs.
+# It should be kept up-to-date with common and desired skills in your industry.
 MASTER_SKILLS = set([
-        # Product & Project Management
+    # Product & Project Management
     "Product Strategy", "Roadmap Development", "Agile Methodologies", "Scrum", "Kanban", "Jira", "Trello",
     "Feature Prioritization", "OKRs", "KPIs", "Stakeholder Management", "A/B Testing", "User Stories", "Epics",
     "Product Lifecycle", "Sprint Planning", "Project Charter", "Gantt Charts", "MVP", "Backlog Grooming",
@@ -930,5 +928,7 @@ def resume_screener_page():
         st.markdown("---") # Separator for each candidate
 
     st.info("Remember to check the Analytics Dashboard for in-depth visualizations of skill overlaps, gaps, and other metrics!")
+# This 'else' correctly belongs to the 'if jd_text and resume_files:' block.
+# Its indentation is crucial.
 else:
     st.info("Please upload a Job Description and at least one Resume to begin the screening process.")
