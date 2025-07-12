@@ -649,7 +649,7 @@ def generate_detailed_hr_assessment(candidate_name, score, years_exp, semantic_s
     # Tier 3: Promising Candidate
     elif score >= 60 and years_exp >= 1 and semantic_similarity >= 0.35:
         overall_assessment_title = "Promising Candidate: Requires Focused Review on Specific Gaps"
-        assessment_parts.append(f"**{candidate_name}** is a **promising candidate** with a score of {score:.2f}% and {years_exp:.1f} years of experience (semantic similarity: {semantic_similarity:.2f}). While demonstrating a foundational understanding (semantic similarity: {semantic_similarity:.2f}), there are areas that warrant deeper investigation to ensure a complete fit.")
+        assessment_parts.append(f"**{candidate_name}** is a **promising candidate** with a score of {score:.2f}% and {years_exp:.1f} years of experience. While demonstrating a foundational understanding (semantic similarity: {semantic_similarity:.2f}), there are areas that warrant deeper investigation to ensure a complete fit.")
         
         gaps = []
         if score < 70:
@@ -687,11 +687,13 @@ def semantic_score(resume_text, jd_text, years_exp):
     resume_clean = clean_text(resume_text)
 
     score = 0.0
+    feedback = "Initial assessment." # This will be overwritten by the generate_concise_ai_suggestion function
     semantic_similarity = 0.0
 
     if ml_model is None or model is None:
         st.warning("ML models not loaded. Providing basic score and generic feedback.")
         # Simplified fallback for score and feedback
+        # Use the new extraction logic for fallback as well
         resume_words = extract_relevant_keywords(resume_clean, MASTER_SKILLS if MASTER_SKILLS else STOP_WORDS)
         jd_words = extract_relevant_keywords(jd_clean, MASTER_SKILLS if MASTER_SKILLS else STOP_WORDS)
         
@@ -702,7 +704,9 @@ def semantic_score(resume_text, jd_text, years_exp):
         basic_score += min(years_exp * 5, 30) # Add up to 30 for experience
         score = round(min(basic_score, 100), 2)
         
-        return score, "Due to missing ML models, detailed AI suggestion cannot be provided.", 0.0 # Return 0 for semantic similarity if ML not available
+        feedback = "Due to missing ML models, a detailed AI suggestion cannot be provided. Basic score derived from keyword overlap. Manual review is highly recommended."
+        
+        return score, feedback, 0.0 # Return 0 for semantic similarity if ML not available
 
 
     try:
@@ -713,6 +717,7 @@ def semantic_score(resume_text, jd_text, years_exp):
         semantic_similarity = float(np.clip(semantic_similarity, 0, 1))
 
         # Internal calculation for model, not for display
+        # Use the new extraction logic for model features
         resume_words_filtered = extract_relevant_keywords(resume_clean, MASTER_SKILLS if MASTER_SKILLS else STOP_WORDS)
         jd_words_filtered = extract_relevant_keywords(jd_clean, MASTER_SKILLS if MASTER_SKILLS else STOP_WORDS)
         keyword_overlap_count = len(resume_words_filtered.intersection(jd_words_filtered))
@@ -737,12 +742,14 @@ def semantic_score(resume_text, jd_text, years_exp):
 
         score = float(np.clip(blended_score, 0, 100))
         
+        # The AI suggestion text will be generated separately for display by generate_concise_ai_suggestion.
         return round(score, 2), "AI suggestion will be generated...", round(semantic_similarity, 2) # Placeholder feedback
 
 
     except Exception as e:
         st.warning(f"Error during semantic scoring, falling back to basic: {e}")
         # Simplified fallback for score and feedback if ML prediction fails
+        # Use the new extraction logic for fallback
         resume_words = extract_relevant_keywords(resume_clean, MASTER_SKILLS if MASTER_SKILLS else STOP_WORDS)
         jd_words = extract_relevant_keywords(jd_clean, MASTER_SKILLS if MASTER_SKILLS else STOP_WORDS)
         
@@ -753,7 +760,9 @@ def semantic_score(resume_text, jd_text, years_exp):
         basic_score += min(years_exp * 5, 30) # Add up to 30 for experience
         score = round(min(basic_score, 100), 2)
 
-        return score, "Due to an error in core AI model, a detailed AI suggestion cannot be provided. Basic score derived. Manual review is highly recommended.", 0.0 # Return 0 for semantic similarity on fallback
+        feedback = "Due to an error in core AI model, a detailed AI suggestion cannot be provided. Basic score derived. Manual review is highly recommended."
+
+        return score, feedback, 0.0 # Return 0 for semantic similarity on fallback
 
 
 # --- Email Generation Function ---
@@ -773,8 +782,8 @@ The {sender_name}""")
 
 # --- Function to encapsulate the Resume Screener logic ---
 def resume_screener_page():
-    # Removed: st.set_page_config(layout="wide", page_title="ScreenerPro - AI Resume Screener", page_icon="🧠")
-    st.title("🧠 ScreenerPro – AI-Powered Resume Screener") # Kept title inside function as it's page-specific
+    # st.set_page_config(layout="wide", page_title="ScreenerPro - AI Resume Screener", page_icon="🧠") # Removed: should be in main.py
+    st.title("🧠 ScreenerPro – AI-Powered Resume Screener")
 
     # --- Job Description and Controls Section ---
     st.markdown("## ⚙️ Define Job Requirements & Screening Criteria")
@@ -910,7 +919,7 @@ def resume_screener_page():
 
         st.session_state['screening_results'] = results
         
-        # Save results to CSV for analytics.py to use (re-enabled)
+        # Save results to CSV for analytics.py to use (re-added as analytics.py was updated to use it)
         df.to_csv("results.csv", index=False)
 
 
@@ -1024,75 +1033,75 @@ def resume_screener_page():
         else:
             st.warning("No candidates met the defined screening criteria (score cutoff and minimum experience). You might consider adjusting the sliders or reviewing the uploaded resumes/JD.")
 
-    st.markdown("---")
+        st.markdown("---")
 
-    # Add a 'Tag' column for quick categorization
-    df['Tag'] = df.apply(lambda row: 
-        "👑 Exceptional Match" if row['Score (%)'] >= 90 and row['Years Experience'] >= 5 and row['Semantic Similarity'] >= 0.85 else (
-        "🔥 Strong Candidate" if row['Score (%)'] >= 80 and row['Years Experience'] >= 3 and row['Semantic Similarity'] >= 0.7 else (
-        "✨ Promising Fit" if row['Score (%)'] >= 60 and row['Years Experience'] >= 1 else (
-        "⚠️ Needs Review" if row['Score (%)'] >= 40 else 
-        "❌ Limited Match"))), axis=1)
+        # Add a 'Tag' column for quick categorization
+        df['Tag'] = df.apply(lambda row: 
+            "👑 Exceptional Match" if row['Score (%)'] >= 90 and row['Years Experience'] >= 5 and row['Semantic Similarity'] >= 0.85 else (
+            "🔥 Strong Candidate" if row['Score (%)'] >= 80 and row['Years Experience'] >= 3 and row['Semantic Similarity'] >= 0.7 else (
+            "✨ Promising Fit" if row['Score (%)'] >= 60 and row['Years Experience'] >= 1 else (
+            "⚠️ Needs Review" if row['Score (%)'] >= 40 else 
+            "❌ Limited Match"))), axis=1)
 
-    st.markdown("## 📋 Comprehensive Candidate Results Table")
-    st.caption("Full details for all processed resumes. **For deep dive analytics and keyword breakdowns, refer to the Analytics Dashboard.**")
-    
-    # Define columns to display in the comprehensive table
-    comprehensive_cols = [
-        'Candidate Name',
-        'Score (%)',
-        'Years Experience',
-        'Semantic Similarity',
-        'Tag', # Keep the custom tag
-        'Email',
-        'AI Suggestion', # This will still contain the full AI suggestion text but is in a table, not per-candidate verbose display
-        'Matched Keywords',
-        'Missing Skills',
-        # 'Resume Raw Text' # Removed from default display to keep table manageable, can be viewed in Analytics
-    ]
-    
-    # Ensure all columns exist before trying to display them
-    final_display_cols = [col for col in comprehensive_cols if col in df.columns]
+        st.markdown("## 📋 Comprehensive Candidate Results Table")
+        st.caption("Full details for all processed resumes. **For deep dive analytics and keyword breakdowns, refer to the Analytics Dashboard.**")
+        
+        # Define columns to display in the comprehensive table
+        comprehensive_cols = [
+            'Candidate Name',
+            'Score (%)',
+            'Years Experience',
+            'Semantic Similarity',
+            'Tag', # Keep the custom tag
+            'Email',
+            'AI Suggestion', # This will still contain the concise AI suggestion text
+            'Matched Keywords',
+            'Missing Skills',
+            # 'Resume Raw Text' # Removed from default display to keep table manageable, can be viewed in Analytics
+        ]
+        
+        # Ensure all columns exist before trying to display them
+        final_display_cols = [col for col in comprehensive_cols if col in df.columns]
 
-    st.dataframe(
-        df[final_display_cols],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Score (%)": st.column_config.ProgressColumn(
-                "Score (%)",
-                help="Matching score against job requirements",
-                format="%f",
-                min_value=0,
-                max_value=100,
-            ),
-            "Years Experience": st.column_config.NumberColumn(
-                "Years Experience",
-                help="Total years of professional experience",
-                format="%.1f years",
-            ),
-            "Semantic Similarity": st.column_config.NumberColumn(
-                "Semantic Similarity",
-                help="Conceptual similarity between JD and Resume (higher is better)",
-                format="%.2f",
-                min_value=0,
-                max_value=1
-            ),
-            "AI Suggestion": st.column_config.Column(
-                "AI Suggestion",
-                help="AI's overall assessment and recommendation"
-            ),
-            "Matched Keywords": st.column_config.Column(
-                "Matched Keywords",
-                help="Keywords found in both JD and Resume"
-            ),
-            "Missing Skills": st.column_config.Column(
-                "Missing Skills",
-                help="Key skills from JD not found in Resume"
-            ),
-        }
-    )
+        st.dataframe(
+            df[final_display_cols],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Score (%)": st.column_config.ProgressColumn(
+                    "Score (%)",
+                    help="Matching score against job requirements",
+                    format="%f",
+                    min_value=0,
+                    max_value=100,
+                ),
+                "Years Experience": st.column_config.NumberColumn(
+                    "Years Experience",
+                    help="Total years of professional experience",
+                    format="%.1f years",
+                ),
+                "Semantic Similarity": st.column_config.NumberColumn(
+                    "Semantic Similarity",
+                    help="Conceptual similarity between JD and Resume (higher is better)",
+                    format="%.2f",
+                    min_value=0,
+                    max_value=1
+                ),
+                "AI Suggestion": st.column_config.Column(
+                    "AI Suggestion",
+                    help="AI's concise overall assessment and recommendation"
+                ),
+                "Matched Keywords": st.column_config.Column(
+                    "Matched Keywords",
+                    help="Keywords found in both JD and Resume"
+                ),
+                "Missing Skills": st.column_config.Column(
+                    "Missing Skills",
+                    help="Key skills from JD not found in Resume"
+                ),
+            }
+        )
 
-    st.info("Remember to check the Analytics Dashboard for in-depth visualizations of skill overlaps, gaps, and other metrics!")
-else:
-    st.info("Please upload a Job Description and at least one Resume to begin the screening process.")
+        st.info("Remember to check the Analytics Dashboard for in-depth visualizations of skill overlaps, gaps, and other metrics!")
+    else:
+        st.info("Please upload a Job Description and at least one Resume to begin the screening process.")
