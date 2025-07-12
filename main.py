@@ -12,9 +12,10 @@ from login import (
     admin_password_reset_section, admin_disable_enable_user_section,
     is_current_user_admin
 )
-from email_sender import send_email_to_candidate
-from screener import resume_screener_page
-from analytics import analytics_dashboard_page
+# Assuming these files exist in your project structure
+# from email_sender import send_email_to_candidate
+# from screener import resume_screener_page
+# from analytics import analytics_dashboard_page
 
 
 # --- Page Config ---
@@ -141,16 +142,14 @@ h1, h2, h3, h4, h5, h6, .stMarkdown, .stText, .stCode, .stProgress, .stAlert {{
 
 /* Input fields, text areas, number inputs */
 div[data-testid="stTextInput"],
-div[data-testid="stTextArea"],
-div[data-testid="stNumberInput"] {{
+div[data-testid="stTextArea"] {{
     background-color: {'#2a2a2a' if dark_mode else 'white'};
     color: {'white' if dark_mode else 'black'};
     border: 1px solid {'#3a3a3a' if dark_mode else '#ccc'};
     border-radius: 0.5rem;
 }}
 div[data-testid="stTextInput"] input,
-div[data-testid="stTextArea"] textarea,
-div[data-testid="stNumberInput"] input {{
+div[data-testid="stTextArea"] textarea {{
     background-color: {'#2a2a2a' if dark_mode else 'white'} !important;
     color: {'white' if dark_mode else 'black'} !important;
 }}
@@ -229,7 +228,10 @@ if tab == "🏠 Dashboard":
 
     # Initialize metrics
     resume_count = 0
-    jd_count = len([f for f in os.listdir("data") if f.endswith(".txt")]) if os.path.exists("data") else 0
+    # Create the 'data' directory if it doesn't exist
+    if not os.path.exists("data"):
+        os.makedirs("data")
+    jd_count = len([f for f in os.listdir("data") if f.endswith(".txt")])
     shortlisted = 0
     avg_score = 0.0
     df_results = pd.DataFrame()
@@ -257,12 +259,9 @@ if tab == "🏠 Dashboard":
         st.info("No screening results available in this session yet. Please run the Resume Screener.")
         shortlisted_df = pd.DataFrame()
 
-    # Removed 'Registered Users' count from Dashboard as per request
-
-    col1, col2, col3 = st.columns(3) # Adjusted to 3 columns for metrics, as user count is removed
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-        # Re-applied custom dashboard card for "Resumes Screened"
         st.markdown(f"""<div class="dashboard-card">📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True)
         if resume_count > 0:
             with st.expander(f"View {resume_count} Screened Names"):
@@ -274,11 +273,9 @@ if tab == "🏠 Dashboard":
             st.info("Run the screener to see screened resumes.")
 
     with col2:
-        # Re-applied custom dashboard card for "Job Descriptions"
         st.markdown(f"""<div class="dashboard-card">📝 <br><b>{jd_count}</b><br>Job Descriptions</div>""", unsafe_allow_html=True)
 
     with col3:
-        # Re-applied custom dashboard card for "Shortlisted Candidates"
         st.markdown(f"""<div class="dashboard-card">✅ <br><b>{shortlisted}</b><br>Shortlisted Candidates</div>""", unsafe_allow_html=True)
         if shortlisted > 0:
             with st.expander(f"View {shortlisted} Shortlisted Names"):
@@ -289,10 +286,9 @@ if tab == "🏠 Dashboard":
         else:
             st.info("Run the screener to see shortlisted candidates.")
 
-    col4, col5, col6 = st.columns(3) # Adjusted to 3 columns for remaining metrics/buttons
+    col4, col5, col6 = st.columns(3)
     col4.markdown(f"""<div class="dashboard-card">📈 <br><b>{avg_score:.1f}%</b><br>Avg Score</div>""", unsafe_allow_html=True)
 
-    # Re-applied custom dashboard buttons with onclick functionality
     with col5:
         st.markdown("""
         <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '🧠 Resume Screener']}}, '*');">
@@ -415,7 +411,7 @@ if tab == "🏠 Dashboard":
 # ⚙️ Admin Tools Section
 # ======================
 elif tab == "⚙️ Admin Tools":
-    st.markdown('<div class="dashboard-header">⚙️ Admin Tools</div>', unsafe_allow_html=True) # Re-applied custom header
+    st.markdown('<div class="dashboard-header">⚙️ Admin Tools</div>', unsafe_allow_html=True)
     if is_admin:
         st.write("Welcome, Administrator! Here you can manage user accounts.")
         st.markdown("---")
@@ -450,39 +446,72 @@ elif tab == "⚙️ Admin Tools":
 # ======================
 # Page Routing via function calls (remaining pages)
 # ======================
+# Placeholder for screener.py, email_sender.py, analytics.py, manage_jds.py, search.py, notes.py
+# You need to ensure these files exist and define the respective page functions.
+# For demonstration, these will print a message if the files are not available.
+
 elif tab == "🧠 Resume Screener":
-    resume_screener_page()
+    try:
+        from screener import resume_screener_page
+        resume_screener_page()
+    except ImportError:
+        st.info("`screener.py` not found or function not defined. Please create it.")
+    except Exception as e:
+        st.error(f"Error loading Resume Screener: {e}")
+
 
 elif tab == "📁 Manage JDs":
     try:
+        # Assuming manage_jds.py contains its Streamlit code directly or in a function
         with open("manage_jds.py", encoding="utf-8") as f:
             exec(f.read())
     except FileNotFoundError:
-        st.error("`manage_jds.py` not found. Please ensure the file exists in the same directory.")
+        st.info("`manage_jds.py` not found. Please ensure the file exists in the same directory.")
+    except Exception as e:
+        st.error(f"Error loading Manage JDs: {e}")
 
 
 elif tab == "📊 Screening Analytics":
-    analytics_dashboard_page()
+    try:
+        from analytics import analytics_dashboard_page
+        analytics_dashboard_page()
+    except ImportError:
+        st.info("`analytics.py` not found or function not defined. Please create it.")
+    except Exception as e:
+        st.error(f"Error loading Screening Analytics: {e}")
 
 elif tab == "📤 Email Candidates":
-    send_email_to_candidate()
+    try:
+        from email_sender import send_email_to_candidate
+        send_email_to_candidate()
+    except ImportError:
+        st.info("`email_sender.py` not found or function not defined. Please create it.")
+    except Exception as e:
+        st.error(f"Error loading Email Candidates: {e}")
+
 
 elif tab == "🔍 Search Resumes":
     try:
+        # Assuming search.py contains its Streamlit code directly or in a function
         with open("search.py", encoding="utf-8") as f:
             exec(f.read())
     except FileNotFoundError:
-        st.error("`search.py` not found. Please ensure the file exists in the same directory.")
+        st.info("`search.py` not found. Please ensure the file exists in the same directory.")
+    except Exception as e:
+        st.error(f"Error loading Search Resumes: {e}")
 
 elif tab == "📝 Candidate Notes":
     try:
+        # Assuming notes.py contains its Streamlit code directly or in a function
         with open("notes.py", encoding="utf-8") as f:
             exec(f.read())
     except FileNotFoundError:
-        st.error("`notes.py` not found. Please ensure the file exists in the same directory.")
+        st.info("`notes.py` not found. Please ensure the file exists in the same directory.")
+    except Exception as e:
+        st.error(f"Error loading Candidate Notes: {e}")
 
 elif tab == "🚪 Logout":
     st.session_state.authenticated = False
     st.session_state.pop('username', None)
     st.success("✅ Logged out.")
-    st.stop()
+    st.rerun() # Rerun to redirect to login page
