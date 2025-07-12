@@ -1,8 +1,8 @@
 import streamlit as st
 
 # Hardcoded username and password
-USERNAME = "admin"
-PASSWORD = "1234"  # Change to something secure
+USERNAME = "admin@screenerpro"
+PASSWORD = "screenerpro123"  # Change to something secure
 
 def login_section():
     if "authenticated" not in st.session_state:
