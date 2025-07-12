@@ -211,14 +211,24 @@ if __name__ == "__main__":
             admin_disable_enable_user_section()
 
             st.subheader("All Registered Users (Admin View):")
-            users_data = load_users()
-            display_users = []
-            for user, data in users_data.items():
-                hashed_pass = data.get("password", data) if isinstance(data, dict) else data
-                status = data.get("status", "N/A") if isinstance(data, dict) else "N/A"
-                display_users.append([user, hashed_pass, status])
-            st.dataframe(pd.DataFrame(display_users, columns=["Email/Username", "Hashed Password (DO NOT EXPOSE)", "Status"]), use_container_width=True)
-            st.warning("This is a test view. Do not expose sensitive data in production.")
+            # This part requires pandas, which is typically in main.py.
+            # For standalone login.py testing, ensure pandas is imported.
+            try:
+                import pandas as pd
+                users_data = load_users()
+                if users_data:
+                    display_users = []
+                    for user, data in users_data.items():
+                        hashed_pass = data.get("password", data) if isinstance(data, dict) else data
+                        status = data.get("status", "N/A") if isinstance(data, dict) else "N/A"
+                        display_users.append([user, hashed_pass, status])
+                    st.dataframe(pd.DataFrame(display_users, columns=["Email/Username", "Hashed Password (DO NOT EXPOSE)", "Status"]), use_container_width=True)
+                else:
+                    st.info("No users registered yet.")
+            except ImportError:
+                st.warning("Pandas is not imported in login.py. User table cannot be displayed in standalone test.")
+            except Exception as e:
+                st.error(f"Error loading user data: {e}")
         else:
             st.info("Log in as 'admin@screenerpro' to see admin features.")
             
