@@ -74,10 +74,10 @@ html, body, [class*="css"] {
     0% { transform: translateX(-40px); opacity: 0; }
     100% { transform: translateX(0); opacity: 1; }
 }
-/* New CSS for buttons to look like cards */
-.stButton>button {
+/* New CSS for custom buttons to look like cards */
+.custom-dashboard-button {
     width: 100%;
-    height: 100%;
+    height: 100%; /* Ensure it takes full height of its column */
     padding: 2rem;
     text-align: center;
     font-weight: 600;
@@ -88,22 +88,23 @@ html, body, [class*="css"] {
     transition: transform 0.2s ease, box-shadow 0.3s ease;
     cursor: pointer;
     display: flex;
-    flex-direction: column;
+    flex-direction: column; /* Stack icon and text vertically */
     justify-content: center;
     align-items: center;
     color: #333; /* Ensure text color is visible */
+    min-height: 120px; /* Ensure a consistent height for the buttons */
 }
-.stButton>button:hover {
+.custom-dashboard-button:hover {
     transform: translateY(-6px);
     box-shadow: 0 10px 24px rgba(0,0,0,0.1);
     background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
 }
-.stButton>button span {
-    font-size: 1.5rem; /* Adjust icon size */
+.custom-dashboard-button span { /* For the icon */
+    font-size: 1.5rem;
     margin-bottom: 0.5rem;
 }
-.stButton>button div {
-    font-size: 1rem; /* Adjust text size */
+.custom-dashboard-button div { /* For the text */
+    font-size: 1rem;
     font-weight: 600;
 }
 </style>
@@ -200,15 +201,21 @@ if tab == "🏠 Dashboard":
     col4, col5, col6 = st.columns(3)
     col4.markdown(f"""<div class="dashboard-card">📈 <br><b>{avg_score:.1f}%</b><br>Avg Score</div>""", unsafe_allow_html=True)
     
-    # Modified buttons to use dashboard-card styling
+    # Modified buttons to use custom HTML with dashboard-card styling
     with col5:
-        if st.button("🧠 <br>Resume Screener", use_container_width=True, help="Go to the Resume Screener page"):
-            st.session_state.tab_override = "🧠 Resume Screener"
-            st.rerun()
+        st.markdown("""
+        <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '🧠 Resume Screener']}}, '*');">
+            <span>🧠</span>
+            <div>Resume Screener</div>
+        </div>
+        """, unsafe_allow_html=True)
     with col6:
-        if st.button("📤 <br>Email Candidates", use_container_width=True, help="Go to the Email Candidates page"):
-            st.session_state.tab_override = "📤 Email Candidates"
-            st.rerun()
+        st.markdown("""
+        <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '📤 Email Candidates']}}, '*');">
+            <span>📤</span>
+            <div>Email Candidates</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # Optional: Dashboard Insights
     if not df_results.empty: # Use df_results loaded from session state
