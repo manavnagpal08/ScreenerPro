@@ -174,6 +174,17 @@ div[data-testid="stNumberInput"] input {{
 
 
 
+}}
+
+</style>
+""", unsafe_allow_html=True)
+
+# Set Matplotlib style for dark mode if active
+if dark_mode:
+    plt.style.use('dark_background')
+else:
+    plt.style.use('default') # Or 'seaborn-v0_8' or any other light theme you prefer
+
 
 # --- Branding ---
 # Assuming 'logo.png' exists in the same directory
