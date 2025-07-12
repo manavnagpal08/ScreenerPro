@@ -118,38 +118,79 @@ html, body, [class*="css"] {
     font-weight: 600;
 }
 
-/* --- CSS to hide the GitHub Fork button and related elements (Updated) --- */
-/* This targets the main toolbar where the GitHub icon often resides */
-div[data-testid="stToolbar"] {
+/* --- Fallback CSS for hiding the GitHub Fork button (Still good to keep) --- */
+div[data-testid="stToolbar"], /* Targets the main toolbar */
+.viewerBadge_container__1QSob, /* Common class for the viewer badge */
+.styles_viewerBadge__1yB5_, /* Another common class for the viewer badge */
+.viewerBadge_link__1S137, /* Link within the badge */
+.viewerBadge_text__1JaDK, /* Text within the badge */
+#GithubIcon, /* Specific ID if present */
+#MainMenu, /* Hides the entire hamburger menu, use with caution */
+footer, /* Hides the footer, use with caution */
+header { /* Hides the header, use with caution */
     display: none !important;
+    visibility: hidden !important; /* Adding visibility: hidden as a strong alternative */
 }
-
-/* Additional specific selectors that might target the badge/ribbon */
-.viewerBadge_container__1QSob,
-.styles_viewerBadge__1yB5_,
-.viewerBadge_link__1S137,
-.viewerBadge_text__1JaDK,
-#GithubIcon {
-    display: none !important;
-}
-
-/* Also hide the main menu if it's displaying the deploy/github option */
-#MainMenu {
-    visibility: hidden;
-    display: none !important;
-}
-footer {
-    visibility: hidden;
-    display: none !important;
-}
-header {
-    visibility: hidden;
-    display: none !important;
-}
-/* --- End of hiding CSS --- */
+/* --- End of fallback CSS --- */
 
 </style>
 """, unsafe_allow_html=True)
+
+# --- JavaScript to hide the GitHub button (More aggressive approach) ---
+# This script will run after the page loads and try to remove the element.
+st.components.v1.html(
+    """
+    <script>
+    function hideGitHubButton() {
+        const elementsToHide = [
+            // Selectors targeting the main toolbar (most common place for it)
+            document.querySelector('[data-testid="stToolbar"]'),
+            
+            // Selectors for the "Deploy" / "Fork" badge that appears at the top right
+            document.querySelector('.viewerBadge_container__1QSob'),
+            document.querySelector('.styles_viewerBadge__1yB5_'),
+            document.querySelector('.viewerBadge_link__1S137'),
+            document.querySelector('.viewerBadge_text__1JaDK'),
+            document.getElementById('GithubIcon')
+        ];
+
+        elementsToHide.forEach(el => {
+            if (el) {
+                el.style.display = 'none';
+                el.style.visibility = 'hidden';
+            }
+        });
+
+        // Also try to hide the main menu and footer if they contain it
+        const mainMenu = document.querySelector('#MainMenu');
+        if (mainMenu) {
+            mainMenu.style.display = 'none';
+            mainMenu.style.visibility = 'hidden';
+        }
+        const footer = document.querySelector('footer');
+        if (footer) {
+            footer.style.display = 'none';
+            footer.style.visibility = 'hidden';
+        }
+        const header = document.querySelector('header');
+        if (header) {
+            header.style.display = 'none';
+            header.style.visibility = 'hidden';
+        }
+
+    }
+
+    // Run the function after the document is fully loaded
+    window.addEventListener('load', hideGitHubButton);
+    // Also run it periodically in case elements are loaded dynamically later
+    // Be careful with setInterval, too frequent can impact performance.
+    // 500ms (0.5 seconds) is usually a good balance.
+    setInterval(hideGitHubButton, 500); 
+    </script>
+    """,
+    height=0, width=0 # Make the component itself invisible
+)
+
 
 # --- Branding ---
 st.image("logo.png", width=300)
