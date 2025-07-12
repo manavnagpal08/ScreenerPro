@@ -5,12 +5,22 @@ import seaborn as sns
 from wordcloud import WordCloud
 import os
 import json
+
 # Import the page functions from their respective files
 from login import login_section
 from email_sender import send_email_to_candidate
 from screener import resume_screener_page # Import the screener page function
 from analytics import analytics_dashboard_page # Import the analytics page function
-# Removed runpy as we are now directly calling functions
+
+# Assuming other pages also have functions to encapsulate their logic:
+# You will need to ensure that manage_jds.py, search.py, and notes.py
+# define their main logic within functions (e.g., manage_jds_page(), search_page(), candidate_notes_page())
+# and that these functions are imported here.
+# For example:
+from manage_jds import manage_jds_page
+from search import search_resumes_page
+from notes import candidate_notes_page # Renamed from notes.py to candidate_notes_page.py for clarity if it's a dedicated page
+
 
 # --- Page Config (Should only be in main.py) ---
 st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide", page_icon="🧠")
@@ -157,7 +167,7 @@ if tab == "🏠 Dashboard":
             min_exp_required = st.session_state.get('screening_min_experience', 2) # Default to 2 if not set
 
             shortlisted_df = df_results[(df_results["Score (%)"] >= cutoff_score) & 
-                                     (df_results["Years Experience"] >= min_exp_required)]
+                                       (df_results["Years Experience"] >= min_exp_required)]
             shortlisted = shortlisted_df.shape[0]
             avg_score = df_results["Score (%)"].mean()
         except Exception as e:
@@ -308,27 +318,19 @@ elif tab == "🧠 Resume Screener":
     resume_screener_page() # Call the function from screener.py
 
 elif tab == "📁 Manage JDs":
-    # Ensure manage_jds.py exists in the same directory and its logic is not in a function
-    with open("manage_jds.py", encoding="utf-8") as f:
-        exec(f.read())
+    manage_jds_page() # Call the function from manage_jds.py
 
 elif tab == "📊 Screening Analytics":
     analytics_dashboard_page() # Call the function from analytics.py
 
 elif tab == "📤 Email Candidates":
-    # Ensure email_page.py exists in the same directory and its logic is not in a function
-    with open("email_page.py", encoding="utf-8") as f:
-        exec(f.read())
+    send_email_to_candidate() # Call the function from email_sender.py
 
 elif tab == "🔍 Search Resumes":
-    # Ensure search.py exists in the same directory and its logic is not in a function
-    with open("search.py", encoding="utf-8") as f:
-        exec(f.read())
+    search_resumes_page() # Call the function from search.py
 
 elif tab == "📝 Candidate Notes":
-    # Ensure notes.py exists in the same directory and its logic is not in a function
-    with open("notes.py", encoding="utf-8") as f:
-        exec(f.read())
+    candidate_notes_page() # Call the function from notes.py
 
 elif tab == "🚪 Logout":
     st.session_state.authenticated = False
