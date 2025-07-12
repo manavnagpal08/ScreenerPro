@@ -928,7 +928,5 @@ def resume_screener_page():
         st.markdown("---") # Separator for each candidate
 
     st.info("Remember to check the Analytics Dashboard for in-depth visualizations of skill overlaps, gaps, and other metrics!")
-# This 'else' correctly belongs to the 'if jd_text and resume_files:' block.
-# Its indentation is crucial.
 else:
     st.info("Please upload a Job Description and at least one Resume to begin the screening process.")
