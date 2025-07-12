@@ -28,8 +28,8 @@ st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wid
 # --- Dark Mode Toggle ---
 dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
 
-# --- Global Fonts & UI Styling & Hiding Specific Streamlit UI Elements ---
-# Consolidate all CSS here, including dark mode and UI hiding
+# --- Global Fonts & UI Styling ---
+# Consolidate all CSS here, including dark mode and custom styling, but WITHOUT UI hiding
 st.markdown(f"""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -87,7 +87,88 @@ html, body, [class*="css"] {{
     100% {{ transform: translateX(0); opacity: 1; }}
 }}
 
+/* New CSS for custom buttons to look like cards */
+.custom-dashboard-button {{
+    width: 100%;
+    height: 100%;
+    padding: 2rem;
+    text-align: center;
+    font-weight: 600;
+    border-radius: 16px;
+    background: {'#2a2a2a' if dark_mode else 'linear-gradient(145deg, #f1f2f6, #ffffff)'};
+    border: 1px solid {'#3a3a3a' if dark_mode else '#e0e0e0'};
+    box-shadow: 0 6px 18px {'rgba(0,0,0,0.2)' if dark_mode else 'rgba(0,0,0,0.05)'};
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: {'white' if dark_mode else '#333'}; /* Button text color */
+    min-height: 120px;
+}}
 
+.custom-dashboard-button:hover {{
+    transform: translateY(-6px);
+    box-shadow: 0 10px 24px {'rgba(0,0,0,0.3)' if dark_mode else 'rgba(0,0,0,0.1)'};
+    background: {'#3a3a3a' if dark_mode else 'linear-gradient(145deg, #e0f7fa, #f1f1f1)'};
+}}
+
+.custom-dashboard-button span {{
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}}
+
+.custom-dashboard-button div {{
+    font-size: 1rem;
+    font-weight: 600;
+}}
+
+/* Streamlit Specific Overrides for Dark Mode Readability */
+h1, h2, h3, h4, h5, h6, .stMarkdown, .stText, .stCode, .stProgress, .stAlert {{
+    color: {'white' if dark_mode else '#333333'} !important;
+}}
+
+.stAlert {{
+    background-color: {'#333333' if dark_mode else 'inherit'} !important;
+    color: {'white' if dark_mode else 'inherit'} !important;
+    border-color: {'#555555' if dark_mode else 'inherit'} !important;
+}}
+
+/* For sidebar elements */
+.stSidebar {{
+    background-color: {'#1a1a1a' if dark_mode else '#f0f2f6'} !important;
+    color: {'white' if dark_mode else '#333333'} !important;
+}}
+.stSidebar .stRadio div, .stSidebar .stToggle label {{
+    color: {'white' if dark_mode else '#333333'} !important;
+}}
+
+/* Input fields, text areas, number inputs */
+div[data-testid="stTextInput"],
+div[data-testid="stTextArea"],
+div[data-testid="stNumberInput"] {{
+    background-color: {'#2a2a2a' if dark_mode else 'white'};
+    color: {'white' if dark_mode else 'black'};
+    border: 1px solid {'#3a3a3a' if dark_mode else '#ccc'};
+    border-radius: 0.5rem;
+}}
+div[data-testid="stTextInput"] input,
+div[data-testid="stTextArea"] textarea,
+div[data-testid="stNumberInput"] input {{
+    background-color: {'#2a2a2a' if dark_mode else 'white'} !important;
+    color: {'white' if dark_mode else 'black'} !important;
+}}
+
+/* Buttons */
+.stButton>button {{
+    background-color: {'#007bff' if dark_mode else '#00cec9'} !important;
+    color: white !important;
+    border: none !important;
+    box-shadow: 0 4px 8px {'rgba(0,0,0,0.3)' if dark_mode else 'rgba(0,0,0,0.1)'};
+}}
+.stButton>button:hover {{
+    background-color: {'#0056b3' if dark_mode else '#00a8a3'} !important;
 }}
 
 </style>
