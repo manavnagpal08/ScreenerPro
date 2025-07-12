@@ -12,7 +12,7 @@ from login import (
     admin_password_reset_section, admin_disable_enable_user_section,
     is_current_user_admin
 )
-# Assuming these files exist in your project structure
+# Assuming these files exist in your project structure (you'll need to create them)
 # from email_sender import send_email_to_candidate
 # from screener import resume_screener_page
 # from analytics import analytics_dashboard_page
@@ -26,6 +26,7 @@ st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wid
 dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
 
 # --- Global Fonts & UI Styling (THIS IS THE CORRECT PLACE FOR ALL YOUR CSS) ---
+# This block should be present ONLY in main.py, and not in login.py or other files.
 st.markdown(f"""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -142,14 +143,14 @@ h1, h2, h3, h4, h5, h6, .stMarkdown, .stText, .stCode, .stProgress, .stAlert {{
 
 /* Input fields, text areas, number inputs */
 div[data-testid="stTextInput"],
-div[data-testid="stTextArea"] {{ /* REMOVED div[data-testid="stNumberInput"] from here as requested earlier */
+div[data-testid="stTextArea"] {{ /* stNumberInput line was removed as requested earlier */
     background-color: {'#2a2a2a' if dark_mode else 'white'};
     color: {'white' if dark_mode else 'black'};
     border: 1px solid {'#3a3a3a' if dark_mode else '#ccc'};
     border-radius: 0.5rem;
 }}
 div[data-testid="stTextInput"] input,
-div[data-testid="stTextArea"] textarea {{ /* REMOVED div[data-testid="stNumberInput"] from here as requested earlier */
+div[data-testid="stTextArea"] textarea {{ /* stNumberInput line was removed as requested earlier */
     background-color: {'#2a2a2a' if dark_mode else 'white'} !important;
     color: {'white' if dark_mode else 'black'} !important;
 }}
@@ -165,6 +166,18 @@ div[data-testid="stTextArea"] textarea {{ /* REMOVED div[data-testid="stNumberIn
     background-color: {'#0056b3' if dark_mode else '#00a8a3'} !important;
 }}
 
+/* Ensure Streamlit's header, footer, and other generic elements are hidden if they exist */
+header, footer {{ visibility: hidden; display: none !important; }}
+.stApp > header {{ visibility: hidden; }} /* Specific targeting for the default header */
+
+/* Additional specific selectors if needed for hiding Streamlit UI elements: */
+/* div[data-testid="stToolbar"] {{ display: none; }} */
+/* div[data-testid="stDeployButton"] {{ display: none; }} */
+/* div[data-testid="stConnectionStatus"] {{ display: none; }} */
+/* .viewerBadge_container__1QSob {{ display: none; }} */
+/* .viewerBadge_link__1SI37 {{ display: none; }} */
+/* #MainMenu {{ visibility: hidden; }} */
+/* .stApp {{ padding-bottom: 1rem; }} */
 
 </style>
 """, unsafe_allow_html=True)
