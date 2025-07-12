@@ -1,488 +1,220 @@
 import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-from wordcloud import WordCloud
-import os
 import json
+import bcrypt
+import os
 
-# Import the page functions from their respective files
-from login import (
-    login_section, load_users, admin_registration_section,
-    admin_password_reset_section, admin_disable_enable_user_section,
-    is_current_user_admin
-)
-from email_sender import send_email_to_candidate
-from screener import resume_screener_page
-from analytics import analytics_dashboard_page
+# File to store user credentials
+USER_DB_FILE = "users.json"
+ADMIN_USERNAME = "admin@screenerpro" # Define your admin username here
 
+def load_users():
+    """Loads user data from the JSON file."""
+    if not os.path.exists(USER_DB_FILE):
+        with open(USER_DB_FILE, "w") as f:
+            json.dump({}, f)
+    with open(USER_DB_FILE, "r") as f:
+        users = json.load(f)
+        # Ensure each user has a 'status' key for backward compatibility
+        for username, data in users.items():
+            if isinstance(data, str): # Old format: "username": "hashed_password"
+                users[username] = {"password": data, "status": "active"}
+            elif "status" not in data:
+                data["status"] = "active"
+        return users
 
-# --- Page Config ---
-st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide", page_icon="🧠")
+def save_users(users):
+    """Saves user data to the JSON file."""
+    with open(USER_DB_FILE, "w") as f:
+        json.dump(users, f, indent=4)
 
+def hash_password(password):
+    """Hashes a password using bcrypt."""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-# --- Dark Mode Toggle ---
-dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
+def check_password(password, hashed_password):
+    """Checks a password against its bcrypt hash."""
+    return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
 
-# --- Global Fonts & UI Styling (Re-integrated custom CSS) ---
-st.markdown(f"""
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-<style>
-/* Global Styles - apply to both modes unless overridden */
-html, body, [class*="css"] {{
-    font-family: 'Inter', sans-serif;
-    color: {'white' if dark_mode else '#333333'}; /* Main text color */
-}}
+def register_section():
+    """Public self-registration form."""
+    st.subheader("📝 Create New Account")
+    with st.form("registration_form", clear_on_submit=True):
+        new_username = st.text_input("Choose Username (Email address recommended)", key="new_username_reg_public")
+        new_password = st.text_input("Choose Password", type="password", key="new_password_reg_public")
+        confirm_password = st.text_input("Confirm Password", type="password", key="confirm_password_reg_public")
+        register_button = st.form_submit_button("Register New Account")
 
-.main .block-container {{
-    padding: 2rem;
-    border-radius: 20px;
-    background: {'#1e1e1e' if dark_mode else 'rgba(255, 255, 255, 0.96)'}; /* Container background */
-    box-shadow: 0 12px 30px {'rgba(0,0,0,0.4)' if dark_mode else 'rgba(0,0,0,0.1)'};
-    animation: fadeIn 0.8s ease-in-out;
-}}
+        if register_button:
+            if not new_username or not new_password or not confirm_password:
+                st.error("Please fill in all fields.")
+            elif new_password != confirm_password:
+                st.error("Passwords do not match.")
+            else:
+                users = load_users()
+                if new_username in users:
+                    st.error("Username already exists. Please choose a different one.")
+                else:
+                    users[new_username] = {"password": hash_password(new_password), "status": "active"}
+                    save_users(users)
+                    st.success("✅ Registration successful! You can now switch to the 'Login' tab.")
 
-@keyframes fadeIn {{
-    0% {{ opacity: 0; transform: translateY(20px); }}
-    100% {{ opacity: 1; transform: translateY(0); }}
-}}
+def admin_registration_section():
+    """Admin-driven user creation form."""
+    st.subheader("➕ Create New User Account (Admin Only)")
+    with st.form("admin_registration_form", clear_on_submit=True):
+        new_username = st.text_input("New User's Username (Email)", key="new_username_admin_reg")
+        new_password = st.text_input("New User's Password", type="password", key="new_password_admin_reg")
+        admin_register_button = st.form_submit_button("Add New User")
 
-.dashboard-card {{
-    padding: 2rem;
-    text-align: center;
-    font-weight: 600;
-    border-radius: 16px;
-    background: {'#2a2a2a' if dark_mode else 'linear-gradient(145deg, #f1f2f6, #ffffff)'}; /* Card background */
-    border: 1px solid {'#3a3a3a' if dark_mode else '#e0e0e0'};
-    box-shadow: 0 6px 18px {'rgba(0,0,0,0.2)' if dark_mode else 'rgba(0,0,0,0.05)'};
-    transition: transform 0.2s ease, box-shadow 0.3s ease;
-    cursor: pointer;
-    color: {'white' if dark_mode else '#333'}; /* Card text color */
-}}
+        if admin_register_button:
+            if not new_username or not new_password:
+                st.error("Please fill in all fields.")
+            else:
+                users = load_users()
+                if new_username in users:
+                    st.error(f"User '{new_username}' already exists.")
+                else:
+                    users[new_username] = {"password": hash_password(new_password), "status": "active"}
+                    save_users(users)
+                    st.success(f"✅ User '{new_username}' added successfully!")
 
-.dashboard-card:hover {{
-    transform: translateY(-6px);
-    box-shadow: 0 10px 24px {'rgba(0,0,0,0.3)' if dark_mode else 'rgba(0,0,0,0.1)'};
-    background: {'#3a3a3a' if dark_mode else 'linear-gradient(145deg, #e0f7fa, #f1f1f1)'};
-}}
+def admin_password_reset_section():
+    """Admin-driven password reset form."""
+    st.subheader("🔑 Reset User Password (Admin Only)")
+    users = load_users()
+    user_options = [user for user in users.keys() if user != ADMIN_USERNAME] # Cannot reset admin's own password here
+    
+    if not user_options:
+        st.info("No other users to reset passwords for.")
+        return
 
-.dashboard-header {{
-    font-size: 2.2rem;
-    font-weight: 700;
-    color: {'#00cec9' if dark_mode else '#222'}; /* Header color, use accent in dark mode */
-    padding-bottom: 0.5rem;
-    border-bottom: 3px solid #00cec9;
-    display: inline-block;
-    margin-bottom: 2rem;
-    animation: slideInLeft 0.8s ease-out;
-}}
+    with st.form("admin_reset_password_form", clear_on_submit=True):
+        selected_user = st.selectbox("Select User to Reset Password For", user_options, key="reset_user_select")
+        new_password = st.text_input("New Password", type="password", key="new_password_reset")
+        reset_button = st.form_submit_button("Reset Password")
 
-@keyframes slideInLeft {{
-    0% {{ transform: translateX(-40px); opacity: 0; }}
-    100% {{ transform: translateX(0); opacity: 1; }}
-}}
+        if reset_button:
+            if not new_password:
+                st.error("Please enter a new password.")
+            else:
+                users[selected_user]["password"] = hash_password(new_password)
+                save_users(users)
+                st.success(f"✅ Password for '{selected_user}' has been reset.")
 
-/* New CSS for custom buttons to look like cards */
-.custom-dashboard-button {{
-    width: 100%;
-    height: 100%;
-    padding: 2rem;
-    text-align: center;
-    font-weight: 600;
-    border-radius: 16px;
-    background: {'#2a2a2a' if dark_mode else 'linear-gradient(145deg, #f1f2f6, #ffffff)'};
-    border: 1px solid {'#3a3a3a' if dark_mode else '#e0e0e0'};
-    box-shadow: 0 6px 18px {'rgba(0,0,0,0.2)' if dark_mode else 'rgba(0,0,0,0.05)'};
-    transition: transform 0.2s ease, box-shadow 0.3s ease;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    color: {'white' if dark_mode else '#333'}; /* Button text color */
-    min-height: 120px;
-}}
+def admin_disable_enable_user_section():
+    """Admin-driven user disable/enable form."""
+    st.subheader("⛔ Toggle User Status (Admin Only)")
+    users = load_users()
+    user_options = [user for user in users.keys() if user != ADMIN_USERNAME] # Cannot disable admin's own account here
 
-.custom-dashboard-button:hover {{
-    transform: translateY(-6px);
-    box-shadow: 0 10px 24px {'rgba(0,0,0,0.3)' if dark_mode else 'rgba(0,0,0,0.1)'};
-    background: {'#3a3a3a' if dark_mode else 'linear-gradient(145deg, #e0f7fa, #f1f1f1)'};
-}}
+    if not user_options:
+        st.info("No other users to manage status for.")
+        return
+        
+    with st.form("admin_toggle_user_status_form", clear_on_submit=False): # Keep values after submit for easier toggling
+        selected_user = st.selectbox("Select User to Toggle Status", user_options, key="toggle_user_select")
+        
+        current_status = users[selected_user]["status"]
+        st.info(f"Current status of '{selected_user}': **{current_status.upper()}**")
 
-.custom-dashboard-button span {{
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
-}}
-
-.custom-dashboard-button div {{
-    font-size: 1rem;
-    font-weight: 600;
-}}
-
-/* Streamlit Specific Overrides for Dark Mode Readability */
-h1, h2, h3, h4, h5, h6, .stMarkdown, .stText, .stCode, .stProgress, .stAlert {{
-    color: {'white' if dark_mode else '#333333'} !important;
-}}
-
-.stAlert {{
-    background-color: {'#333333' if dark_mode else 'inherit'} !important;
-    color: {'white' if dark_mode else 'inherit'} !important;
-    border-color: {'#555555' if dark_mode else 'inherit'} !important;
-}}
-
-/* For sidebar elements */
-.stSidebar {{
-    background-color: {'#1a1a1a' if dark_mode else '#f0f2f6'} !important;
-    color: {'white' if dark_mode else '#333333'} !important;
-}}
-.stSidebar .stRadio div, .stSidebar .stToggle label {{
-    color: {'white' if dark_mode else '#333333'} !important;
-}}
-
-/* Input fields, text areas, number inputs */
-div[data-testid="stTextInput"],
-div[data-testid="stTextArea"],
-div[data-testid="stNumberInput"] {{
-    background-color: {'#2a2a2a' if dark_mode else 'white'};
-    color: {'white' if dark_mode else 'black'};
-    border: 1px solid {'#3a3a3a' if dark_mode else '#ccc'};
-    border-radius: 0.5rem;
-}}
-div[data-testid="stTextInput"] input,
-div[data-testid="stTextArea"] textarea,
-div[data-testid="stNumberInput"] input {{
-    background-color: {'#2a2a2a' if dark_mode else 'white'} !important;
-    color: {'white' if dark_mode else 'black'} !important;
-}}
-
-/* Buttons */
-.stButton>button {{
-    background-color: {'#007bff' if dark_mode else '#00cec9'} !important;
-    color: white !important;
-    border: none !important;
-    box-shadow: 0 4px 8px {'rgba(0,0,0,0.3)' if dark_mode else 'rgba(0,0,0,0.1)'};
-}}
-.stButton>button:hover {{
-    background-color: {'#0056b3' if dark_mode else '#00a8a3'} !important;
-}}
-
-/* Ensure Streamlit's header, footer, and other generic elements are hidden if they exist */
-header, footer {{ visibility: hidden; display: none !important; }}
-.stApp > header {{ visibility: hidden; }} /* Specific targeting for the default header */
-
-/* Additional specific selectors if needed for hiding Streamlit UI elements: */
-/* div[data-testid="stToolbar"] {{ display: none; }} */
-/* div[data-testid="stDeployButton"] {{ display: none; }} */
-/* div[data-testid="stConnectionStatus"] {{ display: none; }} */
-/* .viewerBadge_container__1QSob {{ display: none; }} */
-/* .viewerBadge_link__1SI37 {{ display: none; }} */
-/* #MainMenu {{ visibility: hidden; }} */
-/* .stApp {{ padding-bottom: 1rem; }} */
-
-</style>
-""", unsafe_allow_html=True)
-
-# Set Matplotlib style for dark mode if active
-if dark_mode:
-    plt.style.use('dark_background')
-else:
-    plt.style.use('default')
+        if st.form_submit_button(f"Toggle to {'Disable' if current_status == 'active' else 'Enable'} User"):
+            new_status = "disabled" if current_status == "active" else "active"
+            users[selected_user]["status"] = new_status
+            save_users(users)
+            st.success(f"✅ User '{selected_user}' status set to **{new_status.upper()}**.")
+            st.rerun() # Rerun to update the displayed status immediately
 
 
-# --- Branding ---
-try:
-    st.image("logo.png", width=300)
-except FileNotFoundError:
-    st.warning("Logo file 'logo.png' not found. Please ensure it's in the correct directory.")
-st.title("🧠 ScreenerPro – AI Hiring Assistant")
+def login_section():
+    """Handles user login and public registration."""
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if "username" not in st.session_state:
+        st.session_state.username = None
 
-# --- Auth ---
-if not login_section():
-    st.stop()
+    if st.session_state.authenticated:
+        return True
 
-# Determine if the logged-in user is an admin
-is_admin = is_current_user_admin()
-
-# --- Navigation Control ---
-navigation_options = [
-    "🏠 Dashboard", "🧠 Resume Screener", "📁 Manage JDs", "📊 Screening Analytics",
-    "📤 Email Candidates", "🔍 Search Resumes", "📝 Candidate Notes"
-]
-if is_admin: # Only add Admin Tools if the user is an admin
-    navigation_options.append("⚙️ Admin Tools")
-navigation_options.append("🚪 Logout") # Always add Logout last
-
-default_tab = st.session_state.get("tab_override", "🏠 Dashboard")
-if default_tab not in navigation_options: # Handle cases where default_tab might be Admin Tools for non-admins
-    default_tab = "🏠 Dashboard"
-
-tab = st.sidebar.radio("📍 Navigate", navigation_options, index=navigation_options.index(default_tab))
-
-if "tab_override" in st.session_state:
-    del st.session_state.tab_override
-
-# ======================
-# 🏠 Dashboard Section
-# ======================
-if tab == "🏠 Dashboard":
-    st.markdown('<div class="dashboard-header">📊 Overview Dashboard</div>', unsafe_allow_html=True)
-
-    # Initialize metrics
-    resume_count = 0
-    jd_count = len([f for f in os.listdir("data") if f.endswith(".txt")]) if os.path.exists("data") else 0
-    shortlisted = 0
-    avg_score = 0.0
-    df_results = pd.DataFrame()
-
-    # Load results from session state
-    if 'screening_results' in st.session_state and st.session_state['screening_results']:
-        try:
-            df_results = pd.DataFrame(st.session_state['screening_results'])
-            resume_count = df_results["File Name"].nunique()
-            
-            cutoff_score = st.session_state.get('screening_cutoff_score', 75)
-            min_exp_required = st.session_state.get('screening_min_experience', 2)
-
-            shortlisted_df = df_results[
-                (df_results["Score (%)"] >= cutoff_score) &
-                (df_results["Years Experience"] >= min_exp_required)
-            ].copy()
-            shortlisted = shortlisted_df.shape[0]
-            avg_score = df_results["Score (%)"].mean()
-        except Exception as e:
-            st.error(f"Error processing screening results from session state: {e}")
-            df_results = pd.DataFrame()
-            shortlisted_df = pd.DataFrame()
+    # Determine default tab based on whether it's explicitly set in session state
+    # or if it's the very first load (no user database or only admin)
+    if not os.path.exists(USER_DB_FILE) or len(load_users()) == 0:
+        default_index = 1 # Default to Register if no users
     else:
-        st.info("No screening results available in this session yet. Please run the Resume Screener.")
-        shortlisted_df = pd.DataFrame()
+        default_index = 0 # Default to Login if users exist
 
-    # Removed 'Registered Users' count from Dashboard as per request
+    login_tab, register_tab = st.tabs(["🔐 Login", "📝 Register"], default_index=default_index)
 
-    col1, col2, col3 = st.columns(3) # Adjusted to 3 columns for metrics, as user count is removed
+    with login_tab:
+        st.subheader("🔐 HR Login")
+        st.info("If you don't have an account, please go to the 'Register' tab first.") # Added instructional message
+        with st.form("login_form", clear_on_submit=False):
+            username = st.text_input("Username", key="username_login")
+            password = st.text_input("Password", type="password", key="password_login")
+            submitted = st.form_submit_button("Login")
 
-    with col1:
-        # Re-applied custom dashboard card for "Resumes Screened"
-        st.markdown(f"""<div class="dashboard-card">📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True)
-        if resume_count > 0:
-            with st.expander(f"View {resume_count} Screened Names"):
-                for idx, row in df_results.iterrows():
-                    st.markdown(f"- **{row['Candidate Name']}** (Score: {row['Score (%)']:.1f}%)")
-        elif 'screening_results' in st.session_state and st.session_state['screening_results']:
-            st.info("No resumes have been screened yet.")
-        else:
-            st.info("Run the screener to see screened resumes.")
-
-    with col2:
-        # Re-applied custom dashboard card for "Job Descriptions"
-        st.markdown(f"""<div class="dashboard-card">📝 <br><b>{jd_count}</b><br>Job Descriptions</div>""", unsafe_allow_html=True)
-
-    with col3:
-        # Re-applied custom dashboard card for "Shortlisted Candidates"
-        st.markdown(f"""<div class="dashboard-card">✅ <br><b>{shortlisted}</b><br>Shortlisted Candidates</div>""", unsafe_allow_html=True)
-        if shortlisted > 0:
-            with st.expander(f"View {shortlisted} Shortlisted Names"):
-                for idx, row in shortlisted_df.iterrows():
-                    st.markdown(f"- **{row['Candidate Name']}** (Score: {row['Score (%)']:.1f}%, Exp: {row['Years Experience']:.1f} yrs)")
-        elif 'screening_results' in st.session_state and st.session_state['screening_results']:
-            st.info("No candidates met the current shortlisting criteria.")
-        else:
-            st.info("Run the screener to see shortlisted candidates.")
-
-    col4, col5, col6 = st.columns(3) # Adjusted to 3 columns for remaining metrics/buttons
-    col4.markdown(f"""<div class="dashboard-card">📈 <br><b>{avg_score:.1f}%</b><br>Avg Score</div>""", unsafe_allow_html=True)
-
-    # Re-applied custom dashboard buttons with onclick functionality
-    with col5:
-        st.markdown("""
-        <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '🧠 Resume Screener']}}, '*');">
-            <span>🧠</span>
-            <div>Resume Screener</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col6:
-        st.markdown("""
-        <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '📤 Email Candidates']}}, '*');">
-            <span>📤</span>
-            <div>Email Candidates</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # Optional: Dashboard Insights
-    if not df_results.empty:
-        try:
-            df_results['Tag'] = df_results.apply(lambda row:
-                "👑 Exceptional Match" if row['Score (%)'] >= 90 and row['Years Experience'] >= 5 and row['Semantic Similarity'] >= 0.85 else (
-                "🔥 Strong Candidate" if row['Score (%)'] >= 80 and row['Years Experience'] >= 3 and row['Semantic Similarity'] >= 0.7 else (
-                "✨ Promising Fit" if row['Score (%)'] >= 60 and row['Years Experience'] >= 1 else (
-                "⚠️ Needs Review" if row['Score (%)'] >= 40 else
-                "❌ Limited Match"))), axis=1)
-
-            st.markdown("### 📊 Dashboard Insights")
-
-            col_g1, col_g2 = st.columns(2)
-
-            with col_g1:
-                st.markdown("##### 🔥 Candidate Distribution")
-                pie_data = df_results['Tag'].value_counts().reset_index()
-                pie_data.columns = ['Tag', 'Count']
-                fig_pie, ax1 = plt.subplots(figsize=(4.5, 4.5))
-                if dark_mode:
-                    colors = plt.cm.Dark2.colors
-                    text_color = 'white'
+            if submitted:
+                users = load_users()
+                if username not in users:
+                    st.error("❌ Invalid username or password. Please register if you don't have an account.")
                 else:
-                    colors = plt.cm.Pastel1.colors
-                    text_color = 'black'
-
-                wedges, texts, autotexts = ax1.pie(pie_data['Count'], labels=pie_data['Tag'], autopct='%1.1f%%', startangle=90, colors=colors, textprops={'fontsize': 10, 'color': text_color})
-                for autotext in autotexts:
-                    autotext.set_color(text_color)
-                ax1.axis('equal')
-                st.pyplot(fig_pie)
-                plt.close(fig_pie)
-
-            with col_g2:
-                st.markdown("##### 📊 Experience Distribution")
-                bins = [0, 2, 5, 10, 20]
-                labels = ['0-2 yrs', '3-5 yrs', '6-10 yrs', '10+ yrs']
-                df_results['Experience Group'] = pd.cut(df_results['Years Experience'], bins=bins, labels=labels, right=False)
-                exp_counts = df_results['Experience Group'].value_counts().sort_index()
-                fig_bar, ax2 = plt.subplots(figsize=(5, 4))
-                
-                if dark_mode:
-                    sns.barplot(x=exp_counts.index, y=exp_counts.values, palette="viridis", ax=ax2)
-                else:
-                    sns.barplot(x=exp_counts.index, y=exp_counts.values, palette="coolwarm", ax=ax2)
-                
-                ax2.set_ylabel("Candidates", color='white' if dark_mode else 'black')
-                ax2.set_xlabel("Experience Range", color='white' if dark_mode else 'black')
-                ax2.tick_params(axis='x', labelrotation=0, colors='white' if dark_mode else 'black')
-                ax2.tick_params(axis='y', colors='white' if dark_mode else 'black')
-                ax2.title.set_color('white' if dark_mode else 'black')
-                st.pyplot(fig_bar)
-                plt.close(fig_bar)
-            
-            st.markdown("##### 📋 Candidate Quality Breakdown")
-            tag_summary = df_results['Tag'].value_counts().reset_index()
-            tag_summary.columns = ['Candidate Tag', 'Count']
-            st.dataframe(tag_summary, use_container_width=True, hide_index=True)
-
-
-            st.markdown("##### 🧠 Top 5 Most Common Skills")
-
-            if 'Matched Keywords' in df_results.columns:
-                all_skills = []
-                for skills in df_results['Matched Keywords'].dropna():
-                    all_skills.extend([s.strip().lower() for s in skills.split(",") if s.strip()])
-
-                skill_counts = pd.Series(all_skills).value_counts().head(5)
-
-                if not skill_counts.empty:
-                    fig_skills, ax3 = plt.subplots(figsize=(5.8, 3))
-                    
-                    if dark_mode:
-                        palette = sns.color_palette("magma", len(skill_counts))
+                    user_data = users[username]
+                    if user_data["status"] == "disabled":
+                        st.error("❌ Your account has been disabled. Please contact an administrator.")
+                    elif check_password(password, user_data["password"]):
+                        st.session_state.authenticated = True
+                        st.session_state.username = username
+                        st.success("✅ Login successful!")
+                        st.rerun()
                     else:
-                        palette = sns.color_palette("cool", len(skill_counts))
+                        st.error("❌ Invalid username or password.")
+    
+    with register_tab:
+        register_section()
 
-                    sns.barplot(
-                        x=skill_counts.values,
-                        y=skill_counts.index,
-                        palette=palette,
-                        ax=ax3
-                    )
-                    ax3.set_title("Top 5 Skills", fontsize=13, fontweight='bold', color='white' if dark_mode else 'black')
-                    ax3.set_xlabel("Frequency", fontsize=11, color='white' if dark_mode else 'black')
-                    ax3.set_ylabel("Skill", fontsize=11, color='white' if dark_mode else 'black')
-                    ax3.tick_params(labelsize=10, colors='white' if dark_mode else 'black')
-                    
-                    for i, v in enumerate(skill_counts.values):
-                        ax3.text(v + 0.3, i, str(v), color='white' if dark_mode else 'black', va='center', fontweight='bold', fontsize=9)
+    return st.session_state.authenticated
 
-                    fig_skills.tight_layout()
-                    st.pyplot(fig_skills)
-                    plt.close(fig_skills)
-                else:
-                    st.info("No skill data available in results for the Top 5 Skills chart.")
+# Helper function to check if the current user is an admin
+def is_current_user_admin():
+    return st.session_state.get("authenticated", False) and st.session_state.get("username") == ADMIN_USERNAME
 
-            else:
-                st.info("No 'Matched Keywords' column found in results for skill analysis.")
+# Example of how to use it if running login.py directly for testing
+if __name__ == "__main__":
+    st.set_page_config(page_title="Login/Register", layout="centered")
+    st.title("ScreenerPro Authentication (Test)")
+    
+    # Ensure admin user exists for testing
+    users = load_users()
+    if ADMIN_USERNAME not in users:
+        users[ADMIN_USERNAME] = {"password": hash_password("adminpass"), "status": "active"} # Set a default admin password for testing
+        save_users(users)
+        st.info(f"Created default admin user: {ADMIN_USERNAME} with password 'adminpass'")
 
-        except Exception as e:
-            st.warning(f"⚠️ Could not render insights due to data error: {e}")
+    if login_section():
+        st.write(f"Welcome, {st.session_state.username}!")
+        st.write("You are logged in.")
+        
+        if is_current_user_admin():
+            st.markdown("---")
+            st.header("Admin Test Section (You are admin)")
+            admin_registration_section()
+            admin_password_reset_section()
+            admin_disable_enable_user_section()
 
-# ======================
-# ⚙️ Admin Tools Section
-# ======================
-elif tab == "⚙️ Admin Tools":
-    st.markdown('<div class="dashboard-header">⚙️ Admin Tools</div>', unsafe_allow_html=True) # Re-applied custom header
-    if is_admin:
-        st.write("Welcome, Administrator! Here you can manage user accounts.")
-        st.markdown("---")
-
-        admin_registration_section() # Create New User Form
-        st.markdown("---")
-
-        admin_password_reset_section() # Reset User Password Form
-        st.markdown("---")
-
-        admin_disable_enable_user_section() # Disable/Enable User Form
-        st.markdown("---")
-
-        st.subheader("👥 All Registered Users")
-        st.warning("⚠️ **SECURITY WARNING:** This table displays usernames (email IDs) and **hashed passwords**. This is for **ADMINISTRATIVE DEBUGGING ONLY IN A SECURE ENVIRONMENT**. **NEVER expose this in a public or production application.**")
-        try:
+            st.subheader("All Registered Users (Admin View):")
             users_data = load_users()
-            if users_data:
-                display_users = []
-                for user, data in users_data.items():
-                    hashed_pass = data.get("password", data) if isinstance(data, dict) else data
-                    status = data.get("status", "N/A") if isinstance(data, dict) else "N/A"
-                    display_users.append([user, hashed_pass, status])
-                st.dataframe(pd.DataFrame(display_users, columns=["Email/Username", "Hashed Password (DO NOT EXPOSE)", "Status"]), use_container_width=True)
-            else:
-                st.info("No users registered yet.")
-        except Exception as e:
-            st.error(f"Error loading user data: {e}")
+            display_users = []
+            for user, data in users_data.items():
+                hashed_pass = data.get("password", data) if isinstance(data, dict) else data
+                status = data.get("status", "N/A") if isinstance(data, dict) else "N/A"
+                display_users.append([user, hashed_pass, status])
+            st.dataframe(pd.DataFrame(display_users, columns=["Email/Username", "Hashed Password (DO NOT EXPOSE)", "Status"]), use_container_width=True)
+            st.warning("This is a test view. Do not expose sensitive data in production.")
+        else:
+            st.info("Log in as 'admin@screenerpro' to see admin features.")
+            
+        if st.button("Logout"):
+            st.session_state.authenticated = False
+            st.session_state.pop('username', None)
+            st.rerun()
     else:
-        st.error("🔒 Access Denied: You must be an administrator to view this page.")
-
-# ======================
-# Page Routing via function calls (remaining pages)
-# ======================
-elif tab == "🧠 Resume Screener":
-    resume_screener_page()
-
-elif tab == "📁 Manage JDs":
-    try:
-        with open("manage_jds.py", encoding="utf-8") as f:
-            exec(f.read())
-    except FileNotFoundError:
-        st.error("`manage_jds.py` not found. Please ensure the file exists in the same directory.")
-
-
-elif tab == "📊 Screening Analytics":
-    analytics_dashboard_page()
-
-elif tab == "📤 Email Candidates":
-    send_email_to_candidate()
-
-elif tab == "🔍 Search Resumes":
-    try:
-        with open("search.py", encoding="utf-8") as f:
-            exec(f.read())
-    except FileNotFoundError:
-        st.error("`search.py` not found. Please ensure the file exists in the same directory.")
-
-elif tab == "📝 Candidate Notes":
-    try:
-        with open("notes.py", encoding="utf-8") as f:
-            exec(f.read())
-    except FileNotFoundError:
-        st.error("`notes.py` not found. Please ensure the file exists in the same directory.")
-
-elif tab == "🚪 Logout":
-    st.session_state.authenticated = False
-    st.session_state.pop('username', None)
-    st.success("✅ Logged out.")
-    st.stop()
+        st.info("Please login or register to continue.")
