@@ -3,16 +3,17 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from wordcloud import WordCloud
-from login import login_section
-from email_sender import send_email_to_candidate
 import os
 import json
-import pdfplumber
-import runpy
+# Import the page functions from their respective files
+from login import login_section
+from email_sender import send_email_to_candidate
+from screener import resume_screener_page # Import the screener page function
+from analytics import analytics_dashboard_page # Import the analytics page function
+# Removed runpy as we are now directly calling functions
 
-
-# --- Page Config ---
-st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide")
+# --- Page Config (Should only be in main.py) ---
+st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide", page_icon="🧠")
 
 
 # --- Dark Mode Toggle ---
@@ -111,16 +112,16 @@ if tab == "🏠 Dashboard":
     avg_score = 0.0
     df_results = pd.DataFrame() # Initialize empty DataFrame
 
-    # Load results from session state instead of results.csv
+    # Load results from session state
     if 'screening_results' in st.session_state and st.session_state['screening_results']:
         try:
             df_results = pd.DataFrame(st.session_state['screening_results'])
             resume_count = df_results["File Name"].nunique() # Count unique resumes screened
             
-            # Define cutoff for shortlisted candidates (consistent with streamlit_app.py)
-            # Make sure these values match the sliders in streamlit_app.py for consistency
-            cutoff_score = 80 
-            min_exp_required = 2
+            # Retrieve cutoff values from session state, with defaults
+            # These keys must match what's stored in screener.py
+            cutoff_score = st.session_state.get('screening_cutoff_score', 75) # Default to 75 if not set
+            min_exp_required = st.session_state.get('screening_min_experience', 2) # Default to 2 if not set
 
             shortlisted = df_results[(df_results["Score (%)"] >= cutoff_score) & 
                                      (df_results["Years Experience"] >= min_exp_required)].shape[0]
@@ -168,6 +169,7 @@ if tab == "🏠 Dashboard":
                 ax1.pie(pie_data['Count'], labels=pie_data['Tag'], autopct='%1.1f%%', startangle=90, textprops={'fontsize': 10})
                 ax1.axis('equal')
                 st.pyplot(fig_pie)
+                plt.close(fig_pie) # Close the figure to free up memory
 
             with col_g2:
                 st.markdown("##### 📊 Experience Distribution")
@@ -181,6 +183,7 @@ if tab == "🏠 Dashboard":
                 ax2.set_xlabel("Experience Range")
                 ax2.tick_params(axis='x', labelrotation=0)
                 st.pyplot(fig_bar)
+                plt.close(fig_bar) # Close the figure to free up memory
             
             # 📋 Top 5 Most Common Skills - Enhanced & Resized
             st.markdown("##### 🧠 Top 5 Most Common Skills")
@@ -188,56 +191,64 @@ if tab == "🏠 Dashboard":
             if 'Matched Keywords' in df_results.columns: # Use df_results
                 all_skills = []
                 for skills in df_results['Matched Keywords'].dropna(): # Use df_results
+                    # The Matched Keywords are already comma-separated and cleaned by screener.py
                     all_skills.extend([s.strip().lower() for s in skills.split(",") if s.strip()])
 
                 skill_counts = pd.Series(all_skills).value_counts().head(5)
 
-                fig_skills, ax3 = plt.subplots(figsize=(5.8, 3))
-                sns.barplot(
-                    x=skill_counts.values,
-                    y=skill_counts.index,
-                    palette=sns.color_palette("cool", len(skill_counts)),
-                    ax=ax3
-                )
-                ax3.set_title("Top 5 Skills", fontsize=13, fontweight='bold')
-                ax3.set_xlabel("Frequency", fontsize=11)
-                ax3.set_ylabel("Skill", fontsize=11)
-                ax3.tick_params(labelsize=10)
-                for i, v in enumerate(skill_counts.values):
-                    ax3.text(v + 0.3, i, str(v), color='black', va='center', fontweight='bold', fontsize=9)
+                if not skill_counts.empty:
+                    fig_skills, ax3 = plt.subplots(figsize=(5.8, 3))
+                    sns.barplot(
+                        x=skill_counts.values,
+                        y=skill_counts.index,
+                        palette=sns.color_palette("cool", len(skill_counts)),
+                        ax=ax3
+                    )
+                    ax3.set_title("Top 5 Skills", fontsize=13, fontweight='bold')
+                    ax3.set_xlabel("Frequency", fontsize=11)
+                    ax3.set_ylabel("Skill", fontsize=11)
+                    ax3.tick_params(labelsize=10)
+                    for i, v in enumerate(skill_counts.values):
+                        ax3.text(v + 0.3, i, str(v), color='black', va='center', fontweight='bold', fontsize=9)
 
-                fig_skills.tight_layout()
-                st.pyplot(fig_skills)
+                    fig_skills.tight_layout()
+                    st.pyplot(fig_skills)
+                    plt.close(fig_skills) # Close the figure to free up memory
+                else:
+                    st.info("No skill data available in results for the Top 5 Skills chart.")
 
             else:
-                st.info("No skill data available in results.")
+                st.info("No 'Matched Keywords' column found in results for skill analysis.")
 
         except Exception as e: # Catch specific exceptions or log for debugging
             st.warning(f"⚠️ Could not render insights due to data error: {e}")
 
 # ======================
-# Page Routing via exec
+# Page Routing via function calls
 # ======================
 elif tab == "🧠 Resume Screener":
-    runpy.run_path("screener.py") # Changed to screener.py
+    resume_screener_page() # Call the function from screener.py
 
 elif tab == "📁 Manage JDs":
+    # Ensure manage_jds.py exists in the same directory and its logic is not in a function
     with open("manage_jds.py", encoding="utf-8") as f:
         exec(f.read())
 
 elif tab == "📊 Screening Analytics":
-    with open("analytics.py", encoding="utf-8") as f:
-        exec(f.read())
+    analytics_dashboard_page() # Call the function from analytics.py
 
 elif tab == "📤 Email Candidates":
+    # Ensure email_page.py exists in the same directory and its logic is not in a function
     with open("email_page.py", encoding="utf-8") as f:
         exec(f.read())
 
 elif tab == "🔍 Search Resumes":
+    # Ensure search.py exists in the same directory and its logic is not in a function
     with open("search.py", encoding="utf-8") as f:
         exec(f.read())
 
 elif tab == "📝 Candidate Notes":
+    # Ensure notes.py exists in the same directory and its logic is not in a function
     with open("notes.py", encoding="utf-8") as f:
         exec(f.read())
 
