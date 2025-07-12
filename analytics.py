@@ -5,6 +5,7 @@ import seaborn as sns
 from wordcloud import WordCloud
 import os
 import plotly.express as px
+import statsmodels.api as sm # Added this import for OLS trendline
 
 # --- Page Styling ---
 st.set_page_config(layout="wide", page_title="Resume Screening Analytics")
