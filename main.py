@@ -120,6 +120,15 @@ html, body, [class*="css"] {
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown("""
+<style>
+.st-emotion-cache-30do4w ekuhni81
+{
+    visibility: hidden;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # --- Branding ---
 st.image("logo.png", width=300)
 st.title("🧠 ScreenerPro – AI Hiring Assistant")
