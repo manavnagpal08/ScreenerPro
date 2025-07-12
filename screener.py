@@ -819,71 +819,72 @@ def resume_screener_page():
         else:
             st.warning("No candidates met the defined screening criteria (score cutoff and minimum experience). You might consider adjusting the sliders or reviewing the uploaded resumes/JD.")
 
-    st.markdown("---")
+        st.markdown("---") # This line and the following code block were causing the SyntaxError
 
-    # Add a 'Tag' column for quick categorization
-    df['Tag'] = df.apply(lambda row: "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3 else (
-        "✅ Good Fit" if row['Score (%)'] >= 75 else "⚠️ Needs Review"), axis=1)
+        # Add a 'Tag' column for quick categorization
+        df['Tag'] = df.apply(lambda row: "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3 else (
+            "✅ Good Fit" if row['Score (%)'] >= 75 else "⚠️ Needs Review"), axis=1)
 
-    st.markdown("## 📋 Comprehensive Candidate Results Table")
-    st.caption("Full details for all processed resumes. **For deep dive analytics and keyword breakdowns, refer to the Analytics Dashboard.**")
-    
-    # Define columns to display in the comprehensive table
-    comprehensive_cols = [
-        'Candidate Name',
-        'Score (%)',
-        'Years Experience',
-        'Semantic Similarity',
-        'Tag', # Keep the custom tag
-        'Email',
-        'AI Suggestion', # This will still contain the full AI suggestion text but is in a table, not per-candidate verbose display
-        'Matched Keywords',
-        'Missing Skills',
-        # 'Resume Raw Text' # Removed from default display to keep table manageable, can be viewed in Analytics
-    ]
-    
-    # Ensure all columns exist before trying to display them
-    final_display_cols = [col for col in comprehensive_cols if col in df.columns]
+        st.markdown("## 📋 Comprehensive Candidate Results Table")
+        st.caption("Full details for all processed resumes. **For deep dive analytics and keyword breakdowns, refer to the Analytics Dashboard.**")
+        
+        # Define columns to display in the comprehensive table
+        comprehensive_cols = [
+            'Candidate Name',
+            'Score (%)',
+            'Years Experience',
+            'Semantic Similarity',
+            'Tag', # Keep the custom tag
+            'Email',
+            'AI Suggestion', # This will still contain the full AI suggestion text but is in a table, not per-candidate verbose display
+            'Matched Keywords',
+            'Missing Skills',
+            # 'Resume Raw Text' # Removed from default display to keep table manageable, can be viewed in Analytics
+        ]
+        
+        # Ensure all columns exist before trying to display them
+        final_display_cols = [col for col in comprehensive_cols if col in df.columns]
 
-    st.dataframe(
-        df[final_display_cols],
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Score (%)": st.column_config.ProgressColumn(
-                "Score (%)",
-                help="Matching score against job requirements",
-                format="%f",
-                min_value=0,
-                max_value=100,
-            ),
-            "Years Experience": st.column_config.NumberColumn(
-                "Years Experience",
-                help="Total years of professional experience",
-                format="%.1f years",
-            ),
-            "Semantic Similarity": st.column_config.NumberColumn(
-                "Semantic Similarity",
-                help="Conceptual similarity between JD and Resume (higher is better)",
-                format="%.2f",
-                min_value=0,
-                max_value=1
-            ),
-            "AI Suggestion": st.column_config.Column(
-                "AI Suggestion",
-                help="AI's overall assessment and review focus"
-            ),
-            "Matched Keywords": st.column_config.Column(
-                "Matched Keywords",
-                help="Keywords found in both JD and Resume"
-            ),
-            "Missing Skills": st.column_config.Column(
-                "Missing Skills",
-                help="Key skills from JD not found in Resume"
-            ),
-        }
-    )
+        st.dataframe(
+            df[final_display_cols],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Score (%)": st.column_config.ProgressColumn(
+                    "Score (%)",
+                    help="Matching score against job requirements",
+                    format="%f",
+                    min_value=0,
+                    max_value=100,
+                ),
+                "Years Experience": st.column_config.NumberColumn(
+                    "Years Experience",
+                    help="Total years of professional experience",
+                    format="%.1f years",
+                ),
+                "Semantic Similarity": st.column_config.NumberColumn(
+                    "Semantic Similarity",
+                    help="Conceptual similarity between JD and Resume (higher is better)",
+                    format="%.2f",
+                    min_value=0,
+                    max_value=1
+                ),
+                "AI Suggestion": st.column_config.Column(
+                    "AI Suggestion",
+                    help="AI's overall assessment and review focus"
+                ),
+                "Matched Keywords": st.column_config.Column(
+                    "Matched Keywords",
+                    help="Keywords found in both JD and Resume"
+                ),
+                "Missing Skills": st.column_config.Column(
+                    "Missing Skills",
+                    help="Key skills from JD not found in Resume"
+                ),
+            }
+        )
 
-    st.info("Remember to check the Analytics Dashboard for in-depth visualizations of skill overlaps, gaps, and other metrics!")
-else:
-    st.info("Please upload a Job Description and at least one Resume to begin the screening process.")
+        st.info("Remember to check the Analytics Dashboard for in-depth visualizations of skill overlaps, gaps, and other metrics!")
+    else:
+        st.info("Please upload a Job Description and at least one Resume to begin the screening process.")
+
