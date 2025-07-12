@@ -117,10 +117,37 @@ html, body, [class*="css"] {
     font-size: 1rem;
     font-weight: 600;
 }
-/* CSS to hide the GitHub ribbon (fork me on GitHub button) */
-.css-1jc7ptx, .e1ewe7hr3, .e1ewe7hr1 {
+
+/* --- CSS to hide the GitHub Fork button and related elements (Updated) --- */
+/* This targets the main toolbar where the GitHub icon often resides */
+div[data-testid="stToolbar"] {
     display: none !important;
 }
+
+/* Additional specific selectors that might target the badge/ribbon */
+.viewerBadge_container__1QSob,
+.styles_viewerBadge__1yB5_,
+.viewerBadge_link__1S137,
+.viewerBadge_text__1JaDK,
+#GithubIcon {
+    display: none !important;
+}
+
+/* Also hide the main menu if it's displaying the deploy/github option */
+#MainMenu {
+    visibility: hidden;
+    display: none !important;
+}
+footer {
+    visibility: hidden;
+    display: none !important;
+}
+header {
+    visibility: hidden;
+    display: none !important;
+}
+/* --- End of hiding CSS --- */
+
 </style>
 """, unsafe_allow_html=True)
 
