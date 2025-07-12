@@ -57,6 +57,8 @@ def register_section():
                     users[new_username] = {"password": hash_password(new_password), "status": "active"}
                     save_users(users)
                     st.success("✅ Registration successful! You can now switch to the 'Login' tab.")
+                    # Manually set the session state to switch to Login tab
+                    st.session_state.active_login_tab = "Login"
 
 def admin_registration_section():
     """Admin-driven user creation form."""
@@ -131,20 +133,29 @@ def login_section():
         st.session_state.authenticated = False
     if "username" not in st.session_state:
         st.session_state.username = None
+    # Initialize active_login_tab if not present
+    if "active_login_tab" not in st.session_state:
+        # Default to 'Register' if no users, otherwise 'Login'
+        if not os.path.exists(USER_DB_FILE) or len(load_users()) == 0:
+            st.session_state.active_login_tab = "Register"
+        else:
+            st.session_state.active_login_tab = "Login"
+
 
     if st.session_state.authenticated:
         return True
 
-    # Determine default tab based on whether it's explicitly set in session state
-    # or if it's the very first load (no user database or only admin)
-    if not os.path.exists(USER_DB_FILE) or len(load_users()) == 0:
-        default_index = 1 # Default to Register if no users
-    else:
-        default_index = 0 # Default to Login if users exist
+    # Use a radio button or similar for tab selection if default_index is not supported
+    # This simulates tabs without using st.tabs(default_index=...)
+    tab_selection = st.radio(
+        "Select an option:",
+        ("Login", "Register"),
+        key="login_register_radio",
+        index=0 if st.session_state.active_login_tab == "Login" else 1 # Control initial selection
+    )
 
-    login_tab, register_tab = st.tabs(["🔐 Login", "📝 Register"], default_index=default_index)
-
-    with login_tab:
+    if tab_selection == "Login":
+        st.session_state.active_login_tab = "Login" # Update state if user clicks
         st.subheader("🔐 HR Login")
         st.info("If you don't have an account, please go to the 'Register' tab first.") # Added instructional message
         with st.form("login_form", clear_on_submit=False):
@@ -167,8 +178,8 @@ def login_section():
                         st.rerun()
                     else:
                         st.error("❌ Invalid username or password.")
-    
-    with register_tab:
+    else: # tab_selection == "Register"
+        st.session_state.active_login_tab = "Register" # Update state if user clicks
         register_section()
 
     return st.session_state.authenticated
