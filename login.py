@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import bcrypt # For secure password hashing
+import os # <--- ADD THIS LINE
 
 # File to store user credentials
 USER_DB_FILE = "users.json"
@@ -87,8 +88,6 @@ def login_section():
 
 # Example of how to use it if running login.py directly for testing
 if __name__ == "__main__":
-    import os # Import os for file existence check
-
     st.set_page_config(page_title="Login/Register", layout="centered")
 
     st.title("ScreenerPro Authentication")
@@ -100,5 +99,3 @@ if __name__ == "__main__":
             st.session_state.authenticated = False
             st.session_state.pop('username', None)
             st.rerun()
-    else:
-        st.info("Please login or register to continue.")
