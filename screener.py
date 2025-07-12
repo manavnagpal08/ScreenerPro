@@ -12,6 +12,7 @@ import io
 import base64
 import json # For structured responses from LLM
 from collections import Counter # To count skill occurrences
+import requests # Import the requests library for making HTTP calls
 
 # Import skills data
 from skills_data import ALL_SKILLS_MASTER_SET, SORTED_MASTER_SKILLS
@@ -230,16 +231,16 @@ def generate_ai_suggestion(jd_text, resume_text, matching_score, semantic_score,
     }}
     """
     
-    # Gemini API call
-    chatHistory = []
-    chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-    const payload = {
-        contents: chatHistory,
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: "OBJECT",
-                properties: {
+    # Gemini API call using Python's requests library
+    chat_history = []
+    chat_history.append({"role": "user", "parts": [{"text": prompt}]})
+    payload = {
+        "contents": chat_history,
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": {
+                "type": "OBJECT",
+                "properties": {
                     "candidate_name": { "type": "STRING" },
                     "overall_recommendation": { "type": "STRING" },
                     "strengths": { "type": "ARRAY", "items": { "type": "STRING" } },
@@ -249,28 +250,31 @@ def generate_ai_suggestion(jd_text, resume_text, matching_score, semantic_score,
                 "propertyOrdering": ["candidate_name", "overall_recommendation", "strengths", "gaps", "next_steps"]
             }
         }
-    };
-    const apiKey = ""
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    }
+    api_key = "" # This will be automatically provided by the Canvas environment
+    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
 
     try:
-        response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        result = await response.json();
+        response = requests.post(api_url, headers={'Content-Type': 'application/json'}, json=payload)
+        response.raise_for_status() # Raise an HTTPError for bad responses (4xx or 5xx)
+        result = response.json()
 
-        if result.candidates and result.candidates[0].content and result.candidates[0].content.parts:
+        if result.get('candidates') and result['candidates'][0].get('content') and result['candidates'][0]['content'].get('parts'):
             # The API returns a string that needs to be parsed as JSON
-            json_string = result.candidates[0].content.parts[0].text
+            json_string = result['candidates'][0]['content']['parts'][0]['text']
             suggestion = json.loads(json_string)
             return suggestion
         else:
-            st.warning("AI suggestion could not be generated. Unexpected API response structure.")
+            st.warning(f"AI suggestion could not be generated. Unexpected API response structure: {result}")
             return None
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error communicating with Gemini API: {e}")
+        return None
+    except json.JSONDecodeError as e:
+        st.error(f"Error parsing JSON response from Gemini API: {e}. Raw response: {response.text}")
+        return None
     except Exception as e:
-        st.error(f"Error generating AI suggestion: {e}")
+        st.error(f"An unexpected error occurred during AI suggestion generation: {e}")
         return None
 
 def generate_wordcloud(text, font_path):
@@ -536,4 +540,3 @@ elif not resume_files and jd_text:
     st.info("Upload resumes to start screening against the Job Description.")
 else:
     st.info("Upload a Job Description and Resumes to begin the AI Resume Screening process.")
-
