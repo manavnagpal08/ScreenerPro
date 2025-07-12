@@ -9,18 +9,8 @@ import json
 # Import the page functions from their respective files
 from login import login_section
 from email_sender import send_email_to_candidate
-from screener import resume_screener_page # Import the screener page function
-from analytics import analytics_dashboard_page # Import the analytics page function
-
-# Assuming other pages also have functions to encapsulate their logic:
-# You will need to ensure that manage_jds.py, search.py, and notes.py
-# define their main logic within functions (e.g., manage_jds_page(), search_page(), candidate_notes_page())
-# and that these functions are imported here.
-# For example:
-# from manage_jds import manage_jds_page
-# from search import search_resumes_page
-# from notes import candidate_notes_page # Renamed from notes.py to candidate_notes_page.py for clarity if it's a dedicated page
-
+from screener import resume_screener_page
+from analytics import analytics_dashboard_page
 
 # --- Page Config (Should only be in main.py) ---
 st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wide", page_icon="🧠")
@@ -119,25 +109,18 @@ html, body, [class*="css"] {
 }
 
 /* --- CSS to hide the "Fork" button and its surrounding elements --- */
-/* Target the main header bar where the deploy/fork elements are */
 header[data-testid="stHeader"] {
     display: none !important;
     visibility: hidden !important;
 }
-
-/* Target the toolbar that often contains the deploy/fork buttons */
 div[data-testid="stToolbar"] {
     display: none !important;
     visibility: hidden !important;
 }
-
-/* Target the "Deploy" button specifically (which often includes the Fork icon) */
 .stDeployButton {
     display: none !important;
     visibility: hidden !important;
 }
-
-/* These are older or more general selectors that might still catch it as a fallback */
 .viewerBadge_container__1QSob,
 .styles_viewerBadge__1yB5_,
 .viewerBadge_link__1S137,
@@ -147,13 +130,10 @@ div[data-testid="stToolbar"] {
     display: none !important;
     visibility: hidden !important;
 }
-
-/* Hide the hamburger menu (if it's not needed) */
 #MainMenu {
     visibility: hidden;
     display: none !important;
 }
-/* Hide the Streamlit footer ("Made with Streamlit") */
 footer {
     visibility: hidden;
     display: none !important;
@@ -363,44 +343,24 @@ if tab == "🏠 Dashboard":
 # Page Routing via function calls
 # ======================
 elif tab == "🧠 Resume Screener":
-    resume_screener_page() # Call the function from screener.py
+    resume_screener_page()
 
 elif tab == "📁 Manage JDs":
-    # Ensure manage_jds.py exists in the same directory and its logic is not in a function
-    # If you have a function like 'manage_jds_page' in manage_jds.py, import and call it:
-    # from manage_jds import manage_jds_page
-    # manage_jds_page()
-    # Otherwise, if it's a script meant to be executed directly:
     with open("manage_jds.py", encoding="utf-8") as f:
         exec(f.read())
 
 elif tab == "📊 Screening Analytics":
-    analytics_dashboard_page() # Call the function from analytics.py
+    analytics_dashboard_page()
 
 elif tab == "📤 Email Candidates":
-    # Ensure email_page.py exists in the same directory and its logic is not in a function
-    # If you have a function like 'email_candidates_page' in email_page.py, import and call it:
-    # from email_page import email_candidates_page
-    # email_candidates_page()
-    # Otherwise, if it's a script meant to be executed directly:
     with open("email_page.py", encoding="utf-8") as f:
         exec(f.read())
 
 elif tab == "🔍 Search Resumes":
-    # Ensure search.py exists in the same directory and its logic is not in a function
-    # If you have a function like 'search_resumes_page' in search.py, import and call it:
-    # from search import search_resumes_page
-    # search_resumes_page()
-    # Otherwise, if it's a script meant to be executed directly:
     with open("search.py", encoding="utf-8") as f:
         exec(f.read())
 
 elif tab == "📝 Candidate Notes":
-    # Ensure notes.py exists in the same directory and its logic is not in a function
-    # If you have a function like 'candidate_notes_page' in notes.py, import and call it:
-    # from notes import candidate_notes_page
-    # candidate_notes_page()
-    # Otherwise, if it's a script meant to be executed directly:
     with open("notes.py", encoding="utf-8") as f:
         exec(f.read())
 
@@ -421,9 +381,9 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("### Connect with Manav Nagpal")
 st.sidebar.markdown(
     "[LinkedIn Profile](https://www.linkedin.com/in/manav-nagpal-83b935209/) "
-    "&nbsp; 🔗" # Using a link emoji as a simple icon
+    "&nbsp; 🔗"
 )
 st.sidebar.markdown(
     "[Portfolio Website](https://manavnagpal.netlify.app/) "
-    "&nbsp; 🌐" # Using a globe emoji for portfolio
+    "&nbsp; 🌐"
 )
