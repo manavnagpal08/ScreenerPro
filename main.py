@@ -2,24 +2,24 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from wordcloud import WordCloud
+from wordcloud import WordCloud # Although imported, WordCloud isn't used in the provided dashboard code
 import os
 import json
 
 # Import the page functions from their respective files
 from login import login_section
-from email_sender import send_email_to_candidate
+# from email_sender import send_email_to_candidate # Not directly called, assuming email_page handles this
 from screener import resume_screener_page # Import the screener page function
 from analytics import analytics_dashboard_page # Import the analytics page function
 
-# Assuming other pages also have functions to encapsulate their logic:
 # You will need to ensure that manage_jds.py, search.py, and notes.py
 # define their main logic within functions (e.g., manage_jds_page(), search_page(), candidate_notes_page())
-# and that these functions are imported here.
-# For example:
+# and that these functions are imported here if you want to call them as functions.
+# For now, the original exec(f.read()) approach is kept for these files as per your snippet.
+# Example if you refactor them into functions:
 # from manage_jds import manage_jds_page
 # from search import search_resumes_page
-# from notes import candidate_notes_page # Renamed from notes.py to candidate_notes_page.py for clarity if it's a dedicated page
+# from notes import candidate_notes_page
 
 
 # --- Page Config (Should only be in main.py) ---
@@ -33,8 +33,29 @@ if dark_mode:
     <style>
     body { background-color: #121212 !important; color: white !important; }
     .block-container { background-color: #1e1e1e !important; }
+    /* Dark mode specific styles for cards */
+    .dashboard-card, .custom-dashboard-button {
+        background: linear-gradient(145deg, #2a2a2a, #3a3a3a) !important; /* Darker gradient */
+        border: 1px solid #444 !important;
+        color: white !important; /* Ensure text is white */
+    }
+    .dashboard-card:hover, .custom-dashboard-button:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 10px 24px rgba(0,0,0,0.3) !important; /* Darker shadow */
+        background: linear-gradient(145deg, #3a3a3a, #4a4a4a) !important;
+    }
+    .dashboard-header {
+        color: #00cec9 !important; /* Keep a bright accent for header */
+        border-bottom: 3px solid #00cec9 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
+    # Set Matplotlib style for dark mode if active
+    plt.style.use('dark_background')
+else:
+    # Reset Matplotlib style to default/light if dark mode is off
+    plt.style.use('default') # Or 'seaborn-v0_8' or any other light theme you prefer
+
 
 # --- Global Fonts & UI Styling ---
 st.markdown("""
@@ -46,7 +67,7 @@ html, body, [class*="css"] {
 .main .block-container {
     padding: 2rem;
     border-radius: 20px;
-    background: rgba(255, 255, 255, 0.96);
+    background: rgba(255, 255, 255, 0.96); /* Light mode default */
     box-shadow: 0 12px 30px rgba(0,0,0,0.1);
     animation: fadeIn 0.8s ease-in-out;
 }
@@ -54,6 +75,7 @@ html, body, [class*="css"] {
     0% { opacity: 0; transform: translateY(20px); }
     100% { opacity: 1; transform: translateY(0); }
 }
+/* Default light mode styles for cards and buttons */
 .dashboard-card {
     padding: 2rem;
     text-align: center;
@@ -73,7 +95,7 @@ html, body, [class*="css"] {
 .dashboard-header {
     font-size: 2.2rem;
     font-weight: 700;
-    color: #222;
+    color: #222; /* Light mode default */
     padding-bottom: 0.5rem;
     border-bottom: 3px solid #00cec9;
     display: inline-block;
@@ -106,7 +128,7 @@ html, body, [class*="css"] {
 }
 .custom-dashboard-button:hover {
     transform: translateY(-6px);
-    box-shadow: 0 10px 24px rgba(0,0,0,0.1);
+    box_shadow: 0 10px 24px rgba(0,0,0,0.1);
     background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
 }
 .custom-dashboard-button span { /* For the icon */
@@ -121,7 +143,11 @@ html, body, [class*="css"] {
 """, unsafe_allow_html=True)
 
 # --- Branding ---
-st.image("logo.png", width=300)
+# Assuming 'logo.png' exists in the same directory
+try:
+    st.image("logo.png", width=300)
+except FileNotFoundError:
+    st.warning("Logo file 'logo.png' not found. Please ensure it's in the correct directory.")
 st.title("🧠 ScreenerPro – AI Hiring Assistant")
 
 # --- Auth ---
@@ -149,6 +175,7 @@ if tab == "🏠 Dashboard":
 
     # Initialize metrics
     resume_count = 0
+    # Ensure 'data' directory exists before listing files
     jd_count = len([f for f in os.listdir("data") if f.endswith(".txt")]) if os.path.exists("data") else 0
     shortlisted = 0
     avg_score = 0.0
@@ -166,7 +193,7 @@ if tab == "🏠 Dashboard":
             min_exp_required = st.session_state.get('screening_min_experience', 2) # Default to 2 if not set
 
             shortlisted_df = df_results[(df_results["Score (%)"] >= cutoff_score) & 
-                                     (df_results["Years Experience"] >= min_exp_required)]
+                                        (df_results["Years Experience"] >= min_exp_required)]
             shortlisted = shortlisted_df.shape[0]
             avg_score = df_results["Score (%)"].mean()
         except Exception as e:
@@ -212,15 +239,18 @@ if tab == "🏠 Dashboard":
     
     # Modified buttons to use custom HTML with dashboard-card styling
     with col5:
+        # This JavaScript snippet will set the session state and trigger a rerun
+        # Streamlit will then switch the tab based on the 'tab_override'
         st.markdown("""
-        <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '🧠 Resume Screener']}}, '*');">
+        <div class="custom-dashboard-button" onclick="parent.window.postMessage({ type: 'streamlit:setSessionState', args: [{ tab_override: '🧠 Resume Screener' }] }, '*');">
             <span>🧠</span>
             <div>Resume Screener</div>
         </div>
         """, unsafe_allow_html=True)
     with col6:
+        # This JavaScript snippet will set the session state and trigger a rerun
         st.markdown("""
-        <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '📤 Email Candidates']}}, '*');">
+        <div class="custom-dashboard-button" onclick="parent.window.postMessage({ type: 'streamlit:setSessionState', args: [{ tab_override: '📤 Email Candidates' }] }, '*');">
             <span>📤</span>
             <div>Email Candidates</div>
         </div>
@@ -229,7 +259,7 @@ if tab == "🏠 Dashboard":
     # Optional: Dashboard Insights
     if not df_results.empty: # Use df_results loaded from session state
         try:
-            # Updated Tagging logic from screener.py
+            # Updated Tagging logic from screener.py (ensure consistency with screener.py)
             df_results['Tag'] = df_results.apply(lambda row: 
                 "👑 Exceptional Match" if row['Score (%)'] >= 90 and row['Years Experience'] >= 5 and row['Semantic Similarity'] >= 0.85 else (
                 "🔥 Strong Candidate" if row['Score (%)'] >= 80 and row['Years Experience'] >= 3 and row['Semantic Similarity'] >= 0.7 else (
@@ -246,7 +276,17 @@ if tab == "🏠 Dashboard":
                 pie_data = df_results['Tag'].value_counts().reset_index()
                 pie_data.columns = ['Tag', 'Count']
                 fig_pie, ax1 = plt.subplots(figsize=(4.5, 4.5))
-                ax1.pie(pie_data['Count'], labels=pie_data['Tag'], autopct='%1.1f%%', startangle=90, textprops={'fontsize': 10})
+                # Define colors for the pie chart to fit dark/light mode
+                if dark_mode:
+                    colors = plt.cm.Dark2.colors # A set of colors good for dark backgrounds
+                    text_color = 'white'
+                else:
+                    colors = plt.cm.Pastel1.colors # A set of colors good for light backgrounds
+                    text_color = 'black'
+
+                wedges, texts, autotexts = ax1.pie(pie_data['Count'], labels=pie_data['Tag'], autopct='%1.1f%%', startangle=90, colors=colors, textprops={'fontsize': 10, 'color': text_color})
+                for autotext in autotexts:
+                    autotext.set_color(text_color) # Ensure percentages are readable
                 ax1.axis('equal')
                 st.pyplot(fig_pie)
                 plt.close(fig_pie) # Close the figure to free up memory
@@ -258,10 +298,18 @@ if tab == "🏠 Dashboard":
                 df_results['Experience Group'] = pd.cut(df_results['Years Experience'], bins=bins, labels=labels, right=False)
                 exp_counts = df_results['Experience Group'].value_counts().sort_index()
                 fig_bar, ax2 = plt.subplots(figsize=(5, 4))
-                sns.barplot(x=exp_counts.index, y=exp_counts.values, palette="coolwarm", ax=ax2)
-                ax2.set_ylabel("Candidates")
-                ax2.set_xlabel("Experience Range")
-                ax2.tick_params(axis='x', labelrotation=0)
+                
+                # Adjust palette for dark/light mode
+                if dark_mode:
+                    sns.barplot(x=exp_counts.index, y=exp_counts.values, palette="viridis", ax=ax2)
+                else:
+                    sns.barplot(x=exp_counts.index, y=exp_counts.values, palette="coolwarm", ax=ax2)
+                
+                ax2.set_ylabel("Candidates", color='white' if dark_mode else 'black')
+                ax2.set_xlabel("Experience Range", color='white' if dark_mode else 'black')
+                ax2.tick_params(axis='x', labelrotation=0, colors='white' if dark_mode else 'black')
+                ax2.tick_params(axis='y', colors='white' if dark_mode else 'black')
+                ax2.title.set_color('white' if dark_mode else 'black') # Title color
                 st.pyplot(fig_bar)
                 plt.close(fig_bar) # Close the figure to free up memory
             
@@ -285,18 +333,25 @@ if tab == "🏠 Dashboard":
 
                 if not skill_counts.empty:
                     fig_skills, ax3 = plt.subplots(figsize=(5.8, 3))
+                    
+                    if dark_mode:
+                        palette = sns.color_palette("magma", len(skill_counts))
+                    else:
+                        palette = sns.color_palette("cool", len(skill_counts))
+
                     sns.barplot(
                         x=skill_counts.values,
                         y=skill_counts.index,
-                        palette=sns.color_palette("cool", len(skill_counts)),
+                        palette=palette,
                         ax=ax3
                     )
-                    ax3.set_title("Top 5 Skills", fontsize=13, fontweight='bold')
-                    ax3.set_xlabel("Frequency", fontsize=11)
-                    ax3.set_ylabel("Skill", fontsize=11)
-                    ax3.tick_params(labelsize=10)
+                    ax3.set_title("Top 5 Skills", fontsize=13, fontweight='bold', color='white' if dark_mode else 'black')
+                    ax3.set_xlabel("Frequency", fontsize=11, color='white' if dark_mode else 'black')
+                    ax3.set_ylabel("Skill", fontsize=11, color='white' if dark_mode else 'black')
+                    ax3.tick_params(labelsize=10, colors='white' if dark_mode else 'black')
+                    
                     for i, v in enumerate(skill_counts.values):
-                        ax3.text(v + 0.3, i, str(v), color='black', va='center', fontweight='bold', fontsize=9)
+                        ax3.text(v + 0.3, i, str(v), color='white' if dark_mode else 'black', va='center', fontweight='bold', fontsize=9)
 
                     fig_skills.tight_layout()
                     st.pyplot(fig_skills)
@@ -322,8 +377,12 @@ elif tab == "📁 Manage JDs":
     # from manage_jds import manage_jds_page
     # manage_jds_page()
     # Otherwise, if it's a script meant to be executed directly:
-    with open("manage_jds.py", encoding="utf-8") as f:
-        exec(f.read())
+    try:
+        with open("manage_jds.py", encoding="utf-8") as f:
+            exec(f.read())
+    except FileNotFoundError:
+        st.error("`manage_jds.py` not found. Please ensure the file exists in the same directory.")
+
 
 elif tab == "📊 Screening Analytics":
     analytics_dashboard_page() # Call the function from analytics.py
@@ -334,8 +393,11 @@ elif tab == "📤 Email Candidates":
     # from email_page import email_candidates_page
     # email_candidates_page()
     # Otherwise, if it's a script meant to be executed directly:
-    with open("email_page.py", encoding="utf-8") as f:
-        exec(f.read())
+    try:
+        with open("email_page.py", encoding="utf-8") as f:
+            exec(f.read())
+    except FileNotFoundError:
+        st.error("`email_page.py` not found. Please ensure the file exists in the same directory.")
 
 elif tab == "🔍 Search Resumes":
     # Ensure search.py exists in the same directory and its logic is not in a function
@@ -343,8 +405,11 @@ elif tab == "🔍 Search Resumes":
     # from search import search_resumes_page
     # search_resumes_page()
     # Otherwise, if it's a script meant to be executed directly:
-    with open("search.py", encoding="utf-8") as f:
-        exec(f.read())
+    try:
+        with open("search.py", encoding="utf-8") as f:
+            exec(f.read())
+    except FileNotFoundError:
+        st.error("`search.py` not found. Please ensure the file exists in the same directory.")
 
 elif tab == "📝 Candidate Notes":
     # Ensure notes.py exists in the same directory and its logic is not in a function
@@ -352,8 +417,11 @@ elif tab == "📝 Candidate Notes":
     # from notes import candidate_notes_page
     # candidate_notes_page()
     # Otherwise, if it's a script meant to be executed directly:
-    with open("notes.py", encoding="utf-8") as f:
-        exec(f.read())
+    try:
+        with open("notes.py", encoding="utf-8") as f:
+            exec(f.read())
+    except FileNotFoundError:
+        st.error("`notes.py` not found. Please ensure the file exists in the same directory.")
 
 elif tab == "🚪 Logout":
     st.session_state.authenticated = False
