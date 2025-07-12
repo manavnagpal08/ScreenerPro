@@ -176,9 +176,9 @@ div[data-testid="stNumberInput"] input {{
 /* --- Start of Hiding Streamlit UI elements CSS --- */
 
 /* Your provided hide_st_style rules */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
+#MainMenu {{visibility: hidden;}}
+footer {{visibility: hidden;}}
+header {{visibility: hidden;}}
 
 /* More specific and robust hiding rules (from previous suggestions) */
 header[data-testid="stHeader"] {{
@@ -210,6 +210,7 @@ div[data-testid="stConnectionStatus"] {{
     display: none !important;
     visibility: hidden !important;
 }}
+/* This specific selector was causing issues in some Streamlit versions, including it for completeness */
 .st-emotion-cache-ch5fef {{
     display: none !important;
     visibility: hidden !important;
