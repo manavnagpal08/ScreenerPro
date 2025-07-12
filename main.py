@@ -172,44 +172,14 @@ div[data-testid="stNumberInput"] input {{
 }}
 
 
-/* --- Start of Hiding Streamlit UI elements CSS --- */
 
-/* Hide the MainMenu (ellipsis icon) */
-#MainMenu {{
+<style>
+.st-emotion-cache-1j22a0y e4x2yc34
+{
     visibility: hidden;
-    display: none !important; /* Use display: none for complete removal from layout */
-}}
-
-/* Hide the entire top toolbar (Share, Fork, etc.) */
-div[data-testid="stToolbar"] {{
-    display: none !important;
-    visibility: hidden !important;
-}}
-
-/* Hide the "Hosted with Streamlit" badge at the bottom */
-div[data-testid="stConnectionStatus"] {{
-    display: none !important;
-    visibility: hidden !important;
-}}
-
-/* Other common elements to hide for a cleaner look */
-footer {{visibility: hidden; display: none !important;}}
-header {{visibility: hidden; display: none !important;}}
-.stDeployButton {{display: none !important; visibility: hidden !important;}}
-/* More specific selectors for the badge and other potential elements */
-.viewerBadge_container__1QSob,
-.styles_viewerBadge__1yB5_,
-.viewerBadge_link__1S137,
-.viewerBadge_text__1JaDK,
-#GithubIcon,
-.css-1jc7ptx, .e1ewe7hr3, .e1ewe7hr1 {{
-    display: none !important;
-    visibility: hidden !important;
-}}
-
-/* --- End of Hiding Streamlit UI elements CSS --- */
-
+}
 </style>
+
 """, unsafe_allow_html=True)
 
 # Set Matplotlib style for dark mode if active
