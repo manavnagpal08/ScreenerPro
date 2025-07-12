@@ -430,48 +430,47 @@ def extract_name(text):
             return name.title()
     return None
 
-# --- Generative AI Suggestion Function (MODIFIED TO BE CONCISE AND RULE-BASED) ---
+# --- Generative AI Suggestion Function (MODIFIED FOR REALISM & FOCUS) ---
 @st.cache_data(show_spinner="Generating AI Suggestion...")
 def generate_ai_suggestion(candidate_name, score, years_exp, semantic_similarity, jd_text, resume_text):
     """
-    Generates a concise AI suggestion based on rules.
+    Generates a concise AI suggestion based on rules, focusing on assessment and review.
     """
-    overall_fit = ""
-    recommendation = ""
+    overall_fit_description = ""
     strengths_summary = []
     gaps_summary = []
+    review_focus_text = ""
 
     # Define thresholds and generate suggestions based on score, years_exp, and semantic_similarity
-    # ADJUSTED THRESHOLDS BELOW
-    if score >= 85 and years_exp >= 4 and semantic_similarity >= 0.75: # Adjusted Strong Fit
-        overall_fit = "Strong Fit"
-        recommendation = "Highly Recommended for Interview"
-        strengths_summary.append("Exceptional alignment with job requirements and extensive relevant experience.")
-    elif score >= 65 and years_exp >= 2 and semantic_similarity >= 0.4: # Adjusted Moderate Fit
-        overall_fit = "Moderate Fit"
-        recommendation = "Recommended for Interview"
-        strengths_summary.append("Good alignment with job description keywords and solid experience.")
+    if score >= 85 and years_exp >= 4 and semantic_similarity >= 0.75:
+        overall_fit_description = "High alignment with job requirements."
+        strengths_summary.append("Strong match in core skills and extensive relevant experience.")
+        review_focus_text = "Focus on cultural fit and specific project contributions during interview."
+    elif score >= 65 and years_exp >= 2 and semantic_similarity >= 0.4:
+        overall_fit_description = "Moderate fit; good potential with some areas for deeper exploration."
+        strengths_summary.append("Good overlap in key skills and solid foundational experience.")
         if years_exp < 3:
-            gaps_summary.append(f"Experience ({years_exp:.1f} yrs) slightly below ideal; probe depth.")
+            gaps_summary.append(f"Experience ({years_exp:.1f} yrs) slightly below ideal.")
         if semantic_similarity < 0.7:
-            gaps_summary.append("Some conceptual gaps with JD; probe specific skill applications.")
+            gaps_summary.append("Some conceptual gaps with JD.")
+        review_focus_text = "Probe depth of experience and application of skills in interview."
     else:
-        overall_fit = "Low Fit"
-        recommendation = "Further Review / Likely Decline"
-        if score < 65: # Changed from 75 to 65 to match new Moderate Fit threshold
+        overall_fit_description = "Limited alignment with core requirements."
+        if score < 65:
             gaps_summary.append(f"Overall score ({score:.2f}%) indicates significant mismatch.")
         if years_exp < 2:
             gaps_summary.append(f"Insufficient experience ({years_exp:.1f} yrs).")
-        if semantic_similarity < 0.4: # Changed from 0.6 to 0.4 to match new Moderate Fit threshold
+        if semantic_similarity < 0.4:
             gaps_summary.append(f"Low semantic similarity ({semantic_similarity:.2f}) suggests conceptual mismatch.")
+        review_focus_text = "Consider only if candidate pipeline is limited; focus on foundational skills and potential for growth."
 
     # Construct the concise output
-    summary_text = f"**Overall Fit:** {overall_fit}. "
+    summary_text = f"**Overall Fit:** {overall_fit_description} "
     if strengths_summary:
         summary_text += f"**Strengths:** {'; '.join(strengths_summary)}. "
     if gaps_summary:
         summary_text += f"**Gaps:** {'; '.join(gaps_summary)}. "
-    summary_text += f"**Recommendation:** {recommendation}."
+    summary_text += f"**Review Focus:** {review_focus_text}."
 
     return summary_text
 
@@ -711,6 +710,7 @@ def resume_screener_page():
         
         # Removed: df.to_csv("results.csv", index=False) - No longer saving to CSV
 
+
         # --- Overall Candidate Comparison Chart ---
         st.markdown("## 📊 Candidate Score Comparison")
         st.caption("Visual overview of how each candidate ranks against the job requirements.")
@@ -736,8 +736,8 @@ def resume_screener_page():
 
         st.markdown("---")
 
-        # --- TOP CANDIDATE AI RECOMMENDATION (Game Changer Feature) ---
-        st.markdown("## 👑 Top Candidate AI Recommendation")
+        # --- TOP CANDIDATE AI ASSESSMENT (Changed from Recommendation) ---
+        st.markdown("## 👑 Top Candidate AI Assessment")
         st.caption("A concise, AI-powered assessment for the most suitable candidate.")
         
         if not df.empty:
@@ -746,14 +746,14 @@ def resume_screener_page():
             st.markdown(f"**Score:** {top_candidate['Score (%)']:.2f}% | **Experience:** {top_candidate['Years Experience']:.1f} years | **Semantic Similarity:** {top_candidate['Semantic Similarity']:.2f}")
             st.markdown(f"**AI Assessment:** {top_candidate['AI Suggestion']}") # Use the concise AI suggestion
             
-            # Action button for the top candidate
+            # Action button for the top candidate (kept for general utility, not tied to "hire" phrase)
             if top_candidate['Email'] != "Not Found":
                 mailto_link_top = create_mailto_link(
                     recipient_email=top_candidate['Email'],
                     candidate_name=top_candidate['Candidate Name'],
                     job_title=jd_option if jd_option != "Upload my own" else "Job Opportunity"
                 )
-                st.markdown(f'<a href="{mailto_link_top}" target="_blank"><button style="background-color:#00cec9;color:white;border:none;padding:10px 20px;text-align:center;text-decoration:none;display:inline-block;font-size:16px;margin:4px 2px;cursor:pointer;border-radius:8px;">📧 Invite Top Candidate for Interview</button></a>', unsafe_allow_html=True)
+                st.markdown(f'<a href="{mailto_link_top}" target="_blank"><button style="background-color:#00cec9;color:white;border:none;padding:10px 20px;text-align:center;text-decoration:none;display:inline-block;font-size:16px;margin:4px 2px;cursor:pointer;border-radius:8px;">📧 Contact Top Candidate</button></a>', unsafe_allow_html=True)
             else:
                 st.info(f"Email address not found for {top_candidate['Candidate Name']}. Cannot send automated invitation.")
             
@@ -764,9 +764,7 @@ def resume_screener_page():
             st.info("No candidates processed yet to determine the top candidate.")
 
 
-        # === AI Recommendation for Shortlisted Candidates (Streamlined) ===
-        # This section now focuses on a quick summary for *all* shortlisted,
-        # with the top one highlighted above.
+        # === AI Assessment for Shortlisted Candidates (Streamlined) ===
         st.markdown("## 🌟 Shortlisted Candidates Overview")
         st.caption("Candidates meeting your score and experience criteria.")
 
@@ -811,7 +809,7 @@ def resume_screener_page():
                     ),
                     "AI Suggestion": st.column_config.Column(
                         "AI Suggestion",
-                        help="AI's concise overall assessment and recommendation"
+                        help="AI's concise overall assessment and review focus"
                     )
                 }
             )
@@ -820,72 +818,72 @@ def resume_screener_page():
         else:
             st.warning("No candidates met the defined screening criteria (score cutoff and minimum experience). You might consider adjusting the sliders or reviewing the uploaded resumes/JD.")
 
-        st.markdown("---")
+    st.markdown("---")
 
-        # Add a 'Tag' column for quick categorization
-        df['Tag'] = df.apply(lambda row: "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3 else (
-            "✅ Good Fit" if row['Score (%)'] >= 75 else "⚠️ Needs Review"), axis=1)
+    # Add a 'Tag' column for quick categorization
+    df['Tag'] = df.apply(lambda row: "🔥 Top Talent" if row['Score (%)'] > 90 and row['Years Experience'] >= 3 else (
+        "✅ Good Fit" if row['Score (%)'] >= 75 else "⚠️ Needs Review"), axis=1)
 
-        st.markdown("## 📋 Comprehensive Candidate Results Table")
-        st.caption("Full details for all processed resumes. **For deep dive analytics and keyword breakdowns, refer to the Analytics Dashboard.**")
-        
-        # Define columns to display in the comprehensive table
-        comprehensive_cols = [
-            'Candidate Name',
-            'Score (%)',
-            'Years Experience',
-            'Semantic Similarity',
-            'Tag', # Keep the custom tag
-            'Email',
-            'AI Suggestion', # This will still contain the full AI suggestion text but is in a table, not per-candidate verbose display
-            'Matched Keywords',
-            'Missing Skills',
-            # 'Resume Raw Text' # Removed from default display to keep table manageable, can be viewed in Analytics
-        ]
-        
-        # Ensure all columns exist before trying to display them
-        final_display_cols = [col for col in comprehensive_cols if col in df.columns]
+    st.markdown("## 📋 Comprehensive Candidate Results Table")
+    st.caption("Full details for all processed resumes. **For deep dive analytics and keyword breakdowns, refer to the Analytics Dashboard.**")
+    
+    # Define columns to display in the comprehensive table
+    comprehensive_cols = [
+        'Candidate Name',
+        'Score (%)',
+        'Years Experience',
+        'Semantic Similarity',
+        'Tag', # Keep the custom tag
+        'Email',
+        'AI Suggestion', # This will still contain the full AI suggestion text but is in a table, not per-candidate verbose display
+        'Matched Keywords',
+        'Missing Skills',
+        # 'Resume Raw Text' # Removed from default display to keep table manageable, can be viewed in Analytics
+    ]
+    
+    # Ensure all columns exist before trying to display them
+    final_display_cols = [col for col in comprehensive_cols if col in df.columns]
 
-        st.dataframe(
-            df[final_display_cols],
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Score (%)": st.column_config.ProgressColumn(
-                    "Score (%)",
-                    help="Matching score against job requirements",
-                    format="%f",
-                    min_value=0,
-                    max_value=100,
-                ),
-                "Years Experience": st.column_config.NumberColumn(
-                    "Years Experience",
-                    help="Total years of professional experience",
-                    format="%.1f years",
-                ),
-                "Semantic Similarity": st.column_config.NumberColumn(
-                    "Semantic Similarity",
-                    help="Conceptual similarity between JD and Resume (higher is better)",
-                    format="%.2f",
-                    min_value=0,
-                    max_value=1
-                ),
-                "AI Suggestion": st.column_config.Column(
-                    "AI Suggestion",
-                    help="AI's overall assessment and recommendation"
-                ),
-                "Matched Keywords": st.column_config.Column(
-                    "Matched Keywords",
-                    help="Keywords found in both JD and Resume"
-                ),
-                "Missing Skills": st.column_config.Column(
-                    "Missing Skills",
-                    help="Key skills from JD not found in Resume"
-                ),
-            }
-        )
+    st.dataframe(
+        df[final_display_cols],
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Score (%)": st.column_config.ProgressColumn(
+                "Score (%)",
+                help="Matching score against job requirements",
+                format="%f",
+                min_value=0,
+                max_value=100,
+            ),
+            "Years Experience": st.column_config.NumberColumn(
+                "Years Experience",
+                help="Total years of professional experience",
+                format="%.1f years",
+            ),
+            "Semantic Similarity": st.column_config.NumberColumn(
+                "Semantic Similarity",
+                help="Conceptual similarity between JD and Resume (higher is better)",
+                format="%.2f",
+                min_value=0,
+                max_value=1
+            ),
+            "AI Suggestion": st.column_config.Column(
+                "AI Suggestion",
+                help="AI's overall assessment and review focus"
+            ),
+            "Matched Keywords": st.column_config.Column(
+                "Matched Keywords",
+                help="Keywords found in both JD and Resume"
+            ),
+            "Missing Skills": st.column_config.Column(
+                "Missing Skills",
+                help="Key skills from JD not found in Resume"
+            ),
+        }
+    )
 
-        st.info("Remember to check the Analytics Dashboard for in-depth visualizations of skill overlaps, gaps, and other metrics!")
-    else:
-        st.info("Please upload a Job Description and at least one Resume to begin the screening process.")
+    st.info("Remember to check the Analytics Dashboard for in-depth visualizations of skill overlaps, gaps, and other metrics!")
+else:
+    st.info("Please upload a Job Description and at least one Resume to begin the screening process.")
 
