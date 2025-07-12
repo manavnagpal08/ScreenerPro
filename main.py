@@ -67,15 +67,10 @@ html, body, [class*="css"] {
 .main .block-container {
     padding: 2rem;
     border-radius: 20px;
-    /* CHANGED: Light mode default background to a light blue */
-    background: #e0f2f7; /* A light blue shade */
+    background: rgba(255, 255, 255, 0.96); /* Light mode default */
     box-shadow: 0 12px 30px rgba(0,0,0,0.1);
     animation: fadeIn 0.8s ease-in-out;
 }
-body { /* Add this if you want the very outer background to be blue too in light mode */
-    background-color: #f0f8ff; /* A slightly lighter blue for the overall page body */
-}
-
 @keyframes fadeIn {
     0% { opacity: 0; transform: translateY(20px); }
     100% { opacity: 1; transform: translateY(0); }
@@ -86,9 +81,8 @@ body { /* Add this if you want the very outer background to be blue too in light
     text-align: center;
     font-weight: 600;
     border-radius: 16px;
-    /* Light mode card background with a blue tint */
-    background: linear-gradient(145deg, #e3f2fd, #ffffff);
-    border: 1px solid #bbdefb; /* Blue border */
+    background: linear-gradient(145deg, #f1f2f6, #ffffff);
+    border: 1px solid #e0e0e0;
     box-shadow: 0 6px 18px rgba(0,0,0,0.05);
     transition: transform 0.2s ease, box-shadow 0.3s ease;
     cursor: pointer;
@@ -96,14 +90,14 @@ body { /* Add this if you want the very outer background to be blue too in light
 .dashboard-card:hover {
     transform: translateY(-6px);
     box-shadow: 0 10px 24px rgba(0,0,0,0.1);
-    background: linear-gradient(145deg, #c7e8ff, #e0f7fa); /* Lighter blue on hover */
+    background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
 }
 .dashboard-header {
     font-size: 2.2rem;
     font-weight: 700;
-    color: #0d47a1; /* Darker blue for header text in light mode */
+    color: #222; /* Light mode default */
     padding-bottom: 0.5rem;
-    border-bottom: 3px solid #1976d2; /* A shade of blue for border */
+    border-bottom: 3px solid #00cec9;
     display: inline-block;
     margin-bottom: 2rem;
     animation: slideInLeft 0.8s ease-out;
@@ -120,9 +114,8 @@ body { /* Add this if you want the very outer background to be blue too in light
     text-align: center;
     font-weight: 600;
     border-radius: 16px;
-    /* Light mode custom button background with a blue tint */
-    background: linear-gradient(145deg, #e3f2fd, #ffffff);
-    border: 1px solid #bbdefb; /* Blue border */
+    background: linear-gradient(145deg, #f1f2f6, #ffffff);
+    border: 1px solid #e0e0e0;
     box-shadow: 0 6px 18px rgba(0,0,0,0.05);
     transition: transform 0.2s ease, box-shadow 0.3s ease;
     cursor: pointer;
@@ -130,13 +123,13 @@ body { /* Add this if you want the very outer background to be blue too in light
     flex-direction: column; /* Stack icon and text vertically */
     justify-content: center;
     align-items: center;
-    color: #1a237e; /* Dark blue for button text */
+    color: #333; /* Ensure text color is visible */
     min-height: 120px; /* Ensure a consistent height for the buttons */
 }
 .custom-dashboard-button:hover {
     transform: translateY(-6px);
-    box-shadow: 0 10px 24px rgba(0,0,0,0.1);
-    background: linear-gradient(145deg, #c7e8ff, #e0f7fa); /* Lighter blue on hover */
+    box_shadow: 0 10px 24px rgba(0,0,0,0.1);
+    background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
 }
 .custom-dashboard-button span { /* For the icon */
     font-size: 1.5rem;
@@ -288,7 +281,7 @@ if tab == "🏠 Dashboard":
                     colors = plt.cm.Dark2.colors # A set of colors good for dark backgrounds
                     text_color = 'white'
                 else:
-                    colors = plt.cm.Pastel1.colors # A set of colors good for light backgrounds, can be customized
+                    colors = plt.cm.Pastel1.colors # A set of colors good for light backgrounds
                     text_color = 'black'
 
                 wedges, texts, autotexts = ax1.pie(pie_data['Count'], labels=pie_data['Tag'], autopct='%1.1f%%', startangle=90, colors=colors, textprops={'fontsize': 10, 'color': text_color})
@@ -310,7 +303,7 @@ if tab == "🏠 Dashboard":
                 if dark_mode:
                     sns.barplot(x=exp_counts.index, y=exp_counts.values, palette="viridis", ax=ax2)
                 else:
-                    sns.barplot(x=exp_counts.index, y=exp_counts.values, palette="Blues_r", ax=ax2) # Use a blue palette for light mode
+                    sns.barplot(x=exp_counts.index, y=exp_counts.values, palette="coolwarm", ax=ax2)
                 
                 ax2.set_ylabel("Candidates", color='white' if dark_mode else 'black')
                 ax2.set_xlabel("Experience Range", color='white' if dark_mode else 'black')
@@ -344,7 +337,7 @@ if tab == "🏠 Dashboard":
                     if dark_mode:
                         palette = sns.color_palette("magma", len(skill_counts))
                     else:
-                        palette = sns.color_palette("Blues", len(skill_counts)) # Use a blue palette for light mode
+                        palette = sns.color_palette("cool", len(skill_counts))
 
                     sns.barplot(
                         x=skill_counts.values,
