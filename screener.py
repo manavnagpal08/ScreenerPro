@@ -313,6 +313,30 @@ def clean_text(text):
     text = re.sub(r'[^\x00-\x7F]+', ' ', text)
     return text.strip().lower()
 
+def extract_relevant_keywords(text, master_skills_set):
+    """
+    Extracts relevant keywords from text, prioritizing multi-word skills from master_skills_set.
+    """
+    cleaned_text = clean_text(text)
+    extracted_keywords = set()
+
+    # First, extract all individual words
+    individual_words = set(re.findall(r'\b\w+\b', cleaned_text))
+    extracted_keywords.update(individual_words)
+
+    # Then, look for multi-word skills from the master list
+    # Sort master skills by length descending to match longer phrases first
+    sorted_master_skills = sorted(list(master_skills_set), key=len, reverse=True)
+
+    for skill in sorted_master_skills:
+        # Create a regex pattern to match the whole skill phrase
+        # \b ensures whole word match, re.escape handles special characters in skill names
+        pattern = r'\b' + re.escape(skill.lower()) + r'\b'
+        if re.search(pattern, cleaned_text):
+            extracted_keywords.add(skill.lower()) # Add the original skill (lowercase)
+
+    return extracted_keywords
+
 def extract_text_from_pdf(uploaded_file):
     """Extracts text from an uploaded PDF file."""
     try:
@@ -452,10 +476,11 @@ def semantic_score(resume_text, jd_text, years_exp):
     if ml_model is None or model is None:
         st.warning("ML models not loaded. Providing basic score and generic feedback.")
         # Simplified fallback for score and feedback
-        resume_words = {word for word in re.findall(r'\b\w+\b', resume_clean) if word not in STOP_WORDS}
-        jd_words = {word for word in re.findall(r'\b\w+\b', jd_clean) if word not in STOP_WORDS}
+        # Use the new extraction logic for fallback as well
+        resume_words = extract_relevant_keywords(resume_clean, MASTER_SKILLS if MASTER_SKILLS else STOP_WORDS)
+        jd_words = extract_relevant_keywords(jd_clean, MASTER_SKILLS if MASTER_SKILLS else STOP_WORDS)
         
-        overlap_count = len(resume_words & jd_words)
+        overlap_count = len(resume_words.intersection(jd_words))
         total_jd_words = len(jd_words)
         
         basic_score = (overlap_count / total_jd_words) * 70 if total_jd_words > 0 else 0
@@ -475,9 +500,10 @@ def semantic_score(resume_text, jd_text, years_exp):
         semantic_similarity = float(np.clip(semantic_similarity, 0, 1))
 
         # Internal calculation for model, not for display
-        resume_words_filtered = {word for word in re.findall(r'\b\w+\b', resume_clean) if word not in STOP_WORDS}
-        jd_words_filtered = {word for word in re.findall(r'\b\w+\b', jd_clean) if word not in STOP_WORDS}
-        keyword_overlap_count = len(resume_words_filtered & jd_words_filtered)
+        # Use the new extraction logic for model features
+        resume_words_filtered = extract_relevant_keywords(resume_clean, MASTER_SKILLS if MASTER_SKILLS else STOP_WORDS)
+        jd_words_filtered = extract_relevant_keywords(jd_clean, MASTER_SKILLS if MASTER_SKILLS else STOP_WORDS)
+        keyword_overlap_count = len(resume_words_filtered.intersection(jd_words_filtered))
         
         years_exp_for_model = float(years_exp) if years_exp is not None else 0.0
 
@@ -506,10 +532,11 @@ def semantic_score(resume_text, jd_text, years_exp):
     except Exception as e:
         st.warning(f"Error during semantic scoring, falling back to basic: {e}")
         # Simplified fallback for score and feedback if ML prediction fails
-        resume_words = {word for word in re.findall(r'\b\w+\b', resume_clean) if word not in STOP_WORDS}
-        jd_words = {word for word in re.findall(r'\b\w+\b', jd_clean) if word not in STOP_WORDS}
+        # Use the new extraction logic for fallback
+        resume_words = extract_relevant_keywords(resume_clean, MASTER_SKILLS if MASTER_SKILLS else STOP_WORDS)
+        jd_words = extract_relevant_keywords(jd_clean, MASTER_SKILLS if MASTER_SKILLS else STOP_WORDS)
         
-        overlap_count = len(resume_words & jd_words)
+        overlap_count = len(resume_words.intersection(jd_words))
         total_jd_words = len(jd_words)
         
         basic_score = (overlap_count / total_jd_words) * 70 if total_jd_words > 0 else 0
@@ -583,13 +610,12 @@ if jd_text and resume_files:
     st.markdown("## ☁️ Job Description Keyword Cloud")
     st.caption("Visualizing the most frequent and important keywords from the Job Description.")
     
-    jd_clean_for_cloud = clean_text(jd_text)
-    jd_words_all = {word for word in re.findall(r'\b\w+\b', jd_clean_for_cloud)}
-
-    if MASTER_SKILLS: # If MASTER_SKILLS is provided, use it as a whitelist
-        jd_words_for_cloud_set = jd_words_all.intersection(MASTER_SKILLS)
-    else: # Otherwise, use the default STOP_WORDS to filter
-        jd_words_for_cloud_set = {word for word in jd_words_all if word not in STOP_WORDS}
+    # Use the new extract_relevant_keywords function for the word cloud
+    if MASTER_SKILLS:
+        jd_words_for_cloud_set = extract_relevant_keywords(jd_text, MASTER_SKILLS)
+    else:
+        # Fallback to filtering out general stop words if MASTER_SKILLS is empty
+        jd_words_for_cloud_set = {word for word in re.findall(r'\b\w+\b', clean_text(jd_text)) if word not in STOP_WORDS}
 
     jd_words_for_cloud = " ".join(list(jd_words_for_cloud_set))
 
@@ -622,24 +648,11 @@ if jd_text and resume_files:
         email = extract_email(text)
         candidate_name = extract_name(text) or file.name.replace('.pdf', '').replace('_', ' ').title()
 
-        # Calculate Matched Keywords and Missing Skills
-        resume_clean_for_keywords = clean_text(text)
-        jd_clean_for_keywords = clean_text(jd_text)
-
-        # Get all words from resume and JD
-        resume_words_all = {word for word in re.findall(r'\b\w+\b', resume_clean_for_keywords)}
-        jd_words_all = {word for word in re.findall(r'\b\w+\b', jd_clean_for_keywords)}
-
-        # Filter by MASTER_SKILLS if provided, otherwise filter by STOP_WORDS
-        if MASTER_SKILLS:
-            resume_words_set = resume_words_all.intersection(MASTER_SKILLS)
-            jd_words_set = jd_words_all.intersection(MASTER_SKILLS)
-        else:
-            resume_words_set = {word for word in resume_words_all if word not in STOP_WORDS}
-            jd_words_set = {word for word in jd_words_all if word not in STOP_WORDS}
+        # Calculate Matched Keywords and Missing Skills using the new function
+        resume_words_set = extract_relevant_keywords(text, MASTER_SKILLS)
+        jd_words_set = extract_relevant_keywords(jd_text, MASTER_SKILLS)
 
         matched_keywords = list(resume_words_set.intersection(jd_words_set))
-        # CORRECTED BUG: missing_skills should be jd_words_set.difference(resume_words_set)
         missing_skills = list(jd_words_set.difference(resume_words_set)) 
 
         # semantic_score now returns score, placeholder feedback, semantic_similarity
@@ -687,7 +700,7 @@ if jd_text and resume_files:
     if not df.empty:
         fig, ax = plt.subplots(figsize=(12, 7))
         # Define colors: Green for top, Yellow for moderate, Red for low
-        colors = ['#4CAF50' if s >= cutoff else '#FFC107' if s >= (cutoff * 0.75) else '#F44336' for s in df['Score (%)']]
+        colors = ['#4CAF50' if s >= cutoff else '#FFC107' if s >= (cutoff * 0.75) else '#F44346' for s in df['Score (%)']]
         bars = ax.bar(df['Candidate Name'], df['Score (%)'], color=colors)
         ax.set_xlabel("Candidate", fontsize=14)
         ax.set_ylabel("Score (%)", fontsize=14)
