@@ -299,3 +299,23 @@ elif tab == "🚪 Logout":
     st.session_state.pop('username', None)
     st.success("✅ Logged out.")
     st.stop()
+elif tab == "⚙️ Admin Tools":
+    st.header("⚙️ Admin Tools") # Changed to st.header
+    if is_admin:
+        admin_registration_section() # Display the admin registration form
+
+        st.markdown("---")
+        st.subheader("👥 All Registered Users")
+        st.warning("⚠️ **SECURITY WARNING:** This table displays usernames (email IDs) and **hashed passwords**. This is for **ADMINISTRATIVE DEBUGGING ONLY IN A SECURE ENVIRONMENT**. **NEVER expose this in a public or production application.**")
+        try:
+            users_data = load_users()
+            if users_data:
+                # Convert dictionary to a list of (username, hashed_password) tuples
+                # Display both the username (email ID) and the hashed password
+                user_list = [[user, users_data[user]] for user in users_data.keys()] # <--- MODIFIED THIS LINE
+                st.dataframe(pd.DataFrame(user_list, columns=["Email/Username", "Hashed Password (DO NOT EXPOSE)"]), use_container_width=True)
+            else:
+                st.info("No users registered yet.")
+        except Exception as e:
+            st.error(f"Error loading user data: {e}")
+    
