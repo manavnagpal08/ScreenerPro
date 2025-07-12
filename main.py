@@ -7,7 +7,7 @@ import os
 import json
 
 # Import the page functions from their respective files
-from login import login_section, load_users, admin_registration_section, is_current_user_admin # <-- NEW IMPORTS
+from login import login_section, load_users, admin_registration_section, is_current_user_admin
 from email_sender import send_email_to_candidate
 from screener import resume_screener_page
 from analytics import analytics_dashboard_page
@@ -18,154 +18,10 @@ st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wid
 
 
 # --- Dark Mode Toggle ---
+# If you want to keep dark mode functionality, you'll need to implement
+# Streamlit's native dark mode setting if available or use CSS dynamically.
+# For now, this toggle will just exist without custom CSS effects.
 dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
-
-# --- Global Fonts & UI Styling (No change from previous version) ---
-st.markdown(f"""
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-<style>
-/* Global Styles - apply to both modes unless overridden */
-html, body, [class*="css"] {{
-    font-family: 'Inter', sans-serif;
-    color: {'white' if dark_mode else '#333333'};
-}}
-
-.main .block-container {{
-    padding: 2rem;
-    border-radius: 20px;
-    background: {'#1e1e1e' if dark_mode else 'rgba(255, 255, 255, 0.96)'};
-    box-shadow: 0 12px 30px {'rgba(0,0,0,0.4)' if dark_mode else 'rgba(0,0,0,0.1)'};
-    animation: fadeIn 0.8s ease-in-out;
-}}
-
-@keyframes fadeIn {{
-    0% {{ opacity: 0; transform: translateY(20px); }}
-    100% {{ opacity: 1; transform: translateY(0); }}
-}}
-
-.dashboard-card {{
-    padding: 2rem;
-    text-align: center;
-    font-weight: 600;
-    border-radius: 16px;
-    background: {'#2a2a2a' if dark_mode else 'linear-gradient(145deg, #f1f2f6, #ffffff)'};
-    border: 1px solid {'#3a3a3a' if dark_mode else '#e0e0e0'};
-    box-shadow: 0 6px 18px {'rgba(0,0,0,0.2)' if dark_mode else 'rgba(0,0,0,0.05)'};
-    transition: transform 0.2s ease, box-shadow 0.3s ease;
-    cursor: pointer;
-    color: {'white' if dark_mode else '#333'};
-}}
-
-.dashboard-card:hover {{
-    transform: translateY(-6px);
-    box-shadow: 0 10px 24px {'rgba(0,0,0,0.3)' if dark_mode else 'rgba(0,0,0,0.1)'};
-    background: {'#3a3a3a' if dark_mode else 'linear-gradient(145deg, #e0f7fa, #f1f1f1)'};
-}}
-
-.dashboard-header {{
-    font-size: 2.2rem;
-    font-weight: 700;
-    color: {'#00cec9' if dark_mode else '#222'};
-    padding-bottom: 0.5rem;
-    border-bottom: 3px solid #00cec9;
-    display: inline-block;
-    margin-bottom: 2rem;
-    animation: slideInLeft 0.8s ease-out;
-}}
-
-@keyframes slideInLeft {{
-    0% {{ transform: translateX(-40px); opacity: 0; }}
-    100% {{ transform: translateX(0); opacity: 1; }}
-}}
-
-.custom-dashboard-button {{
-    width: 100%;
-    height: 100%;
-    padding: 2rem;
-    text-align: center;
-    font-weight: 600;
-    border-radius: 16px;
-    background: {'#2a2a2a' if dark_mode else 'linear-gradient(145deg, #f1f2f6, #ffffff)'};
-    border: 1px solid {'#3a3a3a' if dark_mode else '#e0e0e0'};
-    box-shadow: 0 6px 18px {'rgba(0,0,0,0.2)' if dark_mode else 'rgba(0,0,0,0.05)'};
-    transition: transform 0.2s ease, box-shadow 0.3s ease;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    color: {'white' if dark_mode else '#333'};
-    min-height: 120px;
-}}
-
-.custom-dashboard-button:hover {{
-    transform: translateY(-6px);
-    box-shadow: 0 10px 24px {'rgba(0,0,0,0.3)' if dark_mode else 'rgba(0,0,0,0.1)'};
-    background: {'#3a3a3a' if dark_mode else 'linear-gradient(145deg, #e0f7fa, #f1f1f1)'};
-}}
-
-.custom-dashboard-button span {{
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
-}}
-
-.custom-dashboard-button div {{
-    font-size: 1rem;
-    font-weight: 600;
-}}
-
-h1, h2, h3, h4, h5, h6, .stMarkdown, .stText, .stCode, .stProgress, .stAlert {{
-    color: {'white' if dark_mode else '#333333'} !important;
-}}
-
-.stAlert {{
-    background-color: {'#333333' if dark_mode else 'inherit'} !important;
-    color: {'white' if dark_mode else 'inherit'} !important;
-    border-color: {'#555555' if dark_mode else 'inherit'} !important;
-}}
-
-.stSidebar {{
-    background-color: {'#1a1a1a' if dark_mode else '#f0f2f6'} !important;
-    color: {'white' if dark_mode else '#333333'} !important;
-}}
-.stSidebar .stRadio div, .stSidebar .stToggle label {{
-    color: {'white' if dark_mode else '#333333'} !important;
-}}
-
-div[data-testid="stTextInput"],
-div[data-testid="stTextArea"],
-div[data-testid="stNumberInput"] {{
-    background-color: {'#2a2a2a' if dark_mode else 'white'};
-    color: {'white' if dark_mode else 'black'};
-    border: 1px solid {'#3a3a3a' if dark_mode else '#ccc'};
-    border-radius: 0.5rem;
-}}
-div[data-testid="stTextInput"] input,
-div[data-testid="stTextArea"] textarea,
-div[data-testid="stNumberInput"] input {{
-    background-color: {'#2a2a2a' if dark_mode else 'white'} !important;
-    color: {'white' if dark_mode else 'black'} !important;
-}}
-
-.stButton>button {{
-    background-color: {'#007bff' if dark_mode else '#00cec9'} !important;
-    color: white !important;
-    border: none !important;
-    box-shadow: 0 4px 8px {'rgba(0,0,0,0.3)' if dark_mode else 'rgba(0,0,0,0.1)'};
-}}
-.stButton>button:hover {{
-    background-color: {'#0056b3' if dark_mode else '#00a8a3'} !important;
-}}
-
-</style>
-""", unsafe_allow_html=True)
-
-# Set Matplotlib style for dark mode if active
-if dark_mode:
-    plt.style.use('dark_background')
-else:
-    plt.style.use('default')
-
 
 # --- Branding ---
 try:
@@ -203,7 +59,7 @@ if "tab_override" in st.session_state:
 # 🏠 Dashboard Section
 # ======================
 if tab == "🏠 Dashboard":
-    st.markdown('<div class="dashboard-header">📊 Overview Dashboard</div>', unsafe_allow_html=True)
+    st.header("📊 Overview Dashboard") # Changed to st.header since custom CSS is removed
 
     # Initialize metrics
     resume_count = 0
@@ -247,7 +103,8 @@ if tab == "🏠 Dashboard":
     col1, col2, col3, col_users = st.columns(4)
 
     with col1:
-        st.markdown(f"""<div class="dashboard-card">📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True)
+        # Reverted to basic markdown for dashboard cards
+        st.metric(label="Resumes Screened", value=resume_count)
         if resume_count > 0:
             with st.expander(f"View {resume_count} Screened Names"):
                 for idx, row in df_results.iterrows():
@@ -258,10 +115,10 @@ if tab == "🏠 Dashboard":
             st.info("Run the screener to see screened resumes.")
 
     with col2:
-        st.markdown(f"""<div class="dashboard-card">📝 <br><b>{jd_count}</b><br>Job Descriptions</div>""", unsafe_allow_html=True)
+        st.metric(label="Job Descriptions", value=jd_count)
 
     with col3:
-        st.markdown(f"""<div class="dashboard-card">✅ <br><b>{shortlisted}</b><br>Shortlisted Candidates</div>""", unsafe_allow_html=True)
+        st.metric(label="Shortlisted Candidates", value=shortlisted)
         if shortlisted > 0:
             with st.expander(f"View {shortlisted} Shortlisted Names"):
                 for idx, row in shortlisted_df.iterrows():
@@ -272,26 +129,21 @@ if tab == "🏠 Dashboard":
             st.info("Run the screener to see shortlisted candidates.")
 
     with col_users:
-        st.markdown(f"""<div class="dashboard-card">👤 <br><b>{registered_users_count}</b><br>Registered Users</div>""", unsafe_allow_html=True)
+        st.metric(label="Registered Users", value=registered_users_count)
 
 
     col4, col5, col6 = st.columns(3)
-    col4.markdown(f"""<div class="dashboard-card">📈 <br><b>{avg_score:.1f}%</b><br>Avg Score</div>""", unsafe_allow_html=True)
+    col4.metric(label="Avg Score", value=f"{avg_score:.1f}%")
 
+    # Reverted custom buttons to standard Streamlit buttons or links
     with col5:
-        st.markdown("""
-        <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '🧠 Resume Screener']}}, '*');">
-            <span>🧠</span>
-            <div>Resume Screener</div>
-        </div>
-        """, unsafe_allow_html=True)
+        if st.button("🧠 Resume Screener"):
+            st.session_state.tab_override = '🧠 Resume Screener'
+            st.rerun() # Trigger rerun to change tab
     with col6:
-        st.markdown("""
-        <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '📤 Email Candidates']}}, '*');">
-            <span>📤</span>
-            <div>Email Candidates</div>
-        </div>
-        """, unsafe_allow_html=True)
+        if st.button("📤 Email Candidates"):
+            st.session_state.tab_override = '📤 Email Candidates'
+            st.rerun() # Trigger rerun to change tab
 
     # Optional: Dashboard Insights
     if not df_results.empty:
@@ -312,13 +164,9 @@ if tab == "🏠 Dashboard":
                 pie_data = df_results['Tag'].value_counts().reset_index()
                 pie_data.columns = ['Tag', 'Count']
                 fig_pie, ax1 = plt.subplots(figsize=(4.5, 4.5))
-                if dark_mode:
-                    colors = plt.cm.Dark2.colors
-                    text_color = 'white'
-                else:
-                    colors = plt.cm.Pastel1.colors
-                    text_color = 'black'
-
+                # Adjust colors and text for default Streamlit theme
+                colors = plt.cm.Pastel1.colors
+                text_color = 'black' # Default text color for plots without dark_mode styling
                 wedges, texts, autotexts = ax1.pie(pie_data['Count'], labels=pie_data['Tag'], autopct='%1.1f%%', startangle=90, colors=colors, textprops={'fontsize': 10, 'color': text_color})
                 for autotext in autotexts:
                     autotext.set_color(text_color)
@@ -334,16 +182,12 @@ if tab == "🏠 Dashboard":
                 exp_counts = df_results['Experience Group'].value_counts().sort_index()
                 fig_bar, ax2 = plt.subplots(figsize=(5, 4))
                 
-                if dark_mode:
-                    sns.barplot(x=exp_counts.index, y=exp_counts.values, palette="viridis", ax=ax2)
-                else:
-                    sns.barplot(x=exp_counts.index, y=exp_counts.values, palette="coolwarm", ax=ax2)
+                # Use default palette as custom dark mode styling is gone
+                sns.barplot(x=exp_counts.index, y=exp_counts.values, palette="viridis", ax=ax2)
                 
-                ax2.set_ylabel("Candidates", color='white' if dark_mode else 'black')
-                ax2.set_xlabel("Experience Range", color='white' if dark_mode else 'black')
-                ax2.tick_params(axis='x', labelrotation=0, colors='white' if dark_mode else 'black')
-                ax2.tick_params(axis='y', colors='white' if dark_mode else 'black')
-                ax2.title.set_color('white' if dark_mode else 'black')
+                ax2.set_ylabel("Candidates")
+                ax2.set_xlabel("Experience Range")
+                ax2.tick_params(axis='x', labelrotation=0)
                 st.pyplot(fig_bar)
                 plt.close(fig_bar)
             
@@ -365,10 +209,7 @@ if tab == "🏠 Dashboard":
                 if not skill_counts.empty:
                     fig_skills, ax3 = plt.subplots(figsize=(5.8, 3))
                     
-                    if dark_mode:
-                        palette = sns.color_palette("magma", len(skill_counts))
-                    else:
-                        palette = sns.color_palette("cool", len(skill_counts))
+                    palette = sns.color_palette("magma", len(skill_counts))
 
                     sns.barplot(
                         x=skill_counts.values,
@@ -376,13 +217,13 @@ if tab == "🏠 Dashboard":
                         palette=palette,
                         ax=ax3
                     )
-                    ax3.set_title("Top 5 Skills", fontsize=13, fontweight='bold', color='white' if dark_mode else 'black')
-                    ax3.set_xlabel("Frequency", fontsize=11, color='white' if dark_mode else 'black')
-                    ax3.set_ylabel("Skill", fontsize=11, color='white' if dark_mode else 'black')
-                    ax3.tick_params(labelsize=10, colors='white' if dark_mode else 'black')
+                    ax3.set_title("Top 5 Skills", fontsize=13, fontweight='bold')
+                    ax3.set_xlabel("Frequency", fontsize=11)
+                    ax3.set_ylabel("Skill", fontsize=11)
+                    ax3.tick_params(labelsize=10)
                     
                     for i, v in enumerate(skill_counts.values):
-                        ax3.text(v + 0.3, i, str(v), color='white' if dark_mode else 'black', va='center', fontweight='bold', fontsize=9)
+                        ax3.text(v + 0.3, i, str(v), va='center', fontweight='bold', fontsize=9)
 
                     fig_skills.tight_layout()
                     st.pyplot(fig_skills)
@@ -397,10 +238,10 @@ if tab == "🏠 Dashboard":
             st.warning(f"⚠️ Could not render insights due to data error: {e}")
 
 # ======================
-# ⚙️ Admin Tools Section (NEW PAGE)
+# ⚙️ Admin Tools Section
 # ======================
 elif tab == "⚙️ Admin Tools":
-    st.markdown('<div class="dashboard-header">⚙️ Admin Tools</div>', unsafe_allow_html=True)
+    st.header("⚙️ Admin Tools") # Changed to st.header
     if is_admin:
         admin_registration_section() # Display the admin registration form
 
@@ -410,9 +251,7 @@ elif tab == "⚙️ Admin Tools":
         try:
             users_data = load_users()
             if users_data:
-                # Convert dictionary to a list of (username, hashed_password) tuples
-                # Filter out the admin user itself if you want, but showing all is fine for debugging
-                user_list = [[user, "********"] for user in users_data.keys()] # Show asterisks for passwords for mild visual obfuscation
+                user_list = [[user, "********"] for user in users_data.keys()]
                 st.dataframe(pd.DataFrame(user_list, columns=["Email/Username", "Hashed Password (DO NOT EXPOSE)"]), use_container_width=True)
             else:
                 st.info("No users registered yet.")
@@ -457,25 +296,6 @@ elif tab == "📝 Candidate Notes":
 
 elif tab == "🚪 Logout":
     st.session_state.authenticated = False
-    st.session_state.pop('username', None) # Clear username on logout
+    st.session_state.pop('username', None)
     st.success("✅ Logged out.")
     st.stop()
-
-# --- About Us Section in Sidebar ---
-st.sidebar.markdown("---")
-st.sidebar.markdown("### About ScreenerPro")
-st.sidebar.info(
-    "ScreenerPro is an AI-powered hiring assistant designed to streamline your "
-    "recruitment process. It helps you quickly screen resumes, manage job descriptions, "
-    "and analyze candidate data to find the best fit for your roles."
-)
-st.sidebar.markdown("---")
-st.sidebar.markdown("### Connect with Manav Nagpal")
-st.sidebar.markdown(
-    "[LinkedIn Profile](https://www.linkedin.com/in/manav-nagpal-83b935209/) "
-    "&nbsp; 🔗"
-)
-st.sidebar.markdown(
-    "[Portfolio Website](https://manavnagpal.netlify.app/) "
-    "&nbsp; 🌐"
-)
