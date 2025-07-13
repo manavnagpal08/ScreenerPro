@@ -13,6 +13,7 @@ def feedback_and_help_page():
     user_email = st.session_state.get('user_email', 'anonymous')
     log_user_action(user_email, "FEEDBACK_HELP_PAGE_ACCESSED")
 
+    # Inject custom CSS for styling
     st.markdown("""
     <style>
     .screener-container {
@@ -30,10 +31,14 @@ def feedback_and_help_page():
 
     with st.form("feedback_form", clear_on_submit=True):
         feedback_name = st.text_input("Your Name (Optional)", key="feedback_name")
-        feedback_email = st.text_input("Your Email (Optional)", key="feedback_email")
+
+        # ✅ Auto-filled email from session
+        feedback_email = st.session_state.get('user_email', '')
+        st.text_input("Your Email (Auto-Filled)", value=feedback_email, disabled=True)
+
         feedback_subject = st.text_input("Subject", "Feedback on ScreenerPro", key="feedback_subject")
         feedback_message = st.text_area("Your Message", height=150, key="feedback_message")
-        
+
         submit_button = st.form_submit_button("Send Feedback")
 
         if submit_button:
@@ -41,8 +46,8 @@ def feedback_and_help_page():
                 st.error("❌ Please enter your message before sending feedback.")
                 log_user_action(user_email, "FEEDBACK_SUBMIT_FAILED", {"reason": "Empty message"})
             else:
-                # ✅ Send to Formspree
-                formspree_url = "https://formspree.io/f/mwpqevno"  # Your endpoint
+                # ✅ Formspree endpoint
+                formspree_url = "https://formspree.io/f/mwpqevno"  # Your real Formspree link
                 payload = {
                     "name": feedback_name,
                     "email": feedback_email,
@@ -69,7 +74,7 @@ if __name__ == "__main__":
         layout="centered"
     )
 
-    # Set a default email (simulate login)
+    # Simulated login: Set default email
     if 'user_email' not in st.session_state:
         st.session_state['user_email'] = 'example_user@streamlit.com'
 
@@ -78,9 +83,10 @@ if __name__ == "__main__":
     if st.sidebar.button("Go to Feedback Page"):
         st.session_state.current_page = "feedback"
 
-    # Page Routing
+    # Simple Routing
     if st.session_state.get('current_page') == "feedback":
         feedback_and_help_page()
     else:
         st.title("Welcome to Our App! 🚀")
         st.write("Click the sidebar button to open the feedback form.")
+
