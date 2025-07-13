@@ -31,10 +31,15 @@ dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
-/* Hide GitHub fork button, Streamlit menu and footer */
+/* ✅ Hide GitHub fork button, Streamlit menu, footer, header */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
-header {visibility: hidden;} /* Optional: hides the top bar */
+header {visibility: hidden;}
+
+/* ✅ Hide Streamlit badge (bottom-right corner) */
+div[data-testid="stStatusWidget"] {
+    display: none !important;
+}
 
 html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
@@ -80,7 +85,7 @@ html, body, [class*="css"] {
     0% { transform: translateX(-40px); opacity: 0; }
     100% { transform: translateX(0); opacity: 1; }
 }
-/* Custom buttons styled like cards */
+/* Custom dashboard buttons */
 .custom-dashboard-button {
     width: 100%;
     height: 100%;
