@@ -5,38 +5,47 @@ import seaborn as sns
 from wordcloud import WordCloud
 import os
 import json
-import numpy as np
+import numpy as np # Added numpy import as it's used for dummy data
 
 # Import authentication functions from the separate login.py module
-from login import login_section, is_current_user_admin # Import the actual login functions
+from login import (
+    login_section, load_users, admin_registration_section,
+    admin_password_reset_section, admin_disable_enable_user_section,
+    is_current_user_admin
+)
 
 # Import the page functions from their respective files
-from email_page import send_email_to_candidate
-from analytics import analytics_dashboard_page
-
-from feedback_page import feedback_and_help_page # Corrected import: from feedback_page instead of feedback_help
-
-
-# Resume Screener functionality has been removed due to persistent import errors.
-# The 'resume_screener_page' function and its import are no longer present.
-# We will explicitly set it to None here to avoid any NameError if it's referenced
-resume_screener_page = None 
-
-
-# For pages that were using exec(f.read()), we will now import functions directly.
-# You will need to define a main function in each of these files, e.g., manage_jds_page()
+# Ensure these files exist and define the respective functions
+try:
+    from email_page import email_candidates_page
+except ImportError:
+    email_candidates_page = None
+try:
+    from analytics import analytics_dashboard_page
+except ImportError:
+    analytics_dashboard_page = None
+try:
+    from screener import resume_screener_page
+except ImportError:
+    resume_screener_page = None
 try:
     from manage_jds import manage_jds_page
 except ImportError:
-    manage_jds_page = None # Set to None if import fails, handle later
+    manage_jds_page = None
 try:
     from search import search_page
 except ImportError:
-    search_page = None # Set to None if import fails, handle later
+    search_page = None
 try:
     from notes import notes_page
 except ImportError:
-    notes_page = None # Set to None if import fails, handle later
+    notes_page = None
+
+# Import the feedback page (ensure feedback_page.py exists)
+from feedback_page import feedback_and_help_page # Corrected import to feedback_page
+
+# Import logging and metrics functions (ensure utils.logger exists)
+from utils.logger import log_user_action, update_metrics_summary, log_system_event
 
 
 # --- Page Config ---
@@ -46,10 +55,15 @@ st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wid
 # --- Dark Mode Toggle ---
 dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
 
-# --- Global Fonts & UI Styling ---
+
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
+/* Hide GitHub fork button, Streamlit menu and footer */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;} /* Optional: hides the top bar */
+
 html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
 }
@@ -94,10 +108,10 @@ html, body, [class*="css"] {
     0% { transform: translateX(-40px); opacity: 0; }
     100% { transform: translateX(0); opacity: 1; }
 }
-/* New CSS for custom buttons to look like cards */
+/* Custom buttons styled like cards */
 .custom-dashboard-button {
     width: 100%;
-    height: 100%; /* Ensure it takes full height of its column */
+    height: 100%;
     padding: 2rem;
     text-align: center;
     font-weight: 600;
@@ -108,22 +122,22 @@ html, body, [class*="css"] {
     transition: transform 0.2s ease, box-shadow 0.3s ease;
     cursor: pointer;
     display: flex;
-    flex-direction: column; /* Stack icon and text vertically */
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    color: #333; /* Ensure text color is visible */
-    min-height: 120px; /* Ensure a consistent height for the buttons */
+    color: #333;
+    min-height: 120px;
 }
 .custom-dashboard-button:hover {
     transform: translateY(-6px);
     box-shadow: 0 10px 24px rgba(0,0,0,0.1);
     background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
 }
-.custom-dashboard-button span { /* For the icon */
+.custom-dashboard-button span {
     font-size: 1.5rem;
     margin-bottom: 0.5rem;
 }
-.custom-dashboard-button div { /* For the text */
+.custom-dashboard-button div {
     font-size: 1rem;
     font-weight: 600;
 }
@@ -159,31 +173,26 @@ except FileNotFoundError:
 st.title("🧠 ScreenerPro – AI Hiring Assistant")
 
 # --- Auth ---
-# Call the login_section from the login.py module
 if not login_section():
     st.stop()
 
-# Determine if the logged-in user is an admin using the function from login.py
+# Determine if the logged-in user is an admin
 is_admin = is_current_user_admin()
 
 # --- Navigation Control ---
 navigation_options = [
-    "🏠 Dashboard", "📁 Manage JDs", "📊 Screening Analytics",
-    "📤 Email Candidates", "🔍 Search Resumes", "📝 Candidate Notes",
-    # The "Feedback & Help" option is intentionally NOT added here as per user request
-    # "❓ Feedback & Help"
+    "🏠 Dashboard", "🧠 Resume Screener", "📁 Manage JDs", "📊 Screening Analytics",
+    "📤 Email Candidates", "🔍 Search Resumes", "📝 Candidate Notes"
+    # "❓ Feedback & Help" is NOT added to sidebar as per request
 ]
-# Resume Screener tab is now permanently removed from navigation_options
-
-if is_admin: # Only add Admin Tools if the user is an admin
-    navigation_options.append("⚙️ Admin Tools")
+# Admin Tools removed from here
 navigation_options.append("🚪 Logout") # Always add Logout last
 
 default_tab = st.session_state.get("tab_override", "🏠 Dashboard")
-if default_tab not in navigation_options: # Handle cases where default_tab might be Admin Tools for non-admins
+if default_tab not in navigation_options and default_tab != "❓ Feedback & Help": # Handle feedback tab separately
     default_tab = "🏠 Dashboard"
 
-tab = st.sidebar.radio("📍 Navigate", navigation_options, index=navigation_options.index(default_tab))
+tab = st.sidebar.radio("📍 Navigate", navigation_options, index=navigation_options.index(default_tab) if default_tab in navigation_options else 0)
 
 if "tab_override" in st.session_state:
     del st.session_state.tab_override
@@ -193,7 +202,7 @@ if "tab_override" in st.session_state:
 # ======================
 if tab == "🏠 Dashboard":
     # The div for "dashboard-header" will now have custom styling
-    st.markdown('<div class="dashboard-header">📊 Overview Dashboard</div>', unsafe_allow_html=True)
+    st.markdown('<div class="dashboard-header">📊 Overview Dashboard</div>', unsafe_allow_html=True) 
 
     # Initialize metrics
     resume_count = 0
@@ -209,10 +218,9 @@ if tab == "🏠 Dashboard":
     if 'screening_results' in st.session_state and not st.session_state['screening_results'].empty:
         try:
             df_results = pd.DataFrame(st.session_state['screening_results'])
-            resume_count = df_results["Resume Name"].nunique() # Use "Resume Name" as per screener.py output
-
-            # These session state keys might not exist if screener was never run successfully
-            cutoff_score = st.session_state.get('screening_cutoff_score', 75) 
+            resume_count = df_results["File Name"].nunique()
+            
+            cutoff_score = st.session_state.get('screening_cutoff_score', 75)
             min_exp_required = st.session_state.get('screening_min_experience', 2)
 
             shortlisted_df = df_results[
@@ -222,18 +230,18 @@ if tab == "🏠 Dashboard":
             shortlisted = shortlisted_df.shape[0]
             avg_score = df_results["Score (%)"].mean()
         except Exception as e:
-            st.error(f"Error processing screening results from session state: {e}. If Resume Screener was removed, this data might be stale or incomplete.")
+            st.error(f"Error processing screening results from session state: {e}")
             df_results = pd.DataFrame()
             shortlisted_df = pd.DataFrame()
     else:
-        st.info("No screening results available in this session yet. Please run the Resume Screener (if available) or other modules.")
+        st.info("No screening results available in this session yet. Please run the Resume Screener.")
         shortlisted_df = pd.DataFrame()
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
         # The div for "dashboard-card" will now have custom styling
-        st.markdown(f"""<div class="dashboard-card">📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="dashboard-card">📂 <br><b>{resume_count}</b><br>Resumes Screened</div>""", unsafe_allow_html=True) 
         if resume_count > 0:
             with st.expander(f"View {resume_count} Screened Names"):
                 for idx, row in df_results.iterrows():
@@ -241,15 +249,15 @@ if tab == "🏠 Dashboard":
         elif 'screening_results' in st.session_state and not st.session_state['screening_results'].empty:
             st.info("No resumes have been screened yet.")
         else:
-            st.info("No screening results to display.")
+            st.info("Run the screener to see screened resumes.")
 
     with col2:
         # The div for "dashboard-card" will now have custom styling
-        st.markdown(f"""<div class="dashboard-card">📝 <br><b>{jd_count}</b><br>Job Descriptions</div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="dashboard-card">📝 <br><b>{jd_count}</b><br>Job Descriptions</div>""", unsafe_allow_html=True) 
 
     with col3:
         # The div for "dashboard-card" will now have custom styling
-        st.markdown(f"""<div class="dashboard-card">✅ <br><b>{shortlisted}</b><br>Shortlisted Candidates</div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="dashboard-card">✅ <br><b>{shortlisted}</b><br>Shortlisted Candidates</div>""", unsafe_allow_html=True) 
         if shortlisted > 0:
             with st.expander(f"View {shortlisted} Shortlisted Names"):
                 for idx, row in shortlisted_df.iterrows():
@@ -257,22 +265,23 @@ if tab == "🏠 Dashboard":
         elif 'screening_results' in st.session_state and not st.session_state['screening_results'].empty:
             st.info("No candidates met the current shortlisting criteria.")
         else:
-            st.info("No shortlisted candidates to display.")
+            st.info("Run the screener to see shortlisted candidates.")
 
     col4, col5, col6 = st.columns(3)
     # The div for "dashboard-card" will now have custom styling
-    col4.markdown(f"""<div class="dashboard-card">📈 <br><b>{avg_score:.1f}%</b><br>Avg Score</div>""", unsafe_allow_html=True)
+    col4.markdown(f"""<div class="dashboard-card">📈 <br><b>{avg_score:.1f}%</b><br>Avg Score</div>""", unsafe_allow_html=True) 
 
     with col5:
-        # Placeholder for where the Resume Screener button used to be
+        # The div for "custom-dashboard-button" will now have custom styling
         st.markdown("""
-        <div class="custom-dashboard-button" style="opacity: 0.6; cursor: not-allowed;">
-            <span>🚫</span>
-            <div>Resume Screener (Removed)</div>
+        <div class="custom-dashboard-button" onclick="window.parent.postMessage({streamlit: {type: 'setSessionState', args: ['tab_override', '🧠 Resume Screener']}}, '*');">
+            <span>🧠</span>
+            <div>Resume Screener</div>
         </div>
-        """, unsafe_allow_html=True)
-        st.info("Resume Screener functionality has been removed.")
-
+        """, unsafe_allow_html=True) 
+        if st.button("🧠 Resume Screener", key="dashboard_screener_button"):
+            st.session_state.tab_override = '🧠 Resume Screener'
+            st.rerun()
 
     with col6:
         # The div for "custom-dashboard-button" will now have custom styling
@@ -281,10 +290,17 @@ if tab == "🏠 Dashboard":
             <span>📤</span>
             <div>Email Candidates</div>
         </div>
-        """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True) 
         if st.button("📤 Email Candidates", key="dashboard_email_button"):
             st.session_state.tab_override = '📤 Email Candidates'
             st.rerun()
+
+    # Add a button on the dashboard to navigate to the Feedback & Help page
+    st.markdown("---")
+    st.markdown("### Need Help or Have Feedback?")
+    if st.button("❓ Send Feedback or Get Help", key="dashboard_feedback_button"):
+        st.session_state.tab_override = '❓ Feedback & Help'
+        st.rerun()
 
 
     # Optional: Dashboard Insights
@@ -402,23 +418,26 @@ if tab == "🏠 Dashboard":
 
 
 # ======================
-# ⚙️ Admin Tools Section
+# Admin Tools Section (REMOVED AS PER USER REQUEST)
 # ======================
-elif tab == "⚙️ Admin Tools":
-    # The div for "dashboard-header" will now have custom styling
-    st.markdown('<div class="dashboard-header">⚙️ Admin Tools</div>', unsafe_allow_html=True)
-    if is_admin:
-        admin_panel_page() # Call the admin panel function
-    else:
-        st.error("🔒 Access Denied: You must be an administrator to view this page.")
-        log_user_action(st.session_state.user_email, "ADMIN_TOOLS_ACCESS_DENIED", {"reason": "Not admin"})
+# The entire 'elif tab == "⚙️ Admin Tools":' block has been removed.
+
 
 # ======================
 # Page Routing via function calls (remaining pages)
 # ======================
 
-# The Resume Screener tab and its associated logic are now completely removed.
-# No 'elif tab == "🧠 Resume Screener":' block here.
+elif tab == "🧠 Resume Screener":
+    if resume_screener_page: # Only call if successfully imported
+        try:
+            resume_screener_page()
+        except Exception as e:
+            st.error(f"Error loading Resume Screener: {e}")
+            log_system_event("ERROR", "PAGE_LOAD_FAILED", {"page": "Resume Screener", "error": str(e), "traceback": traceback.format_exc()})
+    else:
+        st.error("Resume Screener functionality is unavailable. Please check the application logs for details on the import error.")
+        log_system_event("INFO", "RESUME_SCREENER_PAGE_UNAVAILABLE", {"reason": "Import failed"})
+
 
 elif tab == "📁 Manage JDs":
     if manage_jds_page:
@@ -433,24 +452,33 @@ elif tab == "📁 Manage JDs":
 
 
 elif tab == "📊 Screening Analytics":
-    try:
-        analytics_dashboard_page()
-    except NameError:
-        st.info("`analytics.py` not imported correctly. Please ensure it defines `analytics_dashboard_page()`.")
-        log_system_event("ERROR", "PAGE_LOAD_FAILED", {"page": "Screening Analytics", "error": "NameError: analytics_dashboard_page not found"})
-    except Exception as e:
-        st.error(f"Error loading Screening Analytics: {e}")
-        log_system_event("ERROR", "PAGE_LOAD_FAILED", {"page": "Screening Analytics", "error": str(e), "traceback": traceback.format_exc()})
+    if analytics_dashboard_page:
+        try:
+            analytics_dashboard_page()
+        except NameError:
+            st.info("`analytics.py` not imported correctly. Please ensure it defines `analytics_dashboard_page()`.")
+            log_system_event("ERROR", "PAGE_LOAD_FAILED", {"page": "Screening Analytics", "error": "NameError: analytics_dashboard_page not found"})
+        except Exception as e:
+            st.error(f"Error loading Screening Analytics: {e}")
+            log_system_event("ERROR", "PAGE_LOAD_FAILED", {"page": "Screening Analytics", "error": str(e), "traceback": traceback.format_exc()})
+    else:
+        st.info("`analytics.py` not found or function not defined. Please create it and define `analytics_dashboard_page()`.")
+        log_system_event("ERROR", "PAGE_LOAD_FAILED", {"page": "Screening Analytics", "error": "`analytics_dashboard_page` not imported"})
+
 
 elif tab == "📤 Email Candidates":
-    try:
-        email_candidates_page()
-    except NameError:
-        st.info("`email_page.py` not imported correctly. Please ensure it defines `email_candidates_page()`.")
-        log_system_event("ERROR", "PAGE_LOAD_FAILED", {"page": "Email Candidates", "error": "NameError: email_candidates_page not found"})
-    except Exception as e:
-        st.error(f"Error loading Email Candidates: {e}")
-        log_system_event("ERROR", "PAGE_LOAD_FAILED", {"page": "Email Candidates", "error": str(e), "traceback": traceback.format_exc()})
+    if email_candidates_page:
+        try:
+            email_candidates_page()
+        except NameError:
+            st.info("`email_page.py` not imported correctly. Please ensure it defines `email_candidates_page()`.")
+            log_system_event("ERROR", "PAGE_LOAD_FAILED", {"page": "Email Candidates", "error": "NameError: email_candidates_page not found"})
+        except Exception as e:
+            st.error(f"Error loading Email Candidates: {e}")
+            log_system_event("ERROR", "PAGE_LOAD_FAILED", {"page": "Email Candidates", "error": str(e), "traceback": traceback.format_exc()})
+    else:
+        st.info("`email_page.py` not found or function not defined. Please create it and define `email_candidates_page()`.")
+        log_system_event("ERROR", "PAGE_LOAD_FAILED", {"page": "Email Candidates", "error": "`email_candidates_page` not imported"})
 
 
 elif tab == "🔍 Search Resumes":
@@ -475,7 +503,7 @@ elif tab == "📝 Candidate Notes":
         st.info("`notes.py` not found or function not defined. Please create it and define `notes_page()`.")
         log_system_event("ERROR", "PAGE_LOAD_FAILED", {"page": "Candidate Notes", "error": "`notes_page` not imported"})
 
-elif tab == "❓ Feedback & Help": # New page routing
+elif tab == "❓ Feedback & Help": # Routing for the feedback page
     try:
         feedback_and_help_page()
     except NameError:
@@ -490,8 +518,8 @@ elif tab == "🚪 Logout":
         user_email = st.session_state.get('user_email', 'unknown_user')
         log_user_action(user_email, "LOGOUT_INITIATED", {"status": "success"}) # Log initiation
         # Update metrics for logout
-        # update_metrics_summary("total_logouts", 1) # Commented out to prevent NameError if not needed for now
-        # update_metrics_summary("user_logouts", 1, user_email=user_email) # Commented out
+        update_metrics_summary("total_logouts", 1) 
+        update_metrics_summary("user_logouts", 1, user_email=user_email) 
     st.session_state.authenticated = False
     st.session_state.pop('username', None)
     st.success("✅ Logged out.")
