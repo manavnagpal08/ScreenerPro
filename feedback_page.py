@@ -1,51 +1,66 @@
 import streamlit as st
-import urllib.parse
 
 def feedback_and_help_page():
-    """
-    Provides a feedback form.
-    Allows users to send feedback via their default email client.
-    """
+    st.markdown("""
+        <style>
+        .form-container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: auto;
+        }
+        .form-container h2 {
+            font-size: 2rem;
+            color: #2d3436;
+            margin-bottom: 1rem;
+        }
+        .form-container input, .form-container textarea {
+            width: 100%;
+            padding: 12px;
+            margin-top: 8px;
+            margin-bottom: 16px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            box-shadow: inset 1px 1px 3px rgba(0,0,0,0.05);
+            font-size: 1rem;
+        }
+        .form-container button {
+            background-color: #00cec9;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.3s ease;
+        }
+        .form-container button:hover {
+            background-color: #00b5b0;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
-    st.markdown('<div class="screener-container">', unsafe_allow_html=True)  # For consistent styling
-    st.markdown("## ❓ Feedback")
-    st.caption("We value your input! Please use the form below to send us your feedback or questions.")
+    st.markdown('<div class="form-container">', unsafe_allow_html=True)
+    st.markdown("""
+    <h2>❓ Feedback & Help</h2>
+    <p>We'd love to hear from you. Please fill out the form below:</p>
 
-    st.markdown("### Send Us Your Feedback")
-    with st.form("feedback_form", clear_on_submit=True):
-        feedback_name = st.text_input("Your Name (Optional)", key="feedback_name")
-        feedback_email = st.text_input("Your Email (Optional, for reply)", key="feedback_email")
-        feedback_subject = st.text_input("Subject", "Feedback on ScreenerPro", key="feedback_subject")
-        feedback_message = st.text_area("Your Message", height=150, key="feedback_message")
-        
-        submit_button = st.form_submit_button("Send Feedback")
+    <form action="https://formspree.io/f/mwpqevno" method="POST">
+        <label for="name">Your Name (Optional)</label>
+        <input type="text" name="name" placeholder="e.g. John Doe">
 
-        if submit_button:
-            if not feedback_message.strip():
-                st.error("Please enter your message before sending feedback.")
-            else:
-                # Set your actual feedback recipient email here
-                recipient_email = "your_feedback_email@example.com"
-                
-                # Compose email content
-                email_body = f"From: {feedback_name if feedback_name else 'Anonymous User'}\n"
-                email_body += f"Email: {feedback_email if feedback_email else 'N/A'}\n\n"
-                email_body += "Message:\n"
-                email_body += feedback_message
+        <label for="email">Your Email (Optional, for reply)</label>
+        <input type="email" name="email" placeholder="e.g. you@example.com">
 
-                # Encode the content for mailto link
-                encoded_subject = urllib.parse.quote(feedback_subject)
-                encoded_body = urllib.parse.quote(email_body)
+        <label for="subject">Subject</label>
+        <input type="text" name="subject" value="Feedback on ScreenerPro">
 
-                mailto_link = f"mailto:{recipient_email}?subject={encoded_subject}&body={encoded_body}"
+        <label for="message">Your Message</label>
+        <textarea name="message" rows="5" placeholder="Write your message here..."></textarea>
 
-                st.success("✅ Your feedback is ready to be sent! Click the button below to open your email client.")
-                st.markdown(f"""
-                    <a href="{mailto_link}" target="_blank">
-                        <button style="background-color:#00cec9;color:white;border:none;padding:10px 20px;text-align:center;text-decoration:none;display:inline-block;font-size:16px;margin:4px 2px;cursor:pointer;border-radius:8px;">
-                            📧 Open Email Client to Send
-                        </button>
-                    </a>
-                """, unsafe_allow_html=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
+        <button type="submit">📩 Submit Feedback</button>
+    </form>
+    """, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
