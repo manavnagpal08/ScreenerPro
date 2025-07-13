@@ -31,27 +31,16 @@ st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
 
-/* ✅ Hide Streamlit default menus, footer, badge */
+/* ✅ Hide all Streamlit Cloud branding */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
+div[data-testid="stStatusWidget"] { display: none !important; }
+div._link_gzau3_10 { display: none !important; }
+div._profilePreview_gzau3_63 { display: none !important; }
+div[role="complementary"] { display: none !important; }
 
-/* ✅ Hide bottom-right red badge */
-div[data-testid="stStatusWidget"] {
-    display: none !important;
-}
-
-/* ✅ Hide "Made with Streamlit" SVG crown */
-div._link_gzau3_10 {
-    display: none !important;
-}
-
-/* ✅ Hide Streamlit Cloud user profile avatar */
-div._profilePreview_gzau3_63 {
-    display: none !important;
-}
-
-/* ✅ Custom UI (fonts, dashboard, animations) */
+/* ✅ UI Styling */
 html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
 }
@@ -128,6 +117,7 @@ html, body, [class*="css"] {
     font-size: 1rem;
     font-weight: 600;
 }
+
 </style>
 """, unsafe_allow_html=True)
 
