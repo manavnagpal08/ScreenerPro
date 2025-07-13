@@ -474,3 +474,12 @@ elif tab == "🚪 Logout":
     st.session_state.pop('username', None)
     st.success("✅ Logged out.")
     st.rerun() # Rerun to redirect to login page
+elif tab == "❓ Feedback & Help": # New page routing
+    try:
+        feedback_and_help_page()
+    except NameError:
+        st.info("`feedback_page.py` not imported correctly. Please ensure it defines `feedback_and_help_page()`.")
+        log_system_event("ERROR", "PAGE_LOAD_FAILED", {"page": "Feedback & Help", "error": "NameError: feedback_and_help_page not found"})
+    except Exception as e:
+        st.error(f"Error loading Feedback & Help page: {e}")
+        log_system_event("ERROR", "PAGE_LOAD_FAILED", {"page": "Feedback & Help", "error": str(e), "traceback": traceback.format_exc()})
