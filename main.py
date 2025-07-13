@@ -25,7 +25,7 @@ st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wid
 # --- Dark Mode Toggle ---
 # Note: The dark mode toggle will still exist, but without the CSS,
 # its visual effect on other elements might be limited to Streamlit's defaults.
-# dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
+ dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
 
 
 
