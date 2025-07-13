@@ -1,24 +1,36 @@
 import streamlit as st
 import requests
 
+# --- Logging Function ---
 def log_user_action(user_email, action, details=None):
     if details:
         print(f"LOG: User '{user_email}' performed action '{action}' with details: {details}")
     else:
         print(f"LOG: User '{user_email}' performed action '{action}'")
 
+# --- Feedback Page Function ---
 def feedback_and_help_page():
     user_email = st.session_state.get('user_email', 'anonymous')
     log_user_action(user_email, "FEEDBACK_HELP_PAGE_ACCESSED")
+
+    st.markdown("""
+    <style>
+    .screener-container {
+        background-color: #f9f9ff;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0px 4px 12px rgba(0,0,0,0.1);
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     st.markdown('<div class="screener-container">', unsafe_allow_html=True)
     st.markdown("## ❓ Feedback")
     st.caption("We value your input! Please use the form below to send us your feedback or questions.")
 
-    st.markdown("### Send Us Your Feedback")
     with st.form("feedback_form", clear_on_submit=True):
         feedback_name = st.text_input("Your Name (Optional)", key="feedback_name")
-        feedback_email = st.text_input("Your Email (Optional, for reply)", key="feedback_email")
+        feedback_email = st.text_input("Your Email (Optional)", key="feedback_email")
         feedback_subject = st.text_input("Subject", "Feedback on ScreenerPro", key="feedback_subject")
         feedback_message = st.text_area("Your Message", height=150, key="feedback_message")
         
@@ -29,8 +41,8 @@ def feedback_and_help_page():
                 st.error("❌ Please enter your message before sending feedback.")
                 log_user_action(user_email, "FEEDBACK_SUBMIT_FAILED", {"reason": "Empty message"})
             else:
-                # ✅ Send feedback to Formspree
-                formspree_url = "https://formspree.io/f/mwpqevno"  # Replace with your actual endpoint
+                # ✅ Send to Formspree
+                formspree_url = "https://formspree.io/f/mwpqevno"  # Your endpoint
                 payload = {
                     "name": feedback_name,
                     "email": feedback_email,
@@ -48,3 +60,27 @@ def feedback_and_help_page():
                     log_user_action(user_email, "FEEDBACK_SUBMIT_FAILED", {"status": response.status_code})
 
     st.markdown("</div>", unsafe_allow_html=True)
+
+# --- Main App ---
+if __name__ == "__main__":
+    st.set_page_config(
+        page_title="Feedback Page",
+        page_icon="⭐",
+        layout="centered"
+    )
+
+    # Set a default email (simulate login)
+    if 'user_email' not in st.session_state:
+        st.session_state['user_email'] = 'example_user@streamlit.com'
+
+    # Sidebar Navigation
+    st.sidebar.header("Navigation")
+    if st.sidebar.button("Go to Feedback Page"):
+        st.session_state.current_page = "feedback"
+
+    # Page Routing
+    if st.session_state.get('current_page') == "feedback":
+        feedback_and_help_page()
+    else:
+        st.title("Welcome to Our App! 🚀")
+        st.write("Click the sidebar button to open the feedback form.")
