@@ -123,6 +123,7 @@ html, body, [class*="css"] {
 
 
 
+
 # Set Matplotlib style for dark mode if active
 if dark_mode:
     plt.style.use('dark_background')
