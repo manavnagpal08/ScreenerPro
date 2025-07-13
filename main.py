@@ -27,28 +27,31 @@ st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wid
 # its visual effect on other elements might be limited to Streamlit's defaults.
 dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
 
-# --- Global Fonts & UI Styling ---
-
-
-
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
-/* Hide GitHub fork, Streamlit menu, footer, header */
+
+/* ✅ Hide Streamlit default menus, footer, badge */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
 
-/* Hide Streamlit badge (bottom-right crown) */
+/* ✅ Hide bottom-right red badge */
 div[data-testid="stStatusWidget"] {
     display: none !important;
 }
 
-/* Hide SVG background */
+/* ✅ Hide "Made with Streamlit" SVG crown */
 div._link_gzau3_10 {
     display: none !important;
 }
 
+/* ✅ Hide Streamlit Cloud user profile avatar */
+div._profilePreview_gzau3_63 {
+    display: none !important;
+}
+
+/* ✅ Custom UI (fonts, dashboard, animations) */
 html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
 }
@@ -127,7 +130,6 @@ html, body, [class*="css"] {
 }
 </style>
 """, unsafe_allow_html=True)
-
 
 
 
