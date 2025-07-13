@@ -29,20 +29,22 @@ dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
 
 # --- Global Fonts & UI Styling ---
 
+
+
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
-/* ✅ Hide GitHub fork button, Streamlit menu, footer, header */
+/* Hide GitHub fork, Streamlit menu, footer, header */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
 
-/* ✅ Hide Streamlit badge (bottom-right corner) */
+/* Hide Streamlit badge (bottom-right crown) */
 div[data-testid="stStatusWidget"] {
     display: none !important;
 }
 
-/* ✅ Hide decorative SVG div */
+/* Hide SVG background */
 div._link_gzau3_10 {
     display: none !important;
 }
@@ -91,7 +93,6 @@ html, body, [class*="css"] {
     0% { transform: translateX(-40px); opacity: 0; }
     100% { transform: translateX(0); opacity: 1; }
 }
-/* Custom dashboard buttons */
 .custom-dashboard-button {
     width: 100%;
     height: 100%;
@@ -126,6 +127,7 @@ html, body, [class*="css"] {
 }
 </style>
 """, unsafe_allow_html=True)
+
 
 
 
