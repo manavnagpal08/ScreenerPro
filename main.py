@@ -30,7 +30,6 @@ dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
 
 
 
-
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
@@ -116,8 +115,42 @@ html, body, [class*="css"] {
     font-size: 1rem;
     font-weight: 600;
 }
+
+/* 🔒 Hide all extra Streamlit UI elements */
+div[data-testid="stToolbar"] {
+    visibility: hidden;
+    height: 0%;
+    position: fixed;
+}
+div[data-testid="stDecoration"] {
+    visibility: hidden;
+    height: 0%;
+    position: fixed;
+}
+div[data-testid="stStatusWidget"] {
+    visibility: hidden;
+    height: 0%;
+    position: fixed;
+}
+button[title="Fork"] {
+    display: none !important;
+}
+/* Hide Streamlit crown link */
+div[class*="_link_"] {
+    display: none !important;
+}
+/* Hide profile avatar in bottom-right */
+div[class*="_profilePreview_"],
+div[class*="_profileContainer_"] {
+    display: none !important;
+}
+/* Optional: Hide Streamlit overlay portals */
+#portal {
+    display: none !important;
+}
 </style>
 """, unsafe_allow_html=True)
+
 
 
 
