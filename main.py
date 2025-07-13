@@ -11,7 +11,7 @@ import numpy as np
 from login import login_section, is_current_user_admin # Import the actual login functions
 
 # Import the page functions from their respective files
-from email_page import email_candidates_page
+from email_page import send_email_to_candidate
 from analytics import analytics_dashboard_page
 from admin_panel import admin_panel_page # Import the admin panel page
 from feedback_page import feedback_and_help_page # Corrected import: from feedback_page instead of feedback_help
