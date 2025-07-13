@@ -28,10 +28,14 @@ st.set_page_config(page_title="ScreenerPro – AI Hiring Dashboard", layout="wid
 dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
 
 # --- Global Fonts & UI Styling ---
-# This CSS block is now implemented as requested.
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
+/* Hide GitHub fork button, Streamlit menu and footer */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;} /* Optional: hides the top bar */
+
 html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
 }
@@ -76,10 +80,10 @@ html, body, [class*="css"] {
     0% { transform: translateX(-40px); opacity: 0; }
     100% { transform: translateX(0); opacity: 1; }
 }
-/* New CSS for custom buttons to look like cards */
+/* Custom buttons styled like cards */
 .custom-dashboard-button {
     width: 100%;
-    height: 100%; /* Ensure it takes full height of its column */
+    height: 100%;
     padding: 2rem;
     text-align: center;
     font-weight: 600;
@@ -90,27 +94,28 @@ html, body, [class*="css"] {
     transition: transform 0.2s ease, box-shadow 0.3s ease;
     cursor: pointer;
     display: flex;
-    flex-direction: column; /* Stack icon and text vertically */
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    color: #333; /* Ensure text color is visible */
-    min-height: 120px; /* Ensure a consistent height for the buttons */
+    color: #333;
+    min-height: 120px;
 }
 .custom-dashboard-button:hover {
     transform: translateY(-6px);
     box-shadow: 0 10px 24px rgba(0,0,0,0.1);
     background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
 }
-.custom-dashboard-button span { /* For the icon */
+.custom-dashboard-button span {
     font-size: 1.5rem;
     margin-bottom: 0.5rem;
 }
-.custom-dashboard-button div { /* For the text */
+.custom-dashboard-button div {
     font-size: 1rem;
     font-weight: 600;
 }
 </style>
 """, unsafe_allow_html=True)
+
 
 
 # Set Matplotlib style for dark mode if active
