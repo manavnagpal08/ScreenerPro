@@ -30,15 +30,18 @@ dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
 
 
 
+
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
-/* ✅ General Font */
+/* Hide GitHub fork button, Streamlit menu and footer */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;} /* Optional: hides the top bar */
+
 html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
 }
-
-/* ✅ Clean container styling */
 .main .block-container {
     padding: 2rem;
     border-radius: 20px;
@@ -50,8 +53,6 @@ html, body, [class*="css"] {
     0% { opacity: 0; transform: translateY(20px); }
     100% { opacity: 1; transform: translateY(0); }
 }
-
-/* ✅ Dashboard card UI */
 .dashboard-card {
     padding: 2rem;
     text-align: center;
@@ -68,8 +69,6 @@ html, body, [class*="css"] {
     box-shadow: 0 10px 24px rgba(0,0,0,0.1);
     background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
 }
-
-/* ✅ Header UI */
 .dashboard-header {
     font-size: 2.2rem;
     font-weight: 700;
@@ -84,8 +83,7 @@ html, body, [class*="css"] {
     0% { transform: translateX(-40px); opacity: 0; }
     100% { transform: translateX(0); opacity: 1; }
 }
-
-/* ✅ Custom button styled like a card */
+/* Custom buttons styled like cards */
 .custom-dashboard-button {
     width: 100%;
     height: 100%;
@@ -117,53 +115,6 @@ html, body, [class*="css"] {
 .custom-dashboard-button div {
     font-size: 1rem;
     font-weight: 600;
-}
-
-/* 🔒 FINAL WHITE-LABELING — Remove all Streamlit branding */
-
-/* Hide GitHub Fork button */
-button[title="Fork"] {
-    display: none !important;
-}
-header [data-testid="stToolbarActions"] {
-    display: none !important;
-}
-
-/* Hide 'Hosted with Streamlit' badge (bottom right) */
-div[data-testid="stStatusWidget"],
-div[class^="viewerBadge_container__"] {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0px !important;
-}
-
-/* Hide SVG crown (Made with Streamlit) */
-div[class^="_link_"] {
-    display: none !important;
-}
-
-/* Hide Streamlit Cloud profile avatar */
-div[class*="profileContainer"],
-div[class*="profilePreview"] {
-    display: none !important;
-}
-
-/* Hide Streamlit portal and decorations */
-div[data-testid="stDecoration"], #portal {
-    display: none !important;
-}
-
-/* Hide header, footer, and hamburger menu */
-header, footer, #MainMenu {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0px !important;
-}
-
-/* Hide floating elements with inline 'absolute' styles (fallback) */
-div[class*="st-emotion-cache"][style*="absolute"] {
-    display: none !important;
-    visibility: hidden !important;
 }
 </style>
 """, unsafe_allow_html=True)
