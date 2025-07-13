@@ -29,109 +29,113 @@ dark_mode = st.sidebar.toggle("🌙 Dark Mode", key="dark_mode_main")
 
 
 
-    st.markdown("""
-    <style>
-    /* ✅ Hide bottom-right Streamlit status badge */
-    div[data-testid="stStatusWidget"] {
-        display: none !important;
-    }
+import streamlit as st
 
-    /* ✅ Hide "Made with Streamlit" SVG crown */
-    div._link_gzau3_10 {
-        display: none !important;
-    }
+# Direct CSS injection without using a function
+st.markdown("""
+<style>
+/* ✅ Hide bottom-right Streamlit status badge */
+div[data-testid="stStatusWidget"] {
+    display: none !important;
+}
 
-    /* ✅ Hide Streamlit Cloud user profile avatar */
-    div._profilePreview_gzau3_63 {
-        display: none !important;
-    }
+/* ✅ Hide "Made with Streamlit" SVG crown */
+div._link_gzau3_10 {
+    display: none !important;
+}
 
-    /* ✅ Hide surrounding profile container (optional, extra safe) */
-    div._profileContainer_gzau3_53 {
-        display: none !important;
-    }
+/* ✅ Hide Streamlit Cloud user profile avatar */
+div._profilePreview_gzau3_63 {
+    display: none !important;
+}
 
-    /* ✅ Custom UI Styling (font, dashboard, animations) */
-    html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
-    }
-    .main .block-container {
-        padding: 2rem;
-        border-radius: 20px;
-        background: rgba(255, 255, 255, 0.96);
-        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
-        animation: fadeIn 0.8s ease-in-out;
-    }
-    @keyframes fadeIn {
-        0% { opacity: 0; transform: translateY(20px); }
-        100% { opacity: 1; transform: translateY(0); }
-    }
-    .dashboard-card {
-        padding: 2rem;
-        text-align: center;
-        font-weight: 600;
-        border-radius: 16px;
-        background: linear-gradient(145deg, #f1f2f6, #ffffff);
-        border: 1px solid #e0e0e0;
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
-        transition: transform 0.2s ease, box-shadow 0.3s ease;
-        cursor: pointer;
-    }
-    .dashboard-card:hover {
-        transform: translateY(-6px);
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1);
-        background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
-    }
-    .dashboard-header {
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: #222;
-        padding-bottom: 0.5rem;
-        border-bottom: 3px solid #00cec9;
-        display: inline-block;
-        margin-bottom: 2rem;
-        animation: slideInLeft 0.8s ease-out;
-    }
-    @keyframes slideInLeft {
-        0% { transform: translateX(-40px); opacity: 0; }
-        100% { transform: translateX(0); opacity: 1; }
-    }
+/* ✅ Hide Streamlit profile container */
+div._profileContainer_gzau3_53 {
+    display: none !important;
+}
 
-    /* ✅ Custom dashboard buttons styled as cards */
-    .custom-dashboard-button {
-        width: 100%;
-        height: 100%;
-        padding: 2rem;
-        text-align: center;
-        font-weight: 600;
-        border-radius: 16px;
-        background: linear-gradient(145deg, #f1f2f6, #ffffff);
-        border: 1px solid #e0e0e0;
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
-        transition: transform 0.2s ease, box-shadow 0.3s ease;
-        cursor: pointer;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        color: #333;
-        min-height: 120px;
-    }
-    .custom-dashboard-button:hover {
-        transform: translateY(-6px);
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1);
-        background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
-    }
-    .custom-dashboard-button span {
-        font-size: 1.5rem;
-        margin-bottom: 0.5rem;
-    }
-    .custom-dashboard-button div {
-        font-size: 1rem;
-        font-weight: 600;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+/* ✅ UI Styling (fonts, cards, buttons) */
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+.main .block-container {
+    padding: 2rem;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+    animation: fadeIn 0.8s ease-in-out;
+}
+@keyframes fadeIn {
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+.dashboard-card {
+    padding: 2rem;
+    text-align: center;
+    font-weight: 600;
+    border-radius: 16px;
+    background: linear-gradient(145deg, #f1f2f6, #ffffff);
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+}
+.dashboard-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.1);
+    background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
+}
+.dashboard-header {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #222;
+    padding-bottom: 0.5rem;
+    border-bottom: 3px solid #00cec9;
+    display: inline-block;
+    margin-bottom: 2rem;
+    animation: slideInLeft 0.8s ease-out;
+}
+@keyframes slideInLeft {
+    0% { transform: translateX(-40px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+
+/* ✅ Custom dashboard buttons */
+.custom-dashboard-button {
+    width: 100%;
+    height: 100%;
+    padding: 2rem;
+    text-align: center;
+    font-weight: 600;
+    border-radius: 16px;
+    background: linear-gradient(145deg, #f1f2f6, #ffffff);
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #333;
+    min-height: 120px;
+}
+.custom-dashboard-button:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.1);
+    background: linear-gradient(145deg, #e0f7fa, #f1f1f1);
+}
+.custom-dashboard-button span {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+.custom-dashboard-button div {
+    font-size: 1rem;
+    font-weight: 600;
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 
 
