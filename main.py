@@ -152,6 +152,7 @@ navigation_options = [
 if is_admin: # Only add Admin Tools if the user is an admin
     navigation_options.append("⚙️ Admin Tools")
 navigation_options.append("🚪 Logout") # Always add Logout last
+navigation_options.append("❓ Feedback & Help")  # Add this line
 
 default_tab = st.session_state.get("tab_override", "🏠 Dashboard")
 if default_tab not in navigation_options: # Handle cases where default_tab might be Admin Tools for non-admins
