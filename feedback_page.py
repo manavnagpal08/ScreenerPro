@@ -1,62 +1,58 @@
 import streamlit as st
-import requests
+import urllib.parse
+from utils.logger import log_user_action
 
 def feedback_and_help_page():
-    st.markdown("""
-        <style>
-        .form-box {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 2.5rem;
-            border-radius: 20px;
-            max-width: 600px;
-            margin: auto;
-            box-shadow: 0 12px 30px rgba(0,0,0,0.1);
-        }
-        .form-box h2 {
-            font-size: 2rem;
-            color: #2d3436;
-            margin-bottom: 1rem;
-        }
-        .form-box label {
-            font-weight: 600;
-            margin-top: 1rem;
-            display: block;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    """
+    Provides a feedback form.
+    Allows users to send feedback via their default email client.
+    """
+    user_email = st.session_state.get('user_email', 'anonymous')
+    log_user_action(user_email, "FEEDBACK_HELP_PAGE_ACCESSED")
 
-    st.markdown('<div class="form-box">', unsafe_allow_html=True)
-    st.markdown("## ❓ Feedback & Help")
-    st.markdown("We'd love to hear from you. Please fill out the form below:")
+    st.markdown('<div class="screener-container">', unsafe_allow_html=True) # Reusing screener-container for consistent styling
+    st.markdown("## ❓ Feedback")
+    st.caption("We value your input! Please use the form below to send us your feedback or questions.")
 
-    with st.form("feedback_form"):
-        name = st.text_input("Your Name (Optional)")
-        email = st.text_input("Your Email (Optional, for reply)")
-        subject = st.text_input("Subject", value="Feedback on ScreenerPro")
-        message = st.text_area("Your Message", height=150)
+    st.markdown("### Send Us Your Feedback")
+    with st.form("feedback_form", clear_on_submit=True):
+        feedback_name = st.text_input("Your Name (Optional)", key="feedback_name")
+        feedback_email = st.text_input("Your Email (Optional, for reply)", key="feedback_email")
+        feedback_subject = st.text_input("Subject", "Feedback on ScreenerPro", key="feedback_subject")
+        feedback_message = st.text_area("Your Message", height=150, key="feedback_message")
+        
+        submit_button = st.form_submit_button("Send Feedback")
 
-        submit = st.form_submit_button("📩 Submit Feedback")
-
-        if submit:
-            if not message.strip():
-                st.error("Please enter a message before submitting.")
+        if submit_button:
+            if not feedback_message.strip():
+                st.error("Please enter your message before sending feedback.")
+                log_user_action(user_email, "FEEDBACK_SUBMIT_FAILED", {"reason": "Empty message"})
             else:
-                formspree_url = "https://formspree.io/f/mwpqevno"  # ✅ Your endpoint
+                # Define the recipient email for feedback
+                # You can change this to your actual email address
+                recipient_email = "your_feedback_email@example.com" 
+                
+                # Construct the email body
+                email_body = f"From: {feedback_name if feedback_name else 'Anonymous User'}\n"
+                email_body += f"Email: {feedback_email if feedback_email else 'N/A'}\n\n"
+                email_body += "Message:\n"
+                email_body += feedback_message
 
-                payload = {
-                    "name": name,
-                    "email": email,
-                    "subject": subject,
-                    "message": message
-                }
+                # Encode subject and body for mailto link
+                encoded_subject = urllib.parse.quote(feedback_subject)
+                encoded_body = urllib.parse.quote(email_body)
 
-                try:
-                    response = requests.post(formspree_url, data=payload)
-                    if response.status_code in (200, 202):
-                        st.success("✅ Thank you! Your feedback has been submitted successfully.")
-                    else:
-                        st.error("❌ Something went wrong. Please try again later.")
-                except Exception as e:
-                    st.error(f"❌ Error: {e}")
+                mailto_link = f"mailto:{recipient_email}?subject={encoded_subject}&body={encoded_body}"
+                
+                st.success("✅ Your feedback is ready to be sent! Click the button below to open your email client.")
+                st.markdown(f"""
+                    <a href="{mailto_link}" target="_blank">
+                        <button style="background-color:#00cec9;color:white;border:none;padding:10px 20px;text-align:center;text-decoration:none;display:inline-block;font-size:16px;margin:4px 2px;cursor:pointer;border-radius:8px;">
+                            📧 Open Email Client to Send
+                        </button>
+                    </a>
+                """, unsafe_allow_html=True)
+                log_user_action(user_email, "FEEDBACK_EMAIL_LINK_GENERATED", {"subject": feedback_subject, "recipient": recipient_email})
 
     st.markdown("</div>", unsafe_allow_html=True)
+
