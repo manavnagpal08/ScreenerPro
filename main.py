@@ -477,10 +477,10 @@ elif tab == "🚪 Logout":
     st.rerun() # Rerun to redirect to login page
 elif tab == "❓ Feedback & Help":
     try:
-        feedback_and_help_page()
-    except NameError:
-        st.info("`feedback_page.py` not imported correctly. Please ensure it defines `feedback_and_help_page()`.")
-        # You might want to log this error more formally
+        # Assuming search.py contains its Streamlit code directly or in a function
+        with open("feedback_page.py", encoding="utf-8") as f:
+            exec(f.read())
+    except FileNotFoundError:
+        st.info("`feedback_page.py` not found. Please ensure the file exists in the same directory.")
     except Exception as e:
-        st.error(f"Error loading Feedback & Help page: {e}")
-        # You might want to log this error more formally
+        st.error(f"Error loading Search Resumes: {e}")
