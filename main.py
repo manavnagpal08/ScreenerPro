@@ -469,12 +469,6 @@ elif tab == "📝 Candidate Notes":
         st.info("`notes.py` not found. Please ensure the file exists in the same directory.")
     except Exception as e:
         st.error(f"Error loading Candidate Notes: {e}")
-
-elif tab == "🚪 Logout":
-    st.session_state.authenticated = False
-    st.session_state.pop('username', None)
-    st.success("✅ Logged out.")
-    st.rerun() # Rerun to redirect to login page
 elif tab == "❓ Feedback & Help":
     try:
         # Assuming search.py contains its Streamlit code directly or in a function
@@ -484,3 +478,9 @@ elif tab == "❓ Feedback & Help":
         st.info("`feedback_page.py` not found. Please ensure the file exists in the same directory.")
     except Exception as e:
         st.error(f"Error loading Search Resumes: {e}")
+elif tab == "🚪 Logout":
+    st.session_state.authenticated = False
+    st.session_state.pop('username', None)
+    st.success("✅ Logged out.")
+    st.rerun() # Rerun to redirect to login page
+
