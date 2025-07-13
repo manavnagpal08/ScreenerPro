@@ -1,6 +1,5 @@
 import streamlit as st
-import urllib.parse
-from utils.logger import log_user_action
+
 
 def feedback_and_help_page():
     """
