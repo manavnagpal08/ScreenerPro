@@ -15,7 +15,7 @@ from email_page import send_email_to_candidate
 from analytics import analytics_dashboard_page
 
 from feedback_page import feedback_and_help_page # Corrected import: from feedback_page instead of feedback_help
-from utils.logger import log_user_action, update_metrics_summary, log_system_event # Import the logging and metrics functions
+
 
 # Resume Screener functionality has been removed due to persistent import errors.
 # The 'resume_screener_page' function and its import are no longer present.
